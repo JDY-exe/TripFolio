@@ -3,7 +3,6 @@
 React, TypeScript, Vite, Tailwind CSS v4, and Lucide icons. React Compiler is enabled.
 Components use native HTML elements rather than a runtime UI library.
 
-
 ## Development
 
 Run commands from `frontend/`:
