@@ -1,0 +1,11 @@
+{
+  "tripsPath": "/my-trips",
+  "tripPath": "/trip",
+  "backLabel": "My Trips",
+  "destinations": [
+    { "label": "Search", "path": "/search" },
+    { "label": "Profile", "path": "/profile" },
+    { "label": "My Trips", "path": "/my-trips" }
+  ],
+  "sections": ["Itinerary", "Ledger", "Logistics"]
+}
