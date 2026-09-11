@@ -23,7 +23,7 @@ interface BottomNavProps {
 }
 
 const actionClasses =
-  'flex min-h-11 items-center justify-center gap-1.5 rounded-full px-2 text-label text-on-surface-variant select-none cursor-pointer hover:bg-primary/8 hover:text-on-surface focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-safe:transition-[background-color,color,flex-grow] motion-safe:duration-200 motion-safe:ease-standard sm:px-4'
+  'flex min-h-11 items-center justify-center rounded-full text-on-surface-variant select-none cursor-pointer hover:bg-primary/8 hover:text-on-surface focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-safe:transition-[background-color,color,flex-grow] motion-safe:duration-200 motion-safe:ease-standard'
 
 /**
  * Renders a floating navigation dock with native buttons and semantic utilities.
@@ -62,7 +62,7 @@ function BottomNav({
             type="button"
             aria-label={leadingAction.label}
             onClick={leadingAction.onClick}
-            className={`${actionClasses} min-w-11 shrink-0 active:bg-primary/12`}
+            className={`${actionClasses} min-w-11 shrink-0 gap-1.5 px-2 text-label active:bg-primary/12 sm:px-4`}
           >
             <LeadingIcon
               aria-hidden
@@ -89,7 +89,7 @@ function BottomNav({
                 type="button"
                 aria-pressed={item.value === value}
                 onClick={() => onChange(item.value)}
-                className={`${actionClasses} min-w-0 flex-1 hover:grow-(--nav-hover-grow) active:grow-(--nav-pressed-grow) aria-pressed:bg-primary aria-pressed:text-on-primary aria-pressed:focus-visible:outline-on-primary`}
+                className={`${actionClasses} min-w-0 flex-1 flex-col gap-1 px-1 py-2 text-xs hover:grow-(--nav-hover-grow) active:grow-(--nav-pressed-grow) aria-pressed:bg-primary aria-pressed:text-on-primary aria-pressed:focus-visible:outline-on-primary sm:flex-row sm:gap-1.5 sm:px-4 sm:py-0 sm:text-label`}
               >
                 <Icon
                   aria-hidden
@@ -97,7 +97,7 @@ function BottomNav({
                   strokeWidth={2}
                   className="shrink-0"
                 />
-                <span className="truncate">{item.label}</span>
+                <span className="max-w-full truncate">{item.label}</span>
               </button>
             )
           })}

@@ -1,4 +1,4 @@
-import PageIntro from '../components/PageIntro'
+import PageIntro from '../../components/PageIntro'
 
 /**
  * Presents placeholder account details and preferences for the signed-in user.

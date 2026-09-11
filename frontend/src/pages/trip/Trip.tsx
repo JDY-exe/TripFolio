@@ -1,19 +1,19 @@
 import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import PageIntro from '../components/PageIntro'
-import BottomNav from '../components/navigation/BottomNav'
+import BottomNav from '../../components/navigation/BottomNav'
 import {
   tripNavItems,
   type TripSection,
-} from '../components/navigation/navigationConfig'
-import ItineraryView from './trip/ItineraryView'
-import LedgerView from './trip/LedgerView'
-import LogisticsView from './trip/LogisticsView'
+} from '../../components/navigation/navigationConfig'
+import AlbumView from './AlbumView'
+import ItineraryView from './ItineraryView'
+import LedgerView from './LedgerView'
+import LogisticsView from './LogisticsView'
 
 /**
  * Presents the placeholder detail view for an individual trip.
- * It switches the active section through local state alongside a shared overview.
+ * It switches sections locally, giving Logistics and Album the full content width.
  *
  * @returns The trip detail page.
  */
@@ -23,22 +23,19 @@ function Trip() {
 
   return (
     <section>
-      <PageIntro
-        eyebrow="Trip details"
-        title="Your next adventure"
-        description="Build an itinerary, collect reservations, and keep important notes close at hand."
-      />
-
       <div className="mt-10 grid gap-5 lg:grid-cols-[2fr_1fr]">
         {section === 'itinerary' ? <ItineraryView /> : null}
         {section === 'ledger' ? <LedgerView /> : null}
         {section === 'logistics' ? <LogisticsView /> : null}
-        <aside className="rounded-panel bg-surface-container p-8 text-on-surface">
-          <h2 className="text-title">Trip overview</h2>
-          <p className="mt-2 text-body text-on-surface-variant">
-            Dates, travelers, and key details coming soon.
-          </p>
-        </aside>
+        {section === 'album' ? <AlbumView /> : null}
+        {section === 'itinerary' || section === 'ledger' ? (
+          <aside className="rounded-panel bg-surface-container p-8 text-on-surface">
+            <h2 className="text-title">Trip overview</h2>
+            <p className="mt-2 text-body text-on-surface-variant">
+              Dates, travelers, and key details coming soon.
+            </p>
+          </aside>
+        ) : null}
       </div>
 
       <BottomNav

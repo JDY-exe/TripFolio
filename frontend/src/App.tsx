@@ -12,11 +12,11 @@ import {
   getTopLevelNavValue,
   topLevelNavItems,
 } from './components/navigation/navigationConfig'
-import Auth from './pages/Auth'
-import MyTrips from './pages/MyTrips'
-import Profile from './pages/Profile'
-import Search from './pages/Search'
-import Trip from './pages/Trip'
+import Auth from './pages/auth/Auth'
+import MyTrips from './pages/my-trips/MyTrips'
+import Profile from './pages/profile/Profile'
+import Search from './pages/search/Search'
+import Trip from './pages/trip/Trip'
 
 /**
  * Renders the route tree and the primary application navigation.

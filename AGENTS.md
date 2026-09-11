@@ -7,7 +7,11 @@ The frontend stack consists of react using vite, tailwindcss, lucide-react for i
 - Use inline comments sparingly for code that is hard to read/understand.
 - Unit test any complex or important logic.
 - Avoid everything-components. If a component contains both complex business logic and DOM elements, split it up.
-- Address code debt by informing the reviewer, and add inline TODO comments for anything that's out of scope.
+
+### Design
+- Avoid labeling everything with text. Redundant eyebrows, subtitles, section labels, and explanatory copy can make the interface feel LLM-generated.
+- Convey meaning tastefully through iconography, typography, spacing, and purposeful motion rather than adding labels to every element. Respect reduced-motion preferences.
+- Keep text where it adds necessary clarity. Preserve semantic headings and accessible names for controls, including icon-only actions.
 
 ### Checking your work
 - Consider running the below commands to check your work after.

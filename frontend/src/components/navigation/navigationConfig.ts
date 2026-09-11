@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   CircleDollarSign,
+  Images,
   Luggage,
   Search,
   Truck,
@@ -9,7 +10,7 @@ import {
 import type { BottomNavItem } from './BottomNav'
 
 /** Sections displayed within a selected trip without changing the route. */
-export type TripSection = 'itinerary' | 'ledger' | 'logistics'
+export type TripSection = 'itinerary' | 'ledger' | 'logistics' | 'album'
 
 /** Top-level application destinations displayed in the default bottom nav. */
 export const topLevelNavItems = [
@@ -23,6 +24,7 @@ export const tripNavItems = [
   { value: 'itinerary', label: 'Itinerary', icon: CalendarDays },
   { value: 'ledger', label: 'Ledger', icon: CircleDollarSign },
   { value: 'logistics', label: 'Logistics', icon: Truck },
+  { value: 'album', label: 'Album', icon: Images },
 ] as const satisfies readonly BottomNavItem[]
 
 /**
