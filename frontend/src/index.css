@@ -1,1 +1,38 @@
+@layer theme, base, mui, components, utilities;
+
 @import 'tailwindcss';
+
+@theme inline {
+  --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary: var(--mui-palette-primary-main);
+  --color-on-primary: var(--mui-palette-primary-contrastText);
+  --color-primary-container: var(--mui-palette-primaryContainer);
+  --color-on-primary-container: var(--mui-palette-onPrimaryContainer);
+  --color-secondary: var(--mui-palette-secondary-main);
+  --color-on-secondary: var(--mui-palette-secondary-contrastText);
+  --color-secondary-container: var(--mui-palette-secondaryContainer);
+  --color-on-secondary-container: var(--mui-palette-onSecondaryContainer);
+  --color-tertiary: var(--mui-palette-tertiary);
+  --color-on-tertiary: var(--mui-palette-onTertiary);
+  --color-error: var(--mui-palette-error-main);
+  --color-on-error: var(--mui-palette-error-contrastText);
+  --color-surface: var(--mui-palette-surface);
+  --color-on-surface: var(--mui-palette-onSurface);
+  --color-surface-variant: var(--mui-palette-surfaceVariant);
+  --color-on-surface-variant: var(--mui-palette-onSurfaceVariant);
+  --color-surface-container-low: var(--mui-palette-surfaceContainerLow);
+  --color-surface-container: var(--mui-palette-surfaceContainer);
+  --color-surface-container-high: var(--mui-palette-surfaceContainerHigh);
+  --color-outline: var(--mui-palette-outline);
+  --color-outline-variant: var(--mui-palette-outlineVariant);
+}
+
+@layer base {
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+  }
+}
