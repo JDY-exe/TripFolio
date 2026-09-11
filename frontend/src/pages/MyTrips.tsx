@@ -2,6 +2,7 @@ import PageIntro from '../components/PageIntro'
 
 /**
  * Presents the user's trip collection and a placeholder for future trip cards.
+ * It pairs the shared page introduction with a responsive grid of trip categories.
  *
  * @returns The trip collection page.
  */
@@ -19,10 +20,10 @@ function MyTrips() {
           (title) => (
             <article
               key={title}
-              className="min-h-48 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+              className="min-h-48 rounded-panel border border-outline-variant bg-surface-container-low p-6 text-on-surface shadow-sm"
             >
-              <h2 className="text-lg font-semibold">{title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <h2 className="text-title">{title}</h2>
+              <p className="mt-2 text-body text-on-surface-variant">
                 Trip details coming soon.
               </p>
             </article>

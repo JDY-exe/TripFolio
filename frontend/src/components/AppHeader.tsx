@@ -10,12 +10,9 @@ import { NavLink } from 'react-router'
  */
 function AppHeader() {
   return (
-    <header className="bg-surface-container-low">
+    <header className="bg-surface-container-low text-on-surface">
       <div className="mx-auto flex max-w-6xl items-center px-6 py-5">
-        <NavLink
-          to="/my-trips"
-          className="text-xl font-semibold tracking-tight"
-        >
+        <NavLink to="/my-trips" className="text-title tracking-tight">
           TripFolio
         </NavLink>
       </div>

@@ -1,76 +1,61 @@
-# React + TypeScript + Vite
+# TripFolio Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React, TypeScript, Vite, Tailwind CSS v4, and Lucide icons. React Compiler is enabled.
+Components use native HTML elements rather than a runtime UI library.
 
-Currently, two official plugins are available:
+## Theme
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+`src/index.css` owns the MD3-inspired theme: semantic colors, Figtree typography,
+corner radii, and a small set of elevation and motion tokens. This is an application
+theme, not an implementation of Google's component specifications.
 
-## React Compiler
+The light and dark palettes were generated with Matugen 4.2.0 from
+`/home/jdy/Pictures/Wallpapers/sakura-blue.jpg`, using `scheme-tonal-spot`, contrast
+`0`, and source-color index `0` (seed `#b4e4e0`). Generation used `--dry-run` with
+an isolated config, leaving desktop themes and wallpaper untouched.
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- Use paired semantic colors such as `bg-primary text-on-primary` and
+  `bg-surface-container text-on-surface`, not hard-coded palette colors.
+- System dark mode is handled by `prefers-color-scheme` overrides of the same CSS
+  variables. Components do not need separate dark-mode classes or a theme provider.
+- Use `text-headline`, `text-title`, `text-body`, and `text-label` for common type
+  roles. Standard Tailwind type utilities remain available for smaller supporting text.
+- Use `rounded-panel` for panels, `rounded-dock` for floating navigation, and
+  `rounded-full` for actions. `shadow-raised` is reserved for floating surfaces.
+- Keep layout in Tailwind utilities and reuse React components for repeated structure.
+  Native buttons should have an explicit type, visible keyboard focus, and accessible
+  names. Gate transitions with `motion-safe:`.
 
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
+`BottomNav` owns the shared navigation appearance and native button interactions;
+parents supply items, selection, and callbacks. It uses Tailwind's standard `sm`
+breakpoint (640px), 44px minimum action heights, and safe-area bottom spacing.
+The floating dock uses `z-20` to sit above ordinary page content.
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Run commands from `frontend/`:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+npm ci
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+The development server defaults to port 3000.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Checks
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+npm run typecheck
+npm run lint:check
+npm run test
+npm run format:check
+npm run build
 ```
+
+Use `npm run format` to apply Prettier formatting. Unit tests mirror `src/` under
+`test/`.
+
+With `npm run dev` running, use `npx cypress run` for navigation regression tests.
+Keep Cypress tests focused on business behavior: route changes, trip-section
+switching, and returning to the trip collection. Do not assert theme colors,
+typography, motion, or layout dimensions. Test data lives in `cypress/fixtures/`.

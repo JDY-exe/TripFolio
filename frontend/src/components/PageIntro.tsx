@@ -18,14 +18,12 @@ interface PageIntroProps {
  */
 function PageIntro({ eyebrow, title, description }: PageIntroProps) {
   return (
-    <header className="max-w-2xl">
-      <p className="text-sm font-semibold uppercase tracking-widest text-sky-700">
+    <header className="max-w-2xl text-on-surface">
+      <p className="text-label uppercase tracking-widest text-primary">
         {eyebrow}
       </p>
-      <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
-        {title}
-      </h1>
-      <p className="mt-4 text-lg leading-8 text-slate-600">{description}</p>
+      <h1 className="mt-3 text-headline tracking-tight">{title}</h1>
+      <p className="mt-4 text-body text-on-surface-variant">{description}</p>
     </header>
   )
 }

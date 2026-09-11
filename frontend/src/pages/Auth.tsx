@@ -17,9 +17,9 @@ function Auth() {
         description="Keep your travel plans, memories, and favorite places together in one account."
       />
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="font-semibold">Authentication form coming soon</p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
+      <div className="rounded-panel border border-outline-variant bg-surface-container-low p-8 text-on-surface shadow-sm">
+        <p className="text-title">Authentication form coming soon</p>
+        <p className="mt-2 text-body text-on-surface-variant">
           Email, password, and account creation controls will live here.
         </p>
       </div>

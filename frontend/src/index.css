@@ -1,38 +1,87 @@
-@layer theme, base, mui, components, utilities;
-
 @import 'tailwindcss';
 
-@theme inline {
+/* Matugen tonal-spot colors from sakura-blue.jpg; source seed #b4e4e0. */
+@theme {
   --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
 
-  --color-primary: var(--mui-palette-primary-main);
-  --color-on-primary: var(--mui-palette-primary-contrastText);
-  --color-primary-container: var(--mui-palette-primaryContainer);
-  --color-on-primary-container: var(--mui-palette-onPrimaryContainer);
-  --color-secondary: var(--mui-palette-secondary-main);
-  --color-on-secondary: var(--mui-palette-secondary-contrastText);
-  --color-secondary-container: var(--mui-palette-secondaryContainer);
-  --color-on-secondary-container: var(--mui-palette-onSecondaryContainer);
-  --color-tertiary: var(--mui-palette-tertiary);
-  --color-on-tertiary: var(--mui-palette-onTertiary);
-  --color-error: var(--mui-palette-error-main);
-  --color-on-error: var(--mui-palette-error-contrastText);
-  --color-surface: var(--mui-palette-surface);
-  --color-on-surface: var(--mui-palette-onSurface);
-  --color-surface-variant: var(--mui-palette-surfaceVariant);
-  --color-on-surface-variant: var(--mui-palette-onSurfaceVariant);
-  --color-surface-container-low: var(--mui-palette-surfaceContainerLow);
-  --color-surface-container: var(--mui-palette-surfaceContainer);
-  --color-surface-container-high: var(--mui-palette-surfaceContainerHigh);
-  --color-outline: var(--mui-palette-outline);
-  --color-outline-variant: var(--mui-palette-outlineVariant);
+  --color-primary: #006a66;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #9cf1ec;
+  --color-on-primary-container: #00201e;
+  --color-secondary: #4a6361;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #cce8e5;
+  --color-on-secondary-container: #051f1e;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-surface: #f4fbf9;
+  --color-on-surface: #161d1c;
+  --color-surface-variant: #dae5e3;
+  --color-on-surface-variant: #3f4948;
+  --color-surface-container-low: #eff5f3;
+  --color-surface-container: #e9efee;
+  --color-surface-container-high: #e3e9e8;
+  --color-outline: #6f7978;
+  --color-outline-variant: #bec9c7;
+
+  --text-headline: 1.5rem;
+  --text-headline--line-height: 2rem;
+  --text-headline--font-weight: 400;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+  --text-title--font-weight: 400;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-body--font-weight: 400;
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.25rem;
+  --text-label--font-weight: 500;
+
+  /* Panels use 16px corners; floating docks use 28px; actions use pills. */
+  --radius-panel: 1rem;
+  --radius-dock: 1.75rem;
+  --shadow-raised:
+    0 1px 2px rgb(22 29 28 / 0.2), 0 2px 6px 2px rgb(22 29 28 / 0.12);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    font-family: var(--font-sans);
+  }
+
+  /* CSS owns system dark mode; no provider, runtime tokens, or hydration needed. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --color-primary: #80d5d0;
+      --color-on-primary: #003735;
+      --color-primary-container: #00504d;
+      --color-on-primary-container: #9cf1ec;
+      --color-secondary: #b0ccc9;
+      --color-on-secondary: #1b3533;
+      --color-secondary-container: #324b49;
+      --color-on-secondary-container: #cce8e5;
+      --color-error: #ffb4ab;
+      --color-on-error: #690005;
+      --color-surface: #0e1514;
+      --color-on-surface: #dde4e2;
+      --color-surface-variant: #3f4948;
+      --color-on-surface-variant: #bec9c7;
+      --color-surface-container-low: #161d1c;
+      --color-surface-container: #1a2120;
+      --color-surface-container-high: #252b2b;
+      --color-outline: #889391;
+      --color-outline-variant: #3f4948;
+    }
+  }
+
   body {
     margin: 0;
     min-width: 320px;
-    min-height: 100vh;
-    font-family: var(--font-sans);
+    min-height: 100dvh;
   }
 }

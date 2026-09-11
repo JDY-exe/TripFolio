@@ -13,6 +13,7 @@ import LogisticsView from './trip/LogisticsView'
 
 /**
  * Presents the placeholder detail view for an individual trip.
+ * It switches the active section through local state alongside a shared overview.
  *
  * @returns The trip detail page.
  */
@@ -32,9 +33,9 @@ function Trip() {
         {section === 'itinerary' ? <ItineraryView /> : null}
         {section === 'ledger' ? <LedgerView /> : null}
         {section === 'logistics' ? <LogisticsView /> : null}
-        <aside className="rounded-3xl bg-surface-container p-8">
-          <h2 className="text-xl font-semibold">Trip overview</h2>
-          <p className="mt-2 text-sm text-on-surface-variant">
+        <aside className="rounded-panel bg-surface-container p-8 text-on-surface">
+          <h2 className="text-title">Trip overview</h2>
+          <p className="mt-2 text-body text-on-surface-variant">
             Dates, travelers, and key details coming soon.
           </p>
         </aside>
