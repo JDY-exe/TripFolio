@@ -1,4 +1,4 @@
-import PageIntro from '../components/PageIntro'
+import PageIntro from '../../components/PageIntro'
 
 /**
  * Presents the placeholder search experience for trips and travel content.
