@@ -5,20 +5,20 @@
  * from Material Design assets. Both sources are provided under Apache 2.0.
  */
 
-export type LoadingIndicatorPoint = readonly [x: number, y: number]
+export type LoadingIndicatorPoint = readonly [x: number, y: number];
 
-const shapeCount = 7
-const samplesPerCurve = 14
-const pointsPerShape = 180
+const shapeCount = 7;
+const samplesPerCurve = 14;
+const pointsPerShape = 180;
 
 interface ShapeDefinition {
-  viewBox: number
-  path: string
+  viewBox: number;
+  path: string;
 }
 
 interface PathCommand {
-  command: string
-  arguments: number[]
+  command: string;
+  arguments: number[];
 }
 
 const shapeDefinitions: readonly (ShapeDefinition | null)[] = [
@@ -47,7 +47,7 @@ const shapeDefinitions: readonly (ShapeDefinition | null)[] = [
     path: 'M89.4282 11.7931C116.492 0.0387955 143.961 27.5077 132.207 54.5718L130.263 59.0465C126.675 67.3094 126.675 76.6907 130.263 84.9535L132.207 89.4282C143.961 116.492 116.492 143.961 89.4282 132.207L84.9535 130.263C76.6907 126.675 67.3093 126.675 59.0465 130.263L54.5718 132.207C27.5077 143.961 0.0387983 116.492 11.7931 89.4282L13.7366 84.9535C17.3253 76.6907 17.3252 67.3093 13.7366 59.0465L11.7931 54.5718C0.0387955 27.5077 27.5077 0.0387993 54.5718 11.7931L59.0465 13.7366C67.3094 17.3252 76.6907 17.3252 84.9535 13.7366L89.4282 11.7931Z',
   },
   null,
-]
+];
 
 /**
  * Converts an SVG path into the limited command model used by Material shapes.
@@ -56,19 +56,19 @@ const shapeDefinitions: readonly (ShapeDefinition | null)[] = [
  * @returns Parsed commands with numeric arguments.
  */
 function parsePath(path: string): PathCommand[] {
-  const commands: PathCommand[] = []
-  const commandPattern = /([MCLZmclz])([^MCLZmclz]*)/g
-  let match: RegExpExecArray | null
+  const commands: PathCommand[] = [];
+  const commandPattern = /([MCLZmclz])([^MCLZmclz]*)/g;
+  let match: RegExpExecArray | null;
 
   while ((match = commandPattern.exec(path)) !== null) {
-    const numbers = match[2].trim().match(/-?\d+\.?\d*(?:e[+-]?\d+)?/g)
+    const numbers = match[2].trim().match(/-?\d+\.?\d*(?:e[+-]?\d+)?/g);
     commands.push({
       command: match[1],
       arguments: numbers ? numbers.map(Number) : [],
-    })
+    });
   }
 
-  return commands
+  return commands;
 }
 
 /**
@@ -88,11 +88,11 @@ function sampleCubic(
   end: LoadingIndicatorPoint,
   steps: number,
 ): LoadingIndicatorPoint[] {
-  const points: LoadingIndicatorPoint[] = []
+  const points: LoadingIndicatorPoint[] = [];
 
   for (let index = 1; index <= steps; index += 1) {
-    const time = index / steps
-    const inverse = 1 - time
+    const time = index / steps;
+    const inverse = 1 - time;
     points.push([
       inverse ** 3 * start[0] +
         3 * inverse ** 2 * time * controlOne[0] +
@@ -102,10 +102,10 @@ function sampleCubic(
         3 * inverse ** 2 * time * controlOne[1] +
         3 * inverse * time ** 2 * controlTwo[1] +
         time ** 3 * end[1],
-    ])
+    ]);
   }
 
-  return points
+  return points;
 }
 
 /**
@@ -115,27 +115,27 @@ function sampleCubic(
  * @returns Points tracing the complete path.
  */
 function pathToPoints(path: string): LoadingIndicatorPoint[] {
-  const points: LoadingIndicatorPoint[] = []
-  let currentX = 0
-  let currentY = 0
+  const points: LoadingIndicatorPoint[] = [];
+  let currentX = 0;
+  let currentY = 0;
 
   for (const { command, arguments: values } of parsePath(path)) {
     if (command === 'M') {
-      currentX = values[0]
-      currentY = values[1]
-      points.push([currentX, currentY])
+      currentX = values[0];
+      currentY = values[1];
+      points.push([currentX, currentY]);
     } else if (command === 'L') {
       for (let index = 0; index < values.length; index += 2) {
-        currentX = values[index]
-        currentY = values[index + 1]
-        points.push([currentX, currentY])
+        currentX = values[index];
+        currentY = values[index + 1];
+        points.push([currentX, currentY]);
       }
     } else if (command === 'C') {
       for (let index = 0; index < values.length; index += 6) {
         const end: LoadingIndicatorPoint = [
           values[index + 4],
           values[index + 5],
-        ]
+        ];
         points.push(
           ...sampleCubic(
             [currentX, currentY],
@@ -144,13 +144,13 @@ function pathToPoints(path: string): LoadingIndicatorPoint[] {
             end,
             samplesPerCurve,
           ),
-        )
-        ;[currentX, currentY] = end
+        );
+        [currentX, currentY] = end;
       }
     }
   }
 
-  return points
+  return points;
 }
 
 /**
@@ -164,24 +164,24 @@ function normalizePoints(
   points: LoadingIndicatorPoint[],
   viewBox: number,
 ): LoadingIndicatorPoint[] {
-  const half = viewBox / 2
+  const half = viewBox / 2;
   const centered = points.map(
     ([x, y]) => [(x - half) / half, (y - half) / half] as const,
-  )
-  const xs = centered.map(([x]) => x)
-  const ys = centered.map(([, y]) => y)
-  const minimumX = Math.min(...xs)
-  const maximumX = Math.max(...xs)
-  const minimumY = Math.min(...ys)
-  const maximumY = Math.max(...ys)
-  const scale = Math.min(2 / (maximumX - minimumX), 2 / (maximumY - minimumY))
-  const offsetX = (minimumX + maximumX) / 2
-  const offsetY = (minimumY + maximumY) / 2
+  );
+  const xs = centered.map(([x]) => x);
+  const ys = centered.map(([, y]) => y);
+  const minimumX = Math.min(...xs);
+  const maximumX = Math.max(...xs);
+  const minimumY = Math.min(...ys);
+  const maximumY = Math.max(...ys);
+  const scale = Math.min(2 / (maximumX - minimumX), 2 / (maximumY - minimumY));
+  const offsetX = (minimumX + maximumX) / 2;
+  const offsetY = (minimumY + maximumY) / 2;
 
   return centered.map(([x, y]) => [
     (x - offsetX) * scale,
     (y - offsetY) * scale,
-  ])
+  ]);
 }
 
 /**
@@ -195,41 +195,41 @@ function resamplePoints(
   points: LoadingIndicatorPoint[],
   count: number,
 ): LoadingIndicatorPoint[] {
-  const closedPoints = [...points, points[0]]
-  const distances = [0]
+  const closedPoints = [...points, points[0]];
+  const distances = [0];
 
   for (let index = 1; index < closedPoints.length; index += 1) {
-    const deltaX = closedPoints[index][0] - closedPoints[index - 1][0]
-    const deltaY = closedPoints[index][1] - closedPoints[index - 1][1]
-    distances.push(distances[index - 1] + Math.hypot(deltaX, deltaY))
+    const deltaX = closedPoints[index][0] - closedPoints[index - 1][0];
+    const deltaY = closedPoints[index][1] - closedPoints[index - 1][1];
+    distances.push(distances[index - 1] + Math.hypot(deltaX, deltaY));
   }
 
-  const perimeter = distances[distances.length - 1]
-  const samples: LoadingIndicatorPoint[] = []
+  const perimeter = distances[distances.length - 1];
+  const samples: LoadingIndicatorPoint[] = [];
 
   for (let index = 0; index < count; index += 1) {
-    const targetDistance = (index / count) * perimeter
-    let segment = 1
+    const targetDistance = (index / count) * perimeter;
+    let segment = 1;
     while (
       segment < distances.length - 1 &&
       distances[segment] < targetDistance
     ) {
-      segment += 1
+      segment += 1;
     }
 
-    const segmentLength = distances[segment] - distances[segment - 1]
+    const segmentLength = distances[segment] - distances[segment - 1];
     const amount = segmentLength
       ? (targetDistance - distances[segment - 1]) / segmentLength
-      : 0
+      : 0;
     samples.push([
       closedPoints[segment - 1][0] +
         amount * (closedPoints[segment][0] - closedPoints[segment - 1][0]),
       closedPoints[segment - 1][1] +
         amount * (closedPoints[segment][1] - closedPoints[segment - 1][1]),
-    ])
+    ]);
   }
 
-  return samples
+  return samples;
 }
 
 /**
@@ -240,18 +240,18 @@ function resamplePoints(
  */
 function generateOval(count: number): LoadingIndicatorPoint[] {
   return Array.from({ length: count }, (_, index) => {
-    const angle = (index / count) * 2 * Math.PI
-    return [Math.cos(angle), 0.74 * Math.sin(angle)] as const
-  })
+    const angle = (index / count) * 2 * Math.PI;
+    return [Math.cos(angle), 0.74 * Math.sin(angle)] as const;
+  });
 }
 
 const shapes = shapeDefinitions.map((definition) => {
-  if (!definition) return generateOval(pointsPerShape)
+  if (!definition) return generateOval(pointsPerShape);
   return resamplePoints(
     normalizePoints(pathToPoints(definition.path), definition.viewBox),
     pointsPerShape,
-  )
-})
+  );
+});
 
 /**
  * Interpolates between adjacent Material shapes at the supplied morph position.
@@ -263,13 +263,13 @@ const shapes = shapeDefinitions.map((definition) => {
 export function getLoadingIndicatorShape(
   morph: number,
 ): LoadingIndicatorPoint[] {
-  const shapeIndex = Math.floor(morph)
-  const fromIndex = ((shapeIndex % shapeCount) + shapeCount) % shapeCount
-  const toIndex = (fromIndex + 1) % shapeCount
-  const amount = Math.max(0, Math.min(1, morph - shapeIndex))
+  const shapeIndex = Math.floor(morph);
+  const fromIndex = ((shapeIndex % shapeCount) + shapeCount) % shapeCount;
+  const toIndex = (fromIndex + 1) % shapeCount;
+  const amount = Math.max(0, Math.min(1, morph - shapeIndex));
 
   return shapes[fromIndex].map(([x, y], index) => {
-    const [targetX, targetY] = shapes[toIndex][index]
-    return [x + (targetX - x) * amount, y + (targetY - y) * amount]
-  })
+    const [targetX, targetY] = shapes[toIndex][index];
+    return [x + (targetX - x) * amount, y + (targetY - y) * amount];
+  });
 }

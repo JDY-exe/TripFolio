@@ -1,13 +1,13 @@
-import { ArrowUpRight, CalendarDays, MapPin, UsersRound } from 'lucide-react'
-import { Button, Text } from '../../components/common'
+import { ArrowUpRight, CalendarDays, MapPin, UsersRound } from 'lucide-react';
+import { Button, Text } from '../../components/common';
 
 export interface TripCardProps {
-  title: string
-  destination: string
-  dates: string
-  travelers: string
-  status: string
-  image: string
+  title: string;
+  destination: string;
+  dates: string;
+  travelers: string;
+  status: string;
+  image: string;
 }
 
 /**
@@ -75,7 +75,7 @@ function TripCard({
         </div>
       </div>
     </article>
-  )
+  );
 }
 
-export default TripCard
+export default TripCard;

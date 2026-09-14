@@ -1,7 +1,7 @@
-import { Plus } from 'lucide-react'
-import { Button, Text } from '../../components/common'
-import { mockTrips } from './mockTrips'
-import TripCard from './TripCard'
+import { Plus } from 'lucide-react';
+import { Button, Text } from '../../components/common';
+import { mockTrips } from './mockTrips';
+import TripCard from './TripCard';
 
 /**
  * Presents a static trip-collection mockup using sample cards and native controls.
@@ -32,7 +32,7 @@ function MyTrips() {
         ))}
       </div>
     </section>
-  )
+  );
 }
 
-export default MyTrips
+export default MyTrips;

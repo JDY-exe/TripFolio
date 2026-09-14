@@ -6,21 +6,21 @@ import {
   type Dispatch,
   type PropsWithChildren,
   type SetStateAction,
-} from 'react'
+} from 'react';
 
 export interface LoadingContextValue {
   /** Whether the application-wide blocking overlay is visible. */
-  isLoading: boolean
+  isLoading: boolean;
   /** Shows, hides, or derives the application-wide loading state. */
-  setLoading: Dispatch<SetStateAction<boolean>>
+  setLoading: Dispatch<SetStateAction<boolean>>;
 }
 
 export interface LoadingProviderProps extends PropsWithChildren {
   /** Initial overlay visibility, primarily useful for application bootstrapping. */
-  initialLoading?: boolean
+  initialLoading?: boolean;
 }
 
-const LoadingContext = createContext<LoadingContextValue | null>(null)
+const LoadingContext = createContext<LoadingContextValue | null>(null);
 
 /**
  * Provides shared loading state to the application. App owns presentation so
@@ -33,13 +33,13 @@ export function LoadingProvider({
   children,
   initialLoading = false,
 }: LoadingProviderProps) {
-  const [isLoading, setLoading] = useState(initialLoading)
+  const [isLoading, setLoading] = useState(initialLoading);
 
   return (
     <LoadingContext value={{ isLoading, setLoading }}>
       {children}
     </LoadingContext>
-  )
+  );
 }
 
 /**
@@ -50,11 +50,11 @@ export function LoadingProvider({
  * @throws When called outside `LoadingProvider`.
  */
 export function useLoading() {
-  const context = useContext(LoadingContext)
+  const context = useContext(LoadingContext);
 
   if (!context) {
-    throw new Error('useLoading must be used within a LoadingProvider')
+    throw new Error('useLoading must be used within a LoadingProvider');
   }
 
-  return context
+  return context;
 }

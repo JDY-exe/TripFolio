@@ -14,8 +14,8 @@ export function getExpandedFlexGrow(
   widthMultiplier: number,
 ): number {
   if (itemCount <= 1 || widthMultiplier <= 1 || widthMultiplier >= itemCount) {
-    return 1
+    return 1;
   }
 
-  return (widthMultiplier * (itemCount - 1)) / (itemCount - widthMultiplier)
+  return (widthMultiplier * (itemCount - 1)) / (itemCount - widthMultiplier);
 }

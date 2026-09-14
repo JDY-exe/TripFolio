@@ -1,13 +1,13 @@
-import { useSyncExternalStore } from 'react'
-import Toast from './Toast'
+import { useSyncExternalStore } from 'react';
+import Toast from './Toast';
 import {
   dismissAlert,
   getAlertsSnapshot,
   subscribeToAlerts,
   type ToastAlert,
-} from './toastStore'
+} from './toastStore';
 
-const emptyAlerts: readonly ToastAlert[] = []
+const emptyAlerts: readonly ToastAlert[] = [];
 
 /**
  * Renders the application-wide stack of queued toast notifications.
@@ -21,9 +21,9 @@ function ToastViewport() {
     subscribeToAlerts,
     getAlertsSnapshot,
     () => emptyAlerts,
-  )
+  );
 
-  if (alerts.length === 0) return null
+  if (alerts.length === 0) return null;
 
   return (
     <aside
@@ -36,7 +36,7 @@ function ToastViewport() {
         </div>
       ))}
     </aside>
-  )
+  );
 }
 
-export default ToastViewport
+export default ToastViewport;

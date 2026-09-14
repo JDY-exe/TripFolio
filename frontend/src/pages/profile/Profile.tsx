@@ -1,5 +1,5 @@
-import PageIntro from '../../components/PageIntro'
-import { Text } from '../../components/common'
+import PageIntro from '../../components/PageIntro';
+import { Text } from '../../components/common';
 
 /**
  * Presents placeholder account details and preferences for the signed-in user.
@@ -24,7 +24,7 @@ function Profile() {
         </Text>
       </div>
     </section>
-  )
+  );
 }
 
-export default Profile
+export default Profile;

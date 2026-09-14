@@ -4,30 +4,30 @@ import {
   useState,
   type CSSProperties,
   type HTMLAttributes,
-} from 'react'
-import { LoadingIndicatorAnimator } from './loadingIndicatorAnimation'
+} from 'react';
+import { LoadingIndicatorAnimator } from './loadingIndicatorAnimation';
 import {
   drawLoadingIndicator,
   setupLoadingIndicatorCanvas,
-} from './loadingIndicatorCanvas'
-import { getLoadingIndicatorShape } from './loadingIndicatorShapes'
+} from './loadingIndicatorCanvas';
+import { getLoadingIndicatorShape } from './loadingIndicatorShapes';
 
 export interface LoadingIndicatorProps extends Omit<
   HTMLAttributes<HTMLCanvasElement>,
   'children'
 > {
   /** Accessible description announced for the indeterminate operation. */
-  label?: string
+  label?: string;
   /** Square CSS size in pixels. */
-  size?: number
+  size?: number;
   /** CSS color used for the morphing shape; defaults to inherited text color. */
-  color?: string
+  color?: string;
   /** Draws the Material circular container behind the morphing shape. */
-  contained?: boolean
+  contained?: boolean;
   /** CSS color used by the optional circular container. */
-  containerColor?: string
+  containerColor?: string;
   /** Milliseconds between morphs; rotation slows with the same Material cycle. */
-  shapeDuration?: number
+  shapeDuration?: number;
 }
 
 /**
@@ -37,24 +37,24 @@ export interface LoadingIndicatorProps extends Omit<
  * @returns Whether non-essential animation should be suppressed.
  */
 function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     /**
      * Copies the current media-query match into React state.
      *
      * @returns Nothing; state is updated in place.
      */
-    const updatePreference = () => setPrefersReducedMotion(query.matches)
+    const updatePreference = () => setPrefersReducedMotion(query.matches);
 
-    updatePreference()
-    query.addEventListener('change', updatePreference)
-    return () => query.removeEventListener('change', updatePreference)
-  }, [])
+    updatePreference();
+    query.addEventListener('change', updatePreference);
+    return () => query.removeEventListener('change', updatePreference);
+  }, []);
 
-  return prefersReducedMotion
+  return prefersReducedMotion;
 }
 
 /**
@@ -75,19 +75,19 @@ function LoadingIndicator({
   style,
   ...canvasProps
 }: LoadingIndicatorProps) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const animationFrameRef = useRef(0)
-  const prefersReducedMotion = usePrefersReducedMotion()
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationFrameRef = useRef(0);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const context = setupLoadingIndicatorCanvas(canvas, size)
-    if (!context) return
+    const context = setupLoadingIndicatorCanvas(canvas, size);
+    if (!context) return;
 
-    const animator = new LoadingIndicatorAnimator(shapeDuration)
-    const resolvedColor = color ?? getComputedStyle(canvas).color
+    const animator = new LoadingIndicatorAnimator(shapeDuration);
+    const resolvedColor = color ?? getComputedStyle(canvas).color;
 
     /**
      * Advances Material motion and repaints the current morphed shape.
@@ -96,7 +96,7 @@ function LoadingIndicator({
      * @returns Nothing; schedules the next frame unless motion is reduced.
      */
     const renderFrame = (timestamp: number) => {
-      const snapshot = animator.update(timestamp)
+      const snapshot = animator.update(timestamp);
       drawLoadingIndicator(
         context,
         size,
@@ -108,15 +108,15 @@ function LoadingIndicator({
           containerColor,
           sizeRatio: 38 / 48,
         },
-      )
+      );
 
       if (!prefersReducedMotion) {
-        animationFrameRef.current = requestAnimationFrame(renderFrame)
+        animationFrameRef.current = requestAnimationFrame(renderFrame);
       }
-    }
+    };
 
-    animationFrameRef.current = requestAnimationFrame(renderFrame)
-    return () => cancelAnimationFrame(animationFrameRef.current)
+    animationFrameRef.current = requestAnimationFrame(renderFrame);
+    return () => cancelAnimationFrame(animationFrameRef.current);
   }, [
     color,
     contained,
@@ -124,14 +124,14 @@ function LoadingIndicator({
     prefersReducedMotion,
     shapeDuration,
     size,
-  ])
+  ]);
 
   const mergedStyle: CSSProperties = {
     display: 'block',
     height: size,
     width: size,
     ...style,
-  }
+  };
 
   return (
     <canvas
@@ -141,7 +141,7 @@ function LoadingIndicator({
       style={mergedStyle}
       {...canvasProps}
     />
-  )
+  );
 }
 
-export default LoadingIndicator
+export default LoadingIndicator;

@@ -1,14 +1,14 @@
-import type { InputHTMLAttributes } from 'react'
-import Text from '../Text/Text'
+import type { InputHTMLAttributes } from 'react';
+import Text from '../Text/Text';
 
 export interface TextFieldProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
   'id' | 'size'
 > {
-  id: string
-  label: string
-  hint?: string
-  error?: string
+  id: string;
+  label: string;
+  hint?: string;
+  error?: string;
 }
 
 /**
@@ -31,8 +31,8 @@ function TextField({
   'aria-describedby': ariaDescribedBy,
   ...props
 }: TextFieldProps) {
-  const supportingId = id && (error || hint) ? `${id}-supporting` : undefined
-  const describedBy = [ariaDescribedBy, supportingId].filter(Boolean).join(' ')
+  const supportingId = id && (error || hint) ? `${id}-supporting` : undefined;
+  const describedBy = [ariaDescribedBy, supportingId].filter(Boolean).join(' ');
 
   return (
     <div className="grid gap-2">
@@ -61,7 +61,7 @@ function TextField({
         </Text>
       ) : null}
     </div>
-  )
+  );
 }
 
-export default TextField
+export default TextField;

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router'
+import { NavLink } from 'react-router';
 
 /**
  * Displays the shared TripFolio brand header.
@@ -17,7 +17,7 @@ function AppHeader() {
         </NavLink>
       </div>
     </header>
-  )
+  );
 }
 
-export default AppHeader
+export default AppHeader;

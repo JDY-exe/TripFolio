@@ -1,4 +1,4 @@
-import PageIntro from '../../components/PageIntro'
+import PageIntro from '../../components/PageIntro';
 
 /**
  * Presents the placeholder search experience for trips and travel content.
@@ -14,7 +14,7 @@ function Search() {
         description="Find trips, destinations, reservations, and saved travel ideas."
       />
     </section>
-  )
+  );
 }
 
-export default Search
+export default Search;

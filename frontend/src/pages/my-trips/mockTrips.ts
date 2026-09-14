@@ -1,4 +1,4 @@
-import type { TripCardProps } from './TripCard'
+import type { TripCardProps } from './TripCard';
 
 /** Presentation-only sample content, not a trip API or persisted data model. */
 export const mockTrips = [
@@ -38,4 +38,4 @@ export const mockTrips = [
     image:
       'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80',
   },
-] satisfies TripCardProps[]
+] satisfies TripCardProps[];

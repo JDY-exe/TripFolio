@@ -1,27 +1,27 @@
-export type AlertTone = 'info' | 'success' | 'warning' | 'error'
+export type AlertTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface AlertOptions {
-  message: string
-  title?: string
-  tone?: AlertTone
-  duration?: number
+  message: string;
+  title?: string;
+  tone?: AlertTone;
+  duration?: number;
 }
 
 export interface ToastAlert extends Required<
   Pick<AlertOptions, 'message' | 'tone'>
 > {
-  id: string
-  title?: string
-  duration: number
+  id: string;
+  title?: string;
+  duration: number;
 }
 
-type AlertListener = () => void
+type AlertListener = () => void;
 
-const defaultDuration = 5000
-const listeners = new Set<AlertListener>()
-const expiryTimers = new Map<string, ReturnType<typeof setTimeout>>()
-let alerts: readonly ToastAlert[] = []
-let nextAlertId = 0
+const defaultDuration = 5000;
+const listeners = new Set<AlertListener>();
+const expiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let alerts: readonly ToastAlert[] = [];
+let nextAlertId = 0;
 
 /**
  * Notifies every mounted toast viewport that the alert snapshot changed.
@@ -30,8 +30,8 @@ let nextAlertId = 0
  * @returns Nothing.
  */
 function emitChange() {
-  const currentListeners = [...listeners]
-  currentListeners.forEach((listener) => listener())
+  const currentListeners = [...listeners];
+  currentListeners.forEach((listener) => listener());
 }
 
 /**
@@ -41,7 +41,7 @@ function emitChange() {
  * @returns The current read-only alert queue.
  */
 export function getAlertsSnapshot() {
-  return alerts
+  return alerts;
 }
 
 /**
@@ -52,8 +52,8 @@ export function getAlertsSnapshot() {
  * @returns A cleanup function that cancels the subscription.
  */
 export function subscribeToAlerts(listener: AlertListener) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
 /**
@@ -64,14 +64,14 @@ export function subscribeToAlerts(listener: AlertListener) {
  * @returns Nothing.
  */
 export function dismissAlert(id: string) {
-  const nextAlerts = alerts.filter((alert) => alert.id !== id)
-  if (nextAlerts.length === alerts.length) return
+  const nextAlerts = alerts.filter((alert) => alert.id !== id);
+  if (nextAlerts.length === alerts.length) return;
 
-  const timer = expiryTimers.get(id)
-  if (timer) clearTimeout(timer)
-  expiryTimers.delete(id)
-  alerts = nextAlerts
-  emitChange()
+  const timer = expiryTimers.get(id);
+  if (timer) clearTimeout(timer);
+  expiryTimers.delete(id);
+  alerts = nextAlerts;
+  emitChange();
 }
 
 /**
@@ -83,8 +83,8 @@ export function dismissAlert(id: string) {
  * @returns The alert identifier, which can be passed to `dismissAlert`.
  */
 export function displayAlert(alert: string | AlertOptions) {
-  const options = typeof alert === 'string' ? { message: alert } : alert
-  nextAlertId += 1
+  const options = typeof alert === 'string' ? { message: alert } : alert;
+  nextAlertId += 1;
 
   const toast: ToastAlert = {
     id: `toast-${Date.now()}-${nextAlertId}`,
@@ -92,19 +92,19 @@ export function displayAlert(alert: string | AlertOptions) {
     tone: options.tone ?? 'info',
     duration: options.duration ?? defaultDuration,
     ...(options.title ? { title: options.title } : {}),
-  }
+  };
 
-  alerts = [...alerts, toast]
-  emitChange()
+  alerts = [...alerts, toast];
+  emitChange();
 
   if (toast.duration > 0) {
     expiryTimers.set(
       toast.id,
       setTimeout(() => dismissAlert(toast.id), toast.duration),
-    )
+    );
   }
 
-  return toast.id
+  return toast.id;
 }
 
 /**
@@ -114,10 +114,10 @@ export function displayAlert(alert: string | AlertOptions) {
  * @returns Nothing.
  */
 export function clearAlerts() {
-  expiryTimers.forEach((timer) => clearTimeout(timer))
-  expiryTimers.clear()
-  if (alerts.length === 0) return
+  expiryTimers.forEach((timer) => clearTimeout(timer));
+  expiryTimers.clear();
+  if (alerts.length === 0) return;
 
-  alerts = []
-  emitChange()
+  alerts = [];
+  emitChange();
 }

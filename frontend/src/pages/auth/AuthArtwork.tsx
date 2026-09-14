@@ -1,7 +1,7 @@
-import { LoadingIndicator } from '../../components/common'
+import { LoadingIndicator } from '../../components/common';
 
 const artworkTransition =
-  'motion-safe:transition-[opacity,translate,rotate] motion-safe:duration-700 motion-safe:ease-standard'
+  'motion-safe:transition-[opacity,translate,rotate] motion-safe:duration-700 motion-safe:ease-standard';
 
 /**
  * Displays mode-aware decorative artwork beside the authentication forms.
@@ -53,7 +53,7 @@ function AuthArtwork() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default AuthArtwork
+export default AuthArtwork;

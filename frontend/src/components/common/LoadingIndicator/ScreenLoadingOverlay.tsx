@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
-import { useLoading } from '../../../contexts/LoadingContext'
-import LoadingIndicator from './LoadingIndicator'
+import { useEffect, useRef } from 'react';
+import { useLoading } from '../../../contexts/LoadingContext';
+import LoadingIndicator from './LoadingIndicator';
 
 /**
  * Blocks the viewport with an accessible modal loading state. It moves focus
@@ -9,28 +9,28 @@ import LoadingIndicator from './LoadingIndicator'
  * @returns A full-screen modal containing the expressive loading indicator.
  */
 function ScreenLoadingOverlay() {
-  const overlayRef = useRef<HTMLDivElement>(null)
-  const { isLoading } = useLoading()
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const { isLoading } = useLoading();
 
   useEffect(() => {
-    if (!isLoading) return
+    if (!isLoading) return;
 
     const previouslyFocused =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
-        : null
-    const previousOverflow = document.body.style.overflow
+        : null;
+    const previousOverflow = document.body.style.overflow;
 
-    document.body.style.overflow = 'hidden'
-    overlayRef.current?.focus()
+    document.body.style.overflow = 'hidden';
+    overlayRef.current?.focus();
 
     return () => {
-      document.body.style.overflow = previousOverflow
-      previouslyFocused?.focus()
-    }
-  }, [isLoading])
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
+    };
+  }, [isLoading]);
 
-  if (!isLoading) return null
+  if (!isLoading) return null;
 
   return (
     <div
@@ -43,7 +43,7 @@ function ScreenLoadingOverlay() {
     >
       <LoadingIndicator size={128} />
     </div>
-  )
+  );
 }
 
-export default ScreenLoadingOverlay
+export default ScreenLoadingOverlay;

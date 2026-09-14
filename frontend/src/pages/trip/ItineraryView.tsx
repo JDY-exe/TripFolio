@@ -6,8 +6,8 @@ import {
   Navigation,
   Pencil,
   Plus,
-} from 'lucide-react'
-import { Button, IconButton, Text } from '../../components/common'
+} from 'lucide-react';
+import { Button, IconButton, Text } from '../../components/common';
 
 /**
  * Displays a single sample walking event on a static day timeline.
@@ -142,7 +142,7 @@ function ItineraryView() {
         </li>
       </ol>
     </section>
-  )
+  );
 }
 
-export default ItineraryView
+export default ItineraryView;

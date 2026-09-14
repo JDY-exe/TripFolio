@@ -9,9 +9,9 @@ import {
   Plus,
   Settings2,
   UsersRound,
-} from 'lucide-react'
-import { IconButton, Text } from '../../components/common'
-import LogisticsChapterNav from './LogisticsChapterNav'
+} from 'lucide-react';
+import { IconButton, Text } from '../../components/common';
+import LogisticsChapterNav from './LogisticsChapterNav';
 
 /**
  * Displays sample flight, car-rental, and accommodation reservations.
@@ -276,7 +276,7 @@ function LogisticsView() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
-export default LogisticsView
+export default LogisticsView;

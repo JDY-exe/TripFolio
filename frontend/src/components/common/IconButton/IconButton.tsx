@@ -1,21 +1,21 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import {
   buttonVariants,
   type ButtonVariant,
   type ControlSize,
-} from '../styles/componentStyles'
+} from '../styles/componentStyles';
 
 const iconButtonSizes = {
   sm: 'size-9',
   md: 'size-11',
   lg: 'size-12',
-} satisfies Record<ControlSize, string>
+} satisfies Record<ControlSize, string>;
 
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  'aria-label': string
-  variant?: ButtonVariant
-  size?: ControlSize
-  icon: ReactNode
+  'aria-label': string;
+  variant?: ButtonVariant;
+  size?: ControlSize;
+  icon: ReactNode;
 }
 
 /**
@@ -54,7 +54,7 @@ function IconButton({
     >
       {icon}
     </button>
-  )
+  );
 }
 
-export default IconButton
+export default IconButton;

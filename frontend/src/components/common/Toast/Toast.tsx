@@ -1,8 +1,8 @@
-import { AlertCircle, CheckCircle2, CircleAlert, Info, X } from 'lucide-react'
-import type { ComponentType } from 'react'
-import IconButton from '../IconButton/IconButton'
-import Text from '../Text/Text'
-import type { AlertTone, ToastAlert } from './toastStore'
+import { AlertCircle, CheckCircle2, CircleAlert, Info, X } from 'lucide-react';
+import type { ComponentType } from 'react';
+import IconButton from '../IconButton/IconButton';
+import Text from '../Text/Text';
+import type { AlertTone, ToastAlert } from './toastStore';
 
 const toneStyles = {
   info: {
@@ -21,7 +21,7 @@ const toneStyles = {
     accent: 'bg-error',
     icon: 'bg-error-container text-on-error-container',
   },
-} satisfies Record<AlertTone, { accent: string; icon: string }>
+} satisfies Record<AlertTone, { accent: string; icon: string }>;
 
 const toneIcons = {
   info: Info,
@@ -31,11 +31,11 @@ const toneIcons = {
 } satisfies Record<
   AlertTone,
   ComponentType<{ className?: string; size?: number }>
->
+>;
 
 export interface ToastProps {
-  alert: ToastAlert
-  onDismiss: (id: string) => void
+  alert: ToastAlert;
+  onDismiss: (id: string) => void;
 }
 
 /**
@@ -49,9 +49,9 @@ export interface ToastProps {
  * @returns A styled, accessible toast notification.
  */
 function Toast({ alert, onDismiss }: ToastProps) {
-  const ToneIcon = toneIcons[alert.tone]
-  const toneStyle = toneStyles[alert.tone]
-  const isUrgent = alert.tone === 'warning' || alert.tone === 'error'
+  const ToneIcon = toneIcons[alert.tone];
+  const toneStyle = toneStyles[alert.tone];
+  const isUrgent = alert.tone === 'warning' || alert.tone === 'error';
 
   return (
     <article
@@ -89,7 +89,7 @@ function Toast({ alert, onDismiss }: ToastProps) {
         className="-mr-2 -mt-2 text-on-surface-variant hover:bg-on-surface/8 hover:text-on-surface"
       />
     </article>
-  )
+  );
 }
 
-export default Toast
+export default Toast;

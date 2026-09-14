@@ -2,7 +2,7 @@ const chapters = [
   { number: '01', title: 'Flights', href: '#logistics-flights' },
   { number: '02', title: 'Rental cars', href: '#logistics-cars' },
   { number: '03', title: 'Accommodations', href: '#logistics-stays' },
-]
+];
 
 /**
  * Links to logistics chapters using native document anchors.
@@ -32,7 +32,7 @@ function LogisticsChapterNav() {
         ))}
       </ol>
     </nav>
-  )
+  );
 }
 
-export default LogisticsChapterNav
+export default LogisticsChapterNav;

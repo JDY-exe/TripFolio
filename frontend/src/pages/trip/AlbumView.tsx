@@ -1,5 +1,5 @@
-import { ImagePlus, Upload } from 'lucide-react'
-import { Text } from '../../components/common'
+import { ImagePlus, Upload } from 'lucide-react';
+import { Text } from '../../components/common';
 
 /**
  * Presents a static photo-upload surface for the trip album.
@@ -43,7 +43,7 @@ function AlbumView() {
         </label>
       </div>
     </section>
-  )
+  );
 }
 
-export default AlbumView
+export default AlbumView;

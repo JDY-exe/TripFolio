@@ -1,16 +1,16 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import {
   getButtonClasses,
   type ButtonVariant,
   type ControlSize,
-} from '../styles/componentStyles'
+} from '../styles/componentStyles';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant
-  size?: ControlSize
-  fullWidth?: boolean
-  leadingIcon?: ReactNode
-  trailingIcon?: ReactNode
+  variant?: ButtonVariant;
+  size?: ControlSize;
+  fullWidth?: boolean;
+  leadingIcon?: ReactNode;
+  trailingIcon?: ReactNode;
 }
 
 /**
@@ -47,7 +47,7 @@ function Button({
       {children}
       {trailingIcon}
     </button>
-  )
+  );
 }
 
-export default Button
+export default Button;

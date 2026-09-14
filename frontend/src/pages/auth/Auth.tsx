@@ -1,14 +1,14 @@
-import { ArrowRight } from 'lucide-react'
-import { useLayoutEffect, useRef, useState, type SubmitEvent } from 'react'
-import { useNavigate } from 'react-router'
-import { Button, displayAlert, Text, TextField } from '../../components/common'
-import { useLoading } from '../../contexts/LoadingContext'
-import AuthArtwork from './AuthArtwork'
+import { ArrowRight } from 'lucide-react';
+import { useLayoutEffect, useRef, useState, type SubmitEvent } from 'react';
+import { useNavigate } from 'react-router';
+import { Button, displayAlert, Text, TextField } from '../../components/common';
+import { useLoading } from '../../contexts/LoadingContext';
+import AuthArtwork from './AuthArtwork';
 
-type AuthMode = 'login' | 'signup'
+type AuthMode = 'login' | 'signup';
 
 const modeClasses =
-  'flex min-h-12 flex-1 cursor-pointer items-center justify-center rounded-full px-4 text-label text-on-surface-variant has-checked:bg-secondary-container has-checked:text-on-secondary-container has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary motion-safe:transition-colors motion-safe:duration-200'
+  'flex min-h-12 flex-1 cursor-pointer items-center justify-center rounded-full px-4 text-label text-on-surface-variant has-checked:bg-secondary-container has-checked:text-on-secondary-container has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary motion-safe:transition-colors motion-safe:duration-200';
 
 /**
  * Presents login and signup mockups beside a decorative travel photograph.
@@ -18,10 +18,10 @@ const modeClasses =
  * @returns A responsive, presentation-only authentication page.
  */
 function Auth() {
-  const navigate = useNavigate()
-  const { setLoading  } = useLoading();
-  const [mode, setMode] = useState<AuthMode>('login')
-  const { height: formHeight, loginRef, signupRef } = useAuthFormHeight(mode)
+  const navigate = useNavigate();
+  const { setLoading } = useLoading();
+  const [mode, setMode] = useState<AuthMode>('login');
+  const { height: formHeight, loginRef, signupRef } = useAuthFormHeight(mode);
 
   /**
    * Submits the temporary login fixture and reports the result globally.
@@ -32,25 +32,26 @@ function Auth() {
    * @returns Nothing.
    */
   async function handleLogin(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    const email = String(formData.get('email') ?? '')
-    const password = String(formData.get('password') ?? '')
-    
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get('email') ?? '');
+    const password = String(formData.get('password') ?? '');
+
     // TODO: Replace mock credential checks with the authentication API.
     if (email !== 'email' || password !== 'pass') {
       displayAlert({
         title: 'Unable to log in',
         message: 'Use “email” and “pass” for the mock account.',
         tone: 'error',
-      })
-      return
+      });
+      return;
     }
     setLoading(true);
+    // TODO: Remove the delay and replace with actual login API call
     await new Promise((resolve) => setTimeout(resolve, 1000));
     displayAlert({ message: 'Welcome back.', tone: 'success' });
     setLoading(false);
-    navigate('/my-trips')
+    navigate('/my-trips');
   }
 
   /**
@@ -62,12 +63,12 @@ function Auth() {
    * @returns Nothing.
    */
   async function handleSignup(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    const user = String(formData.get('user') ?? '')
-    const email = String(formData.get('email') ?? '')
-    const password = String(formData.get('password') ?? '')
-    const passwordAgain = String(formData.get('passwordAgain') ?? '')
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const user = String(formData.get('user') ?? '');
+    const email = String(formData.get('email') ?? '');
+    const password = String(formData.get('password') ?? '');
+    const passwordAgain = String(formData.get('passwordAgain') ?? '');
 
     // TODO: Replace mock account creation with the authentication API.
     if (password !== passwordAgain) {
@@ -75,8 +76,8 @@ function Auth() {
         title: 'Passwords do not match',
         message: 'Enter the same password in both fields.',
         tone: 'error',
-      })
-      return
+      });
+      return;
     }
 
     if (user !== 'user' || email !== 'email' || password !== 'pass') {
@@ -84,12 +85,15 @@ function Auth() {
         title: 'Unable to sign up',
         message: 'Use “user”, “email”, and “pass” for the mock account.',
         tone: 'error',
-      })
-      return
+      });
+      return;
     }
-
-    displayAlert({ message: 'Your account is ready.', tone: 'success' })
-    navigate('/my-trips')
+    setLoading(true);
+    // TODO: Remove the delay and replace with actual login API call
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    displayAlert({ message: 'Your account is ready.', tone: 'success' });
+    setLoading(false);
+    navigate('/my-trips');
   }
 
   return (
@@ -222,7 +226,7 @@ function Auth() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 /**
@@ -234,23 +238,23 @@ function Auth() {
  * @returns Form refs and the measured height of the active form.
  */
 function useAuthFormHeight(mode: AuthMode) {
-  const loginRef = useRef<HTMLFormElement>(null)
-  const signupRef = useRef<HTMLFormElement>(null)
-  const [height, setHeight] = useState<number>()
+  const loginRef = useRef<HTMLFormElement>(null);
+  const signupRef = useRef<HTMLFormElement>(null);
+  const [height, setHeight] = useState<number>();
 
   useLayoutEffect(() => {
-    const activeForm = mode === 'login' ? loginRef.current : signupRef.current
-    if (!activeForm) return
+    const activeForm = mode === 'login' ? loginRef.current : signupRef.current;
+    if (!activeForm) return;
 
-    const updateHeight = () => setHeight(activeForm.scrollHeight)
-    const observer = new ResizeObserver(updateHeight)
-    updateHeight()
-    observer.observe(activeForm)
+    const updateHeight = () => setHeight(activeForm.scrollHeight);
+    const observer = new ResizeObserver(updateHeight);
+    updateHeight();
+    observer.observe(activeForm);
 
-    return () => observer.disconnect()
-  }, [mode])
+    return () => observer.disconnect();
+  }, [mode]);
 
-  return { height, loginRef, signupRef }
+  return { height, loginRef, signupRef };
 }
 
-export default Auth
+export default Auth;

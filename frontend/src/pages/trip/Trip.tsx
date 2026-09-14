@@ -1,16 +1,16 @@
-import { ArrowLeft } from 'lucide-react'
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
-import { Text } from '../../components/common'
-import BottomNav from '../../components/navigation/BottomNav'
+import { ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { Text } from '../../components/common';
+import BottomNav from '../../components/navigation/BottomNav';
 import {
   tripNavItems,
   type TripSection,
-} from '../../components/navigation/navigationConfig'
-import AlbumView from './AlbumView'
-import ItineraryView from './ItineraryView'
-import LedgerView from './LedgerView'
-import LogisticsView from './LogisticsView'
+} from '../../components/navigation/navigationConfig';
+import AlbumView from './AlbumView';
+import ItineraryView from './ItineraryView';
+import LedgerView from './LedgerView';
+import LogisticsView from './LogisticsView';
 
 /**
  * Presents the placeholder detail view for an individual trip.
@@ -19,8 +19,8 @@ import LogisticsView from './LogisticsView'
  * @returns The trip detail page.
  */
 function Trip() {
-  const navigate = useNavigate()
-  const [section, setSection] = useState<TripSection>('itinerary')
+  const navigate = useNavigate();
+  const [section, setSection] = useState<TripSection>('itinerary');
 
   return (
     <section>
@@ -53,7 +53,7 @@ function Trip() {
         }}
       />
     </section>
-  )
+  );
 }
 
-export default Trip
+export default Trip;

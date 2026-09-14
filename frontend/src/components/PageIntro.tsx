@@ -1,7 +1,7 @@
 interface PageIntroProps {
-  eyebrow: string
-  title: string
-  description: string
+  eyebrow: string;
+  title: string;
+  description: string;
 }
 
 /**
@@ -33,8 +33,8 @@ function PageIntro({ eyebrow, title, description }: PageIntroProps) {
         {description}
       </Text>
     </header>
-  )
+  );
 }
 
-export default PageIntro
-import { Text } from './common'
+export default PageIntro;
+import { Text } from './common';

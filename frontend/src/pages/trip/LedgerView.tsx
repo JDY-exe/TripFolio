@@ -14,8 +14,8 @@ function LedgerView() {
         Shared expenses and balances will appear here.
       </Text>
     </div>
-  )
+  );
 }
 
-export default LedgerView
-import { Text } from '../../components/common'
+export default LedgerView;
+import { Text } from '../../components/common';

@@ -5,15 +5,15 @@
  * LoadingIndicatorAnimatorDelegate.java under the Apache License 2.0.
  */
 
-export const DURATION_PER_SHAPE_MS = 650
-export const CONSTANT_ROTATION_DEGREES = 50
-export const EXTRA_ROTATION_DEGREES = 90
-export const SPRING_STIFFNESS = 200
-export const SPRING_DAMPING_RATIO = 0.6
+export const DURATION_PER_SHAPE_MS = 650;
+export const CONSTANT_ROTATION_DEGREES = 50;
+export const EXTRA_ROTATION_DEGREES = 90;
+export const SPRING_STIFFNESS = 200;
+export const SPRING_DAMPING_RATIO = 0.6;
 
 export interface LoadingAnimationSnapshot {
-  morph: number
-  rotation: number
+  morph: number;
+  rotation: number;
 }
 
 /**
@@ -21,12 +21,12 @@ export interface LoadingAnimationSnapshot {
  * shape transition. Small Euler substeps keep the result stable across frames.
  */
 class Spring {
-  private readonly stiffness: number
-  private readonly damping: number
+  private readonly stiffness: number;
+  private readonly damping: number;
 
-  position = 0
-  velocity = 0
-  target = 0
+  position = 0;
+  velocity = 0;
+  target = 0;
 
   /**
    * Creates a unit-mass damped spring from Material's motion constants.
@@ -35,8 +35,8 @@ class Spring {
    * @param dampingRatio - Fraction of critical damping applied to motion.
    */
   constructor(stiffness: number, dampingRatio: number) {
-    this.stiffness = stiffness
-    this.damping = dampingRatio * 2 * Math.sqrt(stiffness)
+    this.stiffness = stiffness;
+    this.damping = dampingRatio * 2 * Math.sqrt(stiffness);
   }
 
   /**
@@ -46,15 +46,15 @@ class Spring {
    * @returns Nothing; position and velocity are updated in place.
    */
   step(seconds: number) {
-    const substeps = 12
-    const stepSeconds = seconds / substeps
+    const substeps = 12;
+    const stepSeconds = seconds / substeps;
 
     for (let index = 0; index < substeps; index += 1) {
       const acceleration =
         -this.stiffness * (this.position - this.target) -
-        this.damping * this.velocity
-      this.velocity += acceleration * stepSeconds
-      this.position += this.velocity * stepSeconds
+        this.damping * this.velocity;
+      this.velocity += acceleration * stepSeconds;
+      this.position += this.velocity * stepSeconds;
     }
   }
 }
@@ -64,15 +64,15 @@ class Spring {
  * rotation. Timestamps are converted into bounded frame deltas for stability.
  */
 export class LoadingIndicatorAnimator {
-  private readonly spring = new Spring(SPRING_STIFFNESS, SPRING_DAMPING_RATIO)
-  private readonly shapeDuration: number
-  private morphTarget = 1
-  private elapsedMs = 0
-  private previousCycle = 0
-  private lastTimestamp = 0
+  private readonly spring = new Spring(SPRING_STIFFNESS, SPRING_DAMPING_RATIO);
+  private readonly shapeDuration: number;
+  private morphTarget = 1;
+  private elapsedMs = 0;
+  private previousCycle = 0;
+  private lastTimestamp = 0;
 
-  morph = 0
-  rotation = 0
+  morph = 0;
+  rotation = 0;
 
   /**
    * Creates an animator starting at the soft-burst shape and targeting the next
@@ -81,8 +81,8 @@ export class LoadingIndicatorAnimator {
    * @param shapeDuration - Milliseconds between shape transitions.
    */
   constructor(shapeDuration = DURATION_PER_SHAPE_MS) {
-    this.shapeDuration = Math.max(1, shapeDuration)
-    this.spring.target = this.morphTarget
+    this.shapeDuration = Math.max(1, shapeDuration);
+    this.spring.target = this.morphTarget;
   }
 
   /**
@@ -93,37 +93,37 @@ export class LoadingIndicatorAnimator {
    */
   update(timestamp: number): LoadingAnimationSnapshot {
     if (this.lastTimestamp === 0) {
-      this.lastTimestamp = timestamp
-      return this.snapshot()
+      this.lastTimestamp = timestamp;
+      return this.snapshot();
     }
 
-    const seconds = Math.min((timestamp - this.lastTimestamp) / 1000, 0.1)
-    this.lastTimestamp = timestamp
-    if (seconds <= 0) return this.snapshot()
+    const seconds = Math.min((timestamp - this.lastTimestamp) / 1000, 0.1);
+    this.lastTimestamp = timestamp;
+    if (seconds <= 0) return this.snapshot();
 
-    this.elapsedMs += seconds * 1000
-    const cycle = Math.floor(this.elapsedMs / this.shapeDuration)
+    this.elapsedMs += seconds * 1000;
+    const cycle = Math.floor(this.elapsedMs / this.shapeDuration);
 
     if (cycle > this.previousCycle) {
-      this.morphTarget += cycle - this.previousCycle
-      this.spring.target = this.morphTarget
-      this.previousCycle = cycle
+      this.morphTarget += cycle - this.previousCycle;
+      this.spring.target = this.morphTarget;
+      this.previousCycle = cycle;
     }
 
     const timeFraction =
-      (this.elapsedMs % this.shapeDuration) / this.shapeDuration
-    this.spring.step(seconds)
+      (this.elapsedMs % this.shapeDuration) / this.shapeDuration;
+    this.spring.step(seconds);
 
-    const morphBase = this.morphTarget - 1
-    const springFraction = this.spring.position - morphBase
+    const morphBase = this.morphTarget - 1;
+    const springFraction = this.spring.position - morphBase;
     this.rotation =
       ((CONSTANT_ROTATION_DEGREES + EXTRA_ROTATION_DEGREES) * morphBase +
         CONSTANT_ROTATION_DEGREES * timeFraction +
         EXTRA_ROTATION_DEGREES * springFraction) %
-      360
-    this.morph = this.spring.position
+      360;
+    this.morph = this.spring.position;
 
-    return this.snapshot()
+    return this.snapshot();
   }
 
   /**
@@ -132,6 +132,6 @@ export class LoadingIndicatorAnimator {
    * @returns Current morph position and rotation in degrees.
    */
   snapshot(): LoadingAnimationSnapshot {
-    return { morph: this.morph, rotation: this.rotation }
+    return { morph: this.morph, rotation: this.rotation };
   }
 }

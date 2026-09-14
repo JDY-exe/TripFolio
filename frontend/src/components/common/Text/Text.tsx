@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react'
+import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
 
 const textVariants = {
   display: 'text-4xl leading-tight tracking-tight',
@@ -7,7 +7,7 @@ const textVariants = {
   body: 'text-body',
   label: 'text-label',
   caption: 'text-xs leading-4',
-} as const
+} as const;
 
 const textColors = {
   inherit: 'text-inherit',
@@ -16,21 +16,21 @@ const textColors = {
   primary: 'text-primary',
   error: 'text-error',
   'on-primary': 'text-on-primary',
-} as const
+} as const;
 
-export type TextVariant = keyof typeof textVariants
-export type TextColor = keyof typeof textColors
+export type TextVariant = keyof typeof textVariants;
+export type TextColor = keyof typeof textColors;
 
 type TextOwnProps<T extends ElementType> = {
-  as?: T
-  variant?: TextVariant
-  color?: TextColor
-  children: ReactNode
-  className?: string
-}
+  as?: T;
+  variant?: TextVariant;
+  color?: TextColor;
+  children: ReactNode;
+  className?: string;
+};
 
 export type TextProps<T extends ElementType = 'p'> = TextOwnProps<T> &
-  Omit<ComponentPropsWithoutRef<T>, keyof TextOwnProps<T>>
+  Omit<ComponentPropsWithoutRef<T>, keyof TextOwnProps<T>>;
 
 /**
  * Renders typography using the TripFolio type and semantic color scales.
@@ -52,7 +52,7 @@ function Text<T extends ElementType = 'p'>({
   children,
   ...props
 }: TextProps<T>) {
-  const Component = as ?? 'p'
+  const Component = as ?? 'p';
 
   return (
     <Component
@@ -63,7 +63,7 @@ function Text<T extends ElementType = 'p'>({
     >
       {children}
     </Component>
-  )
+  );
 }
 
-export default Text
+export default Text;
