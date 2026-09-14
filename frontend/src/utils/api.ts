@@ -1,9 +1,9 @@
-import axios from 'axios'
-import type { AxiosRequestConfig } from 'axios'
+import axios from 'axios';
+import type { AxiosRequestConfig } from 'axios';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_URL,
-})
+});
 
 /**
  * Fetches a typed resource from the backend API. The shared Axios instance
@@ -17,10 +17,10 @@ export const getFromApi = async <TResponse>(
   url: string,
   config?: AxiosRequestConfig,
 ): Promise<TResponse> => {
-  const response = await api.get<TResponse>(url, config)
+  const response = await api.get<TResponse>(url, config);
 
-  return response.data
-}
+  return response.data;
+};
 
 /**
  * Creates a resource through the backend API. The shared Axios instance sends
@@ -36,10 +36,10 @@ export const postToApi = async <TResponse, TRequest = unknown>(
   data?: TRequest,
   config?: AxiosRequestConfig<TRequest>,
 ): Promise<TResponse> => {
-  const response = await api.post<TResponse>(url, data, config)
+  const response = await api.post<TResponse>(url, data, config);
 
-  return response.data
-}
+  return response.data;
+};
 
 /**
  * Partially updates a resource through the backend API. The shared Axios
@@ -55,10 +55,10 @@ export const patchToApi = async <TResponse, TRequest = unknown>(
   data: TRequest,
   config?: AxiosRequestConfig<TRequest>,
 ): Promise<TResponse> => {
-  const response = await api.patch<TResponse>(url, data, config)
+  const response = await api.patch<TResponse>(url, data, config);
 
-  return response.data
-}
+  return response.data;
+};
 
 /**
  * Deletes a resource through the backend API. The shared Axios instance sends
@@ -72,7 +72,7 @@ export const deleteFromApi = async <TResponse>(
   url: string,
   config?: AxiosRequestConfig,
 ): Promise<TResponse> => {
-  const response = await api.delete<TResponse>(url, config)
+  const response = await api.delete<TResponse>(url, config);
 
-  return response.data
-}
+  return response.data;
+};

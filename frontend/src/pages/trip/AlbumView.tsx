@@ -1,4 +1,5 @@
-import { ImagePlus, Upload } from 'lucide-react'
+import { ImagePlus, Upload } from 'lucide-react';
+import { Text } from '../../components/common';
 
 /**
  * Presents a static photo-upload surface for the trip album.
@@ -12,9 +13,9 @@ function AlbumView() {
       aria-labelledby="album-heading"
       className="min-w-0 text-on-surface lg:col-span-2"
     >
-      <h2 id="album-heading" className="text-title">
+      <Text as="h2" id="album-heading" variant="title">
         Album
-      </h2>
+      </Text>
 
       <div className="mt-6 flex min-h-80 flex-col items-center justify-center gap-8 rounded-[2rem_0.75rem_2rem_0.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-12 sm:min-h-96">
         <div
@@ -42,7 +43,7 @@ function AlbumView() {
         </label>
       </div>
     </section>
-  )
+  );
 }
 
-export default AlbumView
+export default AlbumView;

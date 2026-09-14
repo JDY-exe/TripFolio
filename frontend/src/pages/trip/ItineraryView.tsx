@@ -6,7 +6,8 @@ import {
   Navigation,
   Pencil,
   Plus,
-} from 'lucide-react'
+} from 'lucide-react';
+import { Button, IconButton, Text } from '../../components/common';
 
 /**
  * Displays a single sample walking event on a static day timeline.
@@ -22,17 +23,17 @@ function ItineraryView() {
       className="min-w-0 text-on-surface"
     >
       <header className="flex items-center justify-between gap-4">
-        <h2 id="itinerary-heading" className="text-title">
+        <Text as="h2" id="itinerary-heading" variant="title">
           Itinerary
-        </h2>
-        <button
-          type="button"
+        </Text>
+        <IconButton
           disabled
           aria-label="Add an itinerary event"
-          className="grid size-12 shrink-0 place-items-center rounded-[1rem_0.5rem_1rem_0.5rem] bg-primary text-on-primary"
-        >
-          <Plus aria-hidden size={22} />
-        </button>
+          variant="primary"
+          size="lg"
+          icon={<Plus aria-hidden size={22} />}
+          className="rounded-[1rem_0.5rem_1rem_0.5rem]"
+        />
       </header>
 
       <div className="mb-7 mt-6 flex items-center gap-4">
@@ -124,28 +125,24 @@ function ItineraryView() {
             </p>
 
             <div className="col-span-2 flex flex-wrap items-center justify-between gap-2 sm:col-span-1">
-              <button
-                type="button"
+              <Button
                 disabled
-                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-secondary-container px-4 py-2 text-label text-on-secondary-container"
+                variant="secondary"
+                leadingIcon={<Navigation aria-hidden size={16} />}
               >
-                <Navigation aria-hidden size={16} />
                 Directions
-              </button>
-              <button
-                type="button"
+              </Button>
+              <IconButton
                 disabled
                 aria-label="Edit Walk through Higashiyama"
-                className="grid size-11 shrink-0 place-items-center rounded-full text-on-surface-variant"
-              >
-                <Pencil aria-hidden size={18} />
-              </button>
+                icon={<Pencil aria-hidden size={18} />}
+              />
             </div>
           </article>
         </li>
       </ol>
     </section>
-  )
+  );
 }
 
-export default ItineraryView
+export default ItineraryView;

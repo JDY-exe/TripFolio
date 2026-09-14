@@ -7,12 +7,15 @@
 function LedgerView() {
   return (
     <div className="min-h-72 rounded-panel bg-surface-container p-8 text-on-surface">
-      <h2 className="text-title">Ledger</h2>
-      <p className="mt-2 text-body text-on-surface-variant">
+      <Text as="h2" variant="title">
+        Ledger
+      </Text>
+      <Text color="muted" className="mt-2">
         Shared expenses and balances will appear here.
-      </p>
+      </Text>
     </div>
-  )
+  );
 }
 
-export default LedgerView
+export default LedgerView;
+import { Text } from '../../components/common';

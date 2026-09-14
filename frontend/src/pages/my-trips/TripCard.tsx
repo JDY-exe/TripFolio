@@ -1,12 +1,13 @@
-import { ArrowUpRight, CalendarDays, MapPin, UsersRound } from 'lucide-react'
+import { ArrowUpRight, CalendarDays, MapPin, UsersRound } from 'lucide-react';
+import { Button, Text } from '../../components/common';
 
 export interface TripCardProps {
-  title: string
-  destination: string
-  dates: string
-  travelers: string
-  status: string
-  image: string
+  title: string;
+  destination: string;
+  dates: string;
+  travelers: string;
+  status: string;
+  image: string;
 }
 
 /**
@@ -41,11 +42,13 @@ function TripCard({
       </div>
 
       <div className="p-5 sm:p-6">
-        <p className="flex items-center gap-1.5 text-sm text-on-surface-variant">
+        <Text color="muted" className="flex items-center gap-1.5 text-sm">
           <MapPin aria-hidden size={15} className="shrink-0" />
           {destination}
-        </p>
-        <h2 className="mt-2 text-title text-on-surface">{title}</h2>
+        </Text>
+        <Text as="h2" variant="title" className="mt-2">
+          {title}
+        </Text>
 
         <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-on-surface-variant">
           <p className="flex items-center gap-2">
@@ -59,19 +62,20 @@ function TripCard({
         </div>
 
         <div className="mt-5 border-t border-outline-variant pt-4">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             disabled
             aria-label={`Open ${title}`}
-            className="flex min-h-11 w-full items-center justify-between text-label text-primary"
+            fullWidth
+            className="justify-between px-0"
+            trailingIcon={<ArrowUpRight aria-hidden size={18} />}
           >
             View trip
-            <ArrowUpRight aria-hidden size={18} />
-          </button>
+          </Button>
         </div>
       </div>
     </article>
-  )
+  );
 }
 
-export default TripCard
+export default TripCard;

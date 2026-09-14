@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { getTopLevelNavValue } from '../../../src/components/navigation/navigationConfig'
+import { describe, expect, it } from 'vitest';
+import { getTopLevelNavValue } from '../../../src/components/navigation/navigationConfig';
 
 describe('getTopLevelNavValue', () => {
   it.each([
@@ -9,11 +9,11 @@ describe('getTopLevelNavValue', () => {
     ['/my-trips/archive', '/my-trips'],
     ['/profile', '/profile'],
   ])('maps %s to %s', (pathname, expected) => {
-    expect(getTopLevelNavValue(pathname)).toBe(expected)
-  })
+    expect(getTopLevelNavValue(pathname)).toBe(expected);
+  });
 
   it('falls back to My Trips for contextual and unknown pages', () => {
-    expect(getTopLevelNavValue('/trip')).toBe('/my-trips')
-    expect(getTopLevelNavValue('/unknown')).toBe('/my-trips')
-  })
-})
+    expect(getTopLevelNavValue('/trip')).toBe('/my-trips');
+    expect(getTopLevelNavValue('/unknown')).toBe('/my-trips');
+  });
+});

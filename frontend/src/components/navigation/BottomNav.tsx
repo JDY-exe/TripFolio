@@ -1,29 +1,29 @@
-import type { CSSProperties } from 'react'
-import type { LucideIcon } from 'lucide-react'
-import { getExpandedFlexGrow } from './bottomNavLayout'
+import type { CSSProperties } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { getExpandedFlexGrow } from './bottomNavLayout';
 
 export interface BottomNavItem {
-  icon: LucideIcon
-  label: string
-  value: string
+  icon: LucideIcon;
+  label: string;
+  value: string;
 }
 
 interface BottomNavAction {
-  icon: LucideIcon
-  label: string
-  onClick: () => void
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
 }
 
 interface BottomNavProps {
-  'aria-label': string
-  items: readonly BottomNavItem[]
-  value: string
-  onChange: (value: string) => void
-  leadingAction?: BottomNavAction
+  'aria-label': string;
+  items: readonly BottomNavItem[];
+  value: string;
+  onChange: (value: string) => void;
+  leadingAction?: BottomNavAction;
 }
 
 const actionClasses =
-  'flex min-h-11 items-center justify-center rounded-full text-on-surface-variant select-none cursor-pointer hover:bg-primary/8 hover:text-on-surface focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-safe:transition-[background-color,color,flex-grow] motion-safe:duration-200 motion-safe:ease-standard'
+  'flex min-h-11 items-center justify-center rounded-full text-on-surface-variant select-none cursor-pointer hover:bg-primary/8 hover:text-on-surface focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-safe:transition-[background-color,color,flex-grow] motion-safe:duration-200 motion-safe:ease-standard';
 
 /**
  * Renders a floating navigation dock with native buttons and semantic utilities.
@@ -44,12 +44,12 @@ function BottomNav({
   onChange,
   leadingAction,
 }: BottomNavProps) {
-  const LeadingIcon = leadingAction?.icon
+  const LeadingIcon = leadingAction?.icon;
   const rowStyle = {
     '--nav-width': `${items.length * 120}px`,
     '--nav-hover-grow': getExpandedFlexGrow(items.length, 1.1),
     '--nav-pressed-grow': getExpandedFlexGrow(items.length, 1.2),
-  } as CSSProperties
+  } as CSSProperties;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-center px-2 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">
@@ -81,7 +81,7 @@ function BottomNav({
           style={rowStyle}
         >
           {items.map((item) => {
-            const Icon = item.icon
+            const Icon = item.icon;
 
             return (
               <button
@@ -99,12 +99,12 @@ function BottomNav({
                 />
                 <span className="max-w-full truncate">{item.label}</span>
               </button>
-            )
+            );
           })}
         </div>
       </nav>
     </div>
-  )
+  );
 }
 
-export default BottomNav
+export default BottomNav;

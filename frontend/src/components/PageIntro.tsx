@@ -1,7 +1,7 @@
 interface PageIntroProps {
-  eyebrow: string
-  title: string
-  description: string
+  eyebrow: string;
+  title: string;
+  description: string;
 }
 
 /**
@@ -19,13 +19,22 @@ interface PageIntroProps {
 function PageIntro({ eyebrow, title, description }: PageIntroProps) {
   return (
     <header className="max-w-2xl text-on-surface">
-      <p className="text-label uppercase tracking-widest text-primary">
+      <Text
+        variant="label"
+        color="primary"
+        className="uppercase tracking-widest"
+      >
         {eyebrow}
-      </p>
-      <h1 className="mt-3 text-headline tracking-tight">{title}</h1>
-      <p className="mt-4 text-body text-on-surface-variant">{description}</p>
+      </Text>
+      <Text as="h1" variant="headline" className="mt-3">
+        {title}
+      </Text>
+      <Text color="muted" className="mt-4">
+        {description}
+      </Text>
     </header>
-  )
+  );
 }
 
-export default PageIntro
+export default PageIntro;
+import { Text } from './common';
