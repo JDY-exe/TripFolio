@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { Button, displayAlert, Text, TextField } from '../../components/common';
 import { useLoading } from '../../contexts/LoadingContext';
 import AuthArtwork from './AuthArtwork';
+import Onboard from './Onboard';
 
 type AuthMode = 'login' | 'signup';
 
@@ -21,6 +22,7 @@ function Auth() {
   const navigate = useNavigate();
   const { setLoading } = useLoading();
   const [mode, setMode] = useState<AuthMode>('login');
+  const [isOnboarding, setIsOnboarding] = useState(false);
   const { height: formHeight, loginRef, signupRef } = useAuthFormHeight(mode);
 
   /**
@@ -57,7 +59,7 @@ function Auth() {
   /**
    * Submits the temporary signup fixture and reports validation failures.
    * It checks password confirmation before accepting the fixed mock values and
-   * moving the new visitor into their trip collection.
+   * moving the new visitor into profile-picture onboarding.
    *
    * @param event - Native signup form submission event.
    * @returns Nothing.
@@ -93,7 +95,28 @@ function Auth() {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     displayAlert({ message: 'Your account is ready.', tone: 'success' });
     setLoading(false);
+    setIsOnboarding(true);
+  }
+
+  /**
+   * Finishes the in-memory onboarding step and enters the trip collection. A
+   * toast confirms whether the selected or default profile picture was chosen.
+   *
+   * @param useDefaultPicture - Whether the user skipped image selection.
+   * @returns Nothing; the current route is replaced with the trips screen.
+   */
+  function handleOnboardingComplete(useDefaultPicture: boolean) {
+    displayAlert({
+      message: useDefaultPicture
+        ? 'Using the default profile picture.'
+        : 'Profile picture selected.',
+      tone: 'success',
+    });
     navigate('/my-trips');
+  }
+
+  if (isOnboarding) {
+    return <Onboard onComplete={handleOnboardingComplete} />;
   }
 
   return (
