@@ -1,4 +1,5 @@
 import PageIntro from '../../components/PageIntro'
+import { Text } from '../../components/common'
 
 /**
  * Presents placeholder account details and preferences for the signed-in user.
@@ -16,11 +17,11 @@ function Profile() {
       />
 
       <div className="mt-10 rounded-panel border border-dashed border-outline bg-surface-container-low p-8 text-on-surface">
-        <p className="text-title">Profile settings coming soon</p>
-        <p className="mt-2 text-body text-on-surface-variant">
+        <Text variant="title">Profile settings coming soon</Text>
+        <Text color="muted" className="mt-2">
           Your photo, display name, home base, and travel preferences will
           appear here.
-        </p>
+        </Text>
       </div>
     </section>
   )

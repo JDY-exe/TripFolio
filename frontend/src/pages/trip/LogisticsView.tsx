@@ -10,10 +10,8 @@ import {
   Settings2,
   UsersRound,
 } from 'lucide-react'
+import { IconButton, Text } from '../../components/common'
 import LogisticsChapterNav from './LogisticsChapterNav'
-
-const editClasses =
-  'grid size-11 shrink-0 place-items-center rounded-full text-on-surface-variant'
 
 /**
  * Displays sample flight, car-rental, and accommodation reservations.
@@ -29,17 +27,17 @@ function LogisticsView() {
       className="min-w-0 text-on-surface lg:col-span-2"
     >
       <header className="flex items-center justify-between gap-4">
-        <h2 id="logistics-heading" className="text-title">
+        <Text as="h2" id="logistics-heading" variant="title">
           Logistics
-        </h2>
-        <button
-          type="button"
+        </Text>
+        <IconButton
           disabled
           aria-label="Add a reservation"
-          className="grid size-12 shrink-0 place-items-center rounded-[1rem_0.5rem_1rem_0.5rem] bg-primary text-on-primary"
-        >
-          <Plus aria-hidden size={22} />
-        </button>
+          variant="primary"
+          size="lg"
+          icon={<Plus aria-hidden size={22} />}
+          className="rounded-[1rem_0.5rem_1rem_0.5rem]"
+        />
       </header>
 
       <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_13rem] lg:gap-12">
@@ -117,14 +115,11 @@ function LogisticsView() {
                   <Luggage aria-hidden size={16} />
                   23 kg checked bag
                 </p>
-                <button
-                  type="button"
+                <IconButton
                   disabled
                   aria-label="Edit flight reservation"
-                  className={editClasses}
-                >
-                  <Pencil aria-hidden size={18} />
-                </button>
+                  icon={<Pencil aria-hidden size={18} />}
+                />
               </div>
             </article>
           </section>
@@ -192,14 +187,11 @@ function LogisticsView() {
                     <UsersRound aria-hidden size={16} />5 seats
                   </span>
                 </div>
-                <button
-                  type="button"
+                <IconButton
                   disabled
                   aria-label="Edit rental car reservation"
-                  className={editClasses}
-                >
-                  <Pencil aria-hidden size={18} />
-                </button>
+                  icon={<Pencil aria-hidden size={18} />}
+                />
               </div>
             </article>
           </section>
@@ -273,14 +265,11 @@ function LogisticsView() {
                   <UsersRound aria-hidden size={16} />
                   Twin room / 2 guests
                 </p>
-                <button
-                  type="button"
+                <IconButton
                   disabled
                   aria-label="Edit accommodation reservation"
-                  className={editClasses}
-                >
-                  <Pencil aria-hidden size={18} />
-                </button>
+                  icon={<Pencil aria-hidden size={18} />}
+                />
               </div>
             </article>
           </section>

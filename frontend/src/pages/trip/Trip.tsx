@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { Text } from '../../components/common'
 import BottomNav from '../../components/navigation/BottomNav'
 import {
   tripNavItems,
@@ -30,10 +31,12 @@ function Trip() {
         {section === 'album' ? <AlbumView /> : null}
         {section === 'itinerary' || section === 'ledger' ? (
           <aside className="rounded-panel bg-surface-container p-8 text-on-surface">
-            <h2 className="text-title">Trip overview</h2>
-            <p className="mt-2 text-body text-on-surface-variant">
+            <Text as="h2" variant="title">
+              Trip overview
+            </Text>
+            <Text color="muted" className="mt-2">
               Dates, travelers, and key details coming soon.
-            </p>
+            </Text>
           </aside>
         ) : null}
       </div>

@@ -7,11 +7,14 @@ import {
   useNavigate,
 } from 'react-router'
 import AppHeader from './components/AppHeader'
+import { ToastViewport } from './components/common'
+import ScreenLoadingOverlay from './components/common/LoadingIndicator/ScreenLoadingOverlay'
 import BottomNav from './components/navigation/BottomNav'
 import {
   getTopLevelNavValue,
   topLevelNavItems,
 } from './components/navigation/navigationConfig'
+import { LoadingProvider, useLoading } from './contexts/LoadingContext'
 import Auth from './pages/auth/Auth'
 import MyTrips from './pages/my-trips/MyTrips'
 import Profile from './pages/profile/Profile'
@@ -29,11 +32,16 @@ import Trip from './pages/trip/Trip'
 function AppContent() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { isLoading } = useLoading()
   const showPrimaryNav =
     location.pathname !== '/auth' && location.pathname !== '/trip'
 
   return (
-    <div className="min-h-screen bg-surface text-on-surface">
+    <div
+      aria-hidden={isLoading || undefined}
+      className="min-h-screen bg-surface text-on-surface"
+      inert={isLoading || undefined}
+    >
       <AppHeader />
 
       <main className="mx-auto max-w-6xl px-6 py-12 pb-28">
@@ -56,6 +64,8 @@ function AppContent() {
           onChange={navigate}
         />
       ) : null}
+
+      <ToastViewport />
     </div>
   )
 }
@@ -70,9 +80,12 @@ function AppContent() {
  */
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <LoadingProvider>
+      <BrowserRouter>
+        <AppContent />
+        <ScreenLoadingOverlay />
+      </BrowserRouter>
+    </LoadingProvider>
   )
 }
 
