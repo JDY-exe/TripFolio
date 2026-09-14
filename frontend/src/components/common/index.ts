@@ -1,9 +1,17 @@
 export { default as Button } from './Button';
 export type { ButtonProps } from './Button';
+export { default as CircularProgressIndicator } from './CircularProgressIndicator';
+export type { CircularProgressIndicatorProps } from './CircularProgressIndicator';
 export { default as IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
 export { default as LoadingIndicator } from './LoadingIndicator';
 export type { LoadingIndicatorProps } from './LoadingIndicator';
+export { default as MediaUpload } from './MediaUpload';
+export type {
+  MediaUploadLoadingIndicatorType,
+  MediaUploadMediaType,
+  MediaUploadProps,
+} from './MediaUpload';
 export { default as Text } from './Text';
 export type { TextColor, TextProps, TextVariant } from './Text';
 export { default as TextField } from './TextField';

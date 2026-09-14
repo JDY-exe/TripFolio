@@ -58,6 +58,44 @@
   }
 }
 
+@keyframes circular-progress-indicator-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes circular-progress-indicator-grow {
+  0% {
+    stroke-dasharray: 4 96;
+    stroke-dashoffset: 0;
+  }
+
+  50% {
+    stroke-dasharray: 68 32;
+    stroke-dashoffset: -18;
+  }
+
+  100% {
+    stroke-dasharray: 4 96;
+    stroke-dashoffset: -100;
+  }
+}
+
+.circular-progress-indicator__active--indeterminate {
+  animation:
+    circular-progress-indicator-spin 2s linear infinite,
+    circular-progress-indicator-grow 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .circular-progress-indicator__active--indeterminate {
+    animation: none;
+    stroke-dasharray: 24 76;
+  }
+}
+
 @layer base {
   :root {
     color-scheme: light;
