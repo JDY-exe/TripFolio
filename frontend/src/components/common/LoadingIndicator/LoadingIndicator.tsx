@@ -136,11 +136,12 @@ function LoadingIndicator({
   return (
     <canvas
       ref={canvasRef}
-      aria-label={label}
       role="progressbar"
       style={mergedStyle}
       {...canvasProps}
-    />
+    >
+      {label}
+    </canvas>
   );
 }
 

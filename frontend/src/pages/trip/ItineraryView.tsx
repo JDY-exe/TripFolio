@@ -28,7 +28,7 @@ function ItineraryView() {
         </Text>
         <IconButton
           disabled
-          aria-label="Add an itinerary event"
+          label="Add an itinerary event"
           variant="primary"
           size="lg"
           icon={<Plus aria-hidden size={22} />}
@@ -65,11 +65,8 @@ function ItineraryView() {
             aria-hidden="true"
             className="absolute bottom-0 left-5 top-11 w-px bg-outline-variant"
           />
-          <div
-            role="img"
-            aria-label="Walking event"
-            className="absolute left-0 top-0 grid size-11 place-items-center"
-          >
+          <div className="absolute left-0 top-0 grid size-11 place-items-center">
+            <span className="sr-only">Walking event</span>
             <Badge
               aria-hidden
               size={44}
@@ -134,7 +131,7 @@ function ItineraryView() {
               </Button>
               <IconButton
                 disabled
-                aria-label="Edit Walk through Higashiyama"
+                label="Edit Walk through Higashiyama"
                 icon={<Pencil aria-hidden size={18} />}
               />
             </div>

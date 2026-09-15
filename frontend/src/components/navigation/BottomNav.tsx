@@ -15,7 +15,7 @@ interface BottomNavAction {
 }
 
 interface BottomNavProps {
-  'aria-label': string;
+  label: string;
   items: readonly BottomNavItem[];
   value: string;
   onChange: (value: string) => void;
@@ -30,7 +30,7 @@ const actionClasses =
  * Selection stays controlled by the parent; CSS variables size the expanding row.
  *
  * @param props - Navigation items, current selection, and optional leading action.
- * @param props.aria-label - Accessible name for the navigation landmark.
+ * @param props.label - Navigation name rendered as visually hidden text.
  * @param props.items - Icon, label, and value for each destination.
  * @param props.value - Currently selected destination.
  * @param props.onChange - Called with the activated destination's value.
@@ -38,7 +38,7 @@ const actionClasses =
  * @returns A responsive, keyboard-accessible navigation dock.
  */
 function BottomNav({
-  'aria-label': ariaLabel,
+  label,
   items,
   value,
   onChange,
@@ -53,14 +53,11 @@ function BottomNav({
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-center px-2 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">
-      <nav
-        aria-label={ariaLabel}
-        className="pointer-events-auto flex w-full max-w-full gap-1 overflow-x-auto rounded-dock bg-surface-container p-1 shadow-raised sm:w-auto"
-      >
+      <nav className="pointer-events-auto flex w-full max-w-full gap-1 overflow-x-auto rounded-dock bg-surface-container p-1 shadow-raised sm:w-auto">
+        <span className="sr-only">{label}</span>
         {leadingAction && LeadingIcon ? (
           <button
             type="button"
-            aria-label={leadingAction.label}
             onClick={leadingAction.onClick}
             className={`${actionClasses} min-w-11 shrink-0 gap-1.5 px-2 text-label active:bg-primary/12 sm:px-4`}
           >
@@ -70,7 +67,7 @@ function BottomNav({
               strokeWidth={2}
               className="shrink-0"
             />
-            <span className="hidden whitespace-nowrap sm:inline">
+            <span className="sr-only whitespace-nowrap sm:not-sr-only">
               {leadingAction.label}
             </span>
           </button>

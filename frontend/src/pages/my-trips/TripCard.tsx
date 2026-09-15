@@ -65,7 +65,6 @@ function TripCard({
           <Button
             variant="ghost"
             disabled
-            aria-label={`Open ${title}`}
             fullWidth
             className="justify-between px-0"
             trailingIcon={<ArrowUpRight aria-hidden size={18} />}

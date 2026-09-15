@@ -63,3 +63,37 @@ export function getMediaUploadLabel(
 
   return `Choose ${subject}`;
 }
+
+/**
+ * Creates concise drop-zone guidance from the accepted media and selection
+ * mode, using the same terminology as the native picker label.
+ *
+ * @param mediaType - One or more categories allowed by the upload control.
+ * @param multiple - Whether more than one file may be dropped.
+ * @returns Human-readable guidance for the drag-and-drop surface.
+ */
+export function getMediaUploadDropLabel(
+  mediaType: MediaUploadMediaType | readonly MediaUploadMediaType[],
+  multiple: boolean,
+) {
+  return getMediaUploadLabel(mediaType, multiple).replace('Choose', 'Drop');
+}
+
+/**
+ * Checks whether a dropped file matches at least one configured media category.
+ * Empty browser MIME values are accepted because some operating systems do not
+ * provide a type for otherwise valid files.
+ *
+ * @param file - File-like value whose browser-provided MIME type is inspected.
+ * @param mediaType - One or more categories allowed by the upload control.
+ * @returns Whether the file is eligible for selection.
+ */
+export function isMediaUploadFileAccepted(
+  file: Pick<File, 'type'>,
+  mediaType: MediaUploadMediaType | readonly MediaUploadMediaType[],
+) {
+  const types = normalizeMediaTypes(mediaType);
+  if (types.length === 0 || types.includes('any') || !file.type) return true;
+
+  return types.some((type) => file.type.startsWith(`${type}/`));
+}

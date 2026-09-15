@@ -42,7 +42,7 @@ function Trip() {
       </div>
 
       <BottomNav
-        aria-label="Trip navigation"
+        label="Trip navigation"
         items={tripNavItems}
         value={section}
         onChange={(value) => setSection(value as TripSection)}

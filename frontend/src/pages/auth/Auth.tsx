@@ -1,7 +1,12 @@
 import { ArrowRight } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type SubmitEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { Button, displayAlert, Text, TextField } from '../../components/common';
+import {
+  Button,
+  Display,
+  displayAlert,
+  TextField,
+} from '../../components/common';
 import { useLoading } from '../../contexts/LoadingContext';
 import AuthArtwork from './AuthArtwork';
 import Onboard from './Onboard';
@@ -124,9 +129,17 @@ function Auth() {
       <AuthArtwork />
 
       <div className="group mx-auto w-full max-w-sm py-4 sm:py-8">
-        <Text as="h1" variant="headline">
-          Your account
-        </Text>
+        <Display
+          as="h1"
+          size="headline"
+          weight={660}
+          width={112}
+          opticalSize={80}
+          grade={20}
+          roundness={76}
+        >
+          Your <span className="text-primary">account</span>
+        </Display>
 
         <fieldset className="mb-8 mt-6 flex gap-1 rounded-full bg-surface-container p-1">
           <legend className="sr-only">Account access</legend>
@@ -166,7 +179,6 @@ function Auth() {
           <form
             ref={loginRef}
             id="login-form"
-            aria-label="Log in"
             onSubmit={handleLogin}
             noValidate
             aria-hidden={mode !== 'login'}
@@ -201,7 +213,6 @@ function Auth() {
           <form
             ref={signupRef}
             id="signup-form"
-            aria-label="Sign up"
             onSubmit={handleSignup}
             noValidate
             aria-hidden={mode !== 'signup'}

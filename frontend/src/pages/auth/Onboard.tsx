@@ -1,6 +1,6 @@
 import { ArrowRight, UserRound } from 'lucide-react';
 import { useState } from 'react';
-import { Button, MediaUpload, Text } from '../../components/common';
+import { Button, Display, MediaUpload, Text } from '../../components/common';
 
 export interface OnboardProps {
   /** Completes onboarding and reports whether the default picture was chosen. */
@@ -33,16 +33,20 @@ function Onboard({ onComplete }: OnboardProps) {
       aria-labelledby="onboard-heading"
       className="mx-auto max-w-xl py-4 text-on-surface sm:py-8"
     >
-      <div className="text-center">
-        <div
-          aria-hidden="true"
-          className="mx-auto mb-6 grid size-20 place-items-center rounded-full bg-secondary-container text-on-secondary-container"
+      <div className="mt-20 text-center">
+        <Display
+          as="h1"
+          id="onboard-heading"
+          size="headline"
+          weight={560}
+          width={88}
+          opticalSize={96}
+          slant={-3}
+          grade={12}
+          roundness={100}
         >
-          <UserRound size={34} strokeWidth={1.5} />
-        </div>
-        <Text as="h1" id="onboard-heading" variant="headline">
-          Add a profile picture
-        </Text>
+          Add a <span className="text-primary">profile picture?</span>
+        </Display>
       </div>
 
       <MediaUpload

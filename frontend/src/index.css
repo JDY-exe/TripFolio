@@ -3,6 +3,8 @@
 /* Matugen tonal-spot colors from sakura-blue.jpg; source seed #b4e4e0. */
 @theme {
   --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    'Google Sans Flex Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
 
   --color-primary: #006a66;
   --color-on-primary: #ffffff;
@@ -58,6 +60,16 @@
   }
 }
 
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.modal-enter {
+  animation: modal-fade-in 200ms var(--ease-standard);
+}
+
 @keyframes circular-progress-indicator-spin {
   to {
     transform: rotate(360deg);
@@ -90,6 +102,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .modal-enter {
+    animation: none;
+  }
+
   .circular-progress-indicator__active--indeterminate {
     animation: none;
     stroke-dasharray: 24 76;

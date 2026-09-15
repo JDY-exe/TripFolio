@@ -32,7 +32,7 @@ function LogisticsView() {
         </Text>
         <IconButton
           disabled
-          aria-label="Add a reservation"
+          label="Add a reservation"
           variant="primary"
           size="lg"
           icon={<Plus aria-hidden size={22} />}
@@ -117,7 +117,7 @@ function LogisticsView() {
                 </p>
                 <IconButton
                   disabled
-                  aria-label="Edit flight reservation"
+                  label="Edit flight reservation"
                   icon={<Pencil aria-hidden size={18} />}
                 />
               </div>
@@ -189,7 +189,7 @@ function LogisticsView() {
                 </div>
                 <IconButton
                   disabled
-                  aria-label="Edit rental car reservation"
+                  label="Edit rental car reservation"
                   icon={<Pencil aria-hidden size={18} />}
                 />
               </div>
@@ -267,7 +267,7 @@ function LogisticsView() {
                 </p>
                 <IconButton
                   disabled
-                  aria-label="Edit accommodation reservation"
+                  label="Edit accommodation reservation"
                   icon={<Pencil aria-hidden size={18} />}
                 />
               </div>

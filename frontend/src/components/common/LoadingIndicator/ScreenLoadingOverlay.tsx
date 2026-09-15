@@ -35,12 +35,12 @@ function ScreenLoadingOverlay() {
   return (
     <div
       ref={overlayRef}
-      aria-label="Loading"
       aria-modal="true"
       className="fixed inset-0 z-100 flex items-center justify-center bg-surface/80 text-primary backdrop-blur-sm focus:outline-none"
       role="dialog"
       tabIndex={-1}
     >
+      <span className="sr-only">Loading</span>
       <LoadingIndicator size={128} />
     </div>
   );

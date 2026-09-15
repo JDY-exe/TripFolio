@@ -58,7 +58,7 @@ function AppContent() {
 
       {showPrimaryNav ? (
         <BottomNav
-          aria-label="Main navigation"
+          label="Main navigation"
           items={topLevelNavItems}
           value={getTopLevelNavValue(location.pathname)}
           onChange={navigate}
