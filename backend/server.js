@@ -11,6 +11,11 @@ app.use(express.json());
 
 connectDB();
 
+// Create Trip Section
+const tripRoutes = require("./routes/tripRoutes");
+app.use("/trip", tripRoutes);
+
+// Run Backend
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });
