@@ -20,6 +20,7 @@ import MyTrips from './pages/my-trips/MyTrips';
 import Profile from './pages/profile/Profile';
 import Search from './pages/search/Search';
 import Trip from './pages/trip/Trip';
+import CreateTrip from './pages/my-trips/CreateTrip';
 
 /**
  * Renders the route tree and the primary application navigation.
@@ -53,6 +54,7 @@ function AppContent() {
           <Route path="my-trips" element={<MyTrips />} />
           <Route path="trip" element={<Trip />} />
           <Route path="*" element={<Navigate to="/my-trips" replace />} />
+          <Route path="/create-trip" element={<CreateTrip />} />
         </Routes>
       </main>
 

@@ -5,4 +5,4 @@ const { createTrip, getTrips } = require("../controllers/tripController");
 router.post("/", createTrip);
 router.get("/", getTrips);
 
-module.export = router;
+module.exports = router;
