@@ -31,4 +31,16 @@ const getTrips = async (req, res) => {
   }
 };
 
-module.exports = { createTrip, getTrips };
+const deleteTrip = async (req, res) => {
+  try {
+    const deletedTrip = await Trip.findByIdAndDelete(req.params.id);
+    if (!deleteTrip) {
+      return res.status(400).json({ message: 'Trip not found' });
+    }
+    return res.status(200).json({ message: 'Trip successfully deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting trip', error: error.message });
+  }
+};
+
+module.exports = { createTrip, getTrips, deleteTrip };

@@ -2,7 +2,7 @@ import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Text } from '../../components/common';
-import { getFromApi } from '../../utils/api';
+import { getFromApi, deleteFromApi } from '../../utils/api';
 import TripCard from './TripCard';
 
 // Trip data shape
@@ -47,6 +47,14 @@ function MyTrips() {
     fetchTrips();
   }, []);
 
+  const handleDeleteTrip = async (id: string) => {
+    try {
+      await deleteFromApi(`/trip/${id}`);
+      setTrips((prevTrips) => prevTrips.filter((trip) => trip._id !== id));
+    } catch (error) {
+      console.error('Failed to delete trip on the server', error);
+    }
+  };
 
   return (
     <section className="text-on-surface">
@@ -80,6 +88,7 @@ function MyTrips() {
                 travelers="1 Traveler"
                 status="Upcoming"
                 image="https://placehold.co/600x400"
+                onDelete={handleDeleteTrip}
               />
             ))
           )}
