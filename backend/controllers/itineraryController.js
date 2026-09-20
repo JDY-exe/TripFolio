@@ -47,7 +47,7 @@ const updateItinerary = async (req, res) => {
     const updatedItinerary = await Itinerary.findByIdAndUpdate(
       id,
       { title, description },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updatedItinerary) {
