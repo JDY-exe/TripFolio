@@ -1,13 +1,16 @@
-import {
-  ArrowRight,
-  Badge,
-  Footprints,
-  MapPin,
-  Navigation,
-  Pencil,
-  Plus,
-} from 'lucide-react';
+import { Plus, Pencil, Check, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router';
 import { Button, IconButton, Text } from '../../components/common';
+import { getFromApi, patchToApi } from '../../utils/api';
+
+interface ItineraryData {
+  _id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+}
 
 /**
  * Displays a single sample walking event on a static day timeline.
@@ -17,130 +20,150 @@ import { Button, IconButton, Text } from '../../components/common';
  * @returns A presentation-only itinerary with inactive event actions.
  */
 function ItineraryView() {
+  const { id } = useParams<{ id: string }>();
+  const [itinerary, setItinerary] = useState<ItineraryData | null>(null);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+
+  useEffect(() => {
+    if (id) {
+      getFromApi<ItineraryData>(`/itinerary?id=${id}`)
+        .then((data) => {
+          setItinerary(data);
+          setEditTitle(data.title);
+          setEditDescription(data.description);
+        })
+        .catch(console.error);
+    }
+  }, [id]);
+
+  const handleSave = async () => {
+    if (!itinerary) return;
+    try {
+      const updated = await patchToApi<ItineraryData>(`/itinerary/${itinerary._id}`, {
+        title: editTitle,
+        description: editDescription,
+      });
+      setItinerary(updated);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update itinerary:', error)
+    }
+  }
+
+  const handleCancel = () => {
+    if (itinerary) {
+      setEditTitle(itinerary.title);
+      setEditDescription(itinerary.description);
+    }
+    setIsEditing(false);
+  };
+
+  if (!itinerary) {
+    return <div className="p-4 text-on-surface">Loading itinerary...</div>;
+  }
+
+  const startDate = new Date(itinerary.startDate);
+  const month = startDate.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short' });
+  const day = startDate.toLocaleDateString('en-US', { timeZone: 'UTC', day: '2-digit' });
+  const weekday = startDate.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long' });
+
   return (
     <section
       aria-labelledby="itinerary-heading"
       className="min-w-0 text-on-surface"
     >
-      <header className="flex items-center justify-between gap-4">
+      <header className="mb-6">
         <Text as="h2" id="itinerary-heading" variant="title">
           Itinerary
         </Text>
-        <IconButton
-          disabled
-          aria-label="Add an itinerary event"
-          variant="primary"
-          size="lg"
-          icon={<Plus aria-hidden size={22} />}
-          className="rounded-[1rem_0.5rem_1rem_0.5rem]"
-        />
       </header>
 
-      <div className="mb-7 mt-6 flex items-center gap-4">
+      <div className="mb-7 flex items-start gap-4">
         <div
           aria-hidden="true"
           className="flex h-24 w-20 shrink-0 flex-col items-center justify-center rounded-t-full rounded-b-2xl bg-primary-container text-on-primary-container"
         >
           <span className="text-xs font-medium uppercase tracking-wider">
-            Apr
+            {month}
           </span>
           <span className="mt-0.5 text-4xl leading-none tracking-tight">
-            03
+            {day}
           </span>
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className="text-title">
-            <time dateTime="2027-04-03">
-              Saturday<span className="sr-only">, 3 April 2027</span>
+            <time dateTime={itinerary.startDate}>
+              {weekday}
             </time>
           </h3>
-          <p className="mt-1 text-sm text-on-surface-variant">Kyoto, Japan</p>
+          
+          {isEditing ? (
+            <div className="mt-2 flex flex-col gap-3">
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
+                placeholder="Itinerary Title"
+              />
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="w-full resize-none rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
+                placeholder="Add a description for this itinerary..."
+                rows={3}
+              />
+              <div className="flex gap-2">
+                <Button onClick={handleSave} size="sm" leadingIcon={<Check size={16} />}>Save</Button>
+                <Button onClick={handleCancel} variant="ghost" size="sm" leadingIcon={<X size={16} />}>Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-1">
+              {/* Hoverable Title with Pencil */}
+              <div className="group flex items-center gap-2">
+                <p className="font-medium text-on-surface">{itinerary.title}</p>
+                <button 
+                  onClick={() => setIsEditing(true)} 
+                  className="text-on-surface-variant opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+                  aria-label="Edit title"
+                >
+                  <Pencil size={14} />
+                </button>
+              </div>
+
+              {/* Hoverable Description with Pencil */}
+              <div className="group relative mt-4 rounded-panel bg-surface-container-low p-5 pr-10 text-sm text-on-surface-variant">
+                {itinerary.description ? (
+                  <p>{itinerary.description}</p>
+                ) : (
+                  <p className="italic opacity-70">No description provided.</p>
+                )}
+                <button 
+                  onClick={() => setIsEditing(true)} 
+                  className="absolute right-3 top-3 text-on-surface-variant opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+                  aria-label="Edit description"
+                >
+                  <Pencil size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* TODO: Replace this sample event and connect actions when implementing itineraries. */}
-      <ol>
-        <li className="relative pl-12 sm:pl-16">
-          <div
-            aria-hidden="true"
-            className="absolute bottom-0 left-5 top-11 w-px bg-outline-variant"
-          />
-          <div
-            role="img"
-            aria-label="Walking event"
-            className="absolute left-0 top-0 grid size-11 place-items-center"
-          >
-            <Badge
-              aria-hidden
-              size={44}
-              fill="currentColor"
-              strokeWidth={0}
-              className="absolute inset-0 text-secondary-container"
-            />
-            <Footprints
-              aria-hidden
-              size={19}
-              className="relative text-on-secondary-container"
-            />
-          </div>
-
-          <p className="mb-3 flex min-h-11 items-center gap-2 text-label tabular-nums">
-            <time dateTime="2027-04-03T09:00:00+09:00">09:00</time>
-            <ArrowRight
-              aria-hidden
-              size={14}
-              className="text-on-surface-variant"
-            />
-            <span className="sr-only">to</span>
-            <time
-              dateTime="2027-04-03T11:00:00+09:00"
-              className="text-on-surface-variant"
-            >
-              11:00
-            </time>
-          </p>
-
-          <article className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low p-4 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-x-4">
-            <img
-              src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1000&q=80"
-              alt=""
-              width={1000}
-              height={563}
-              loading="lazy"
-              className="h-20 w-full rounded-[1.25rem_0.5rem_1.25rem_0.5rem] bg-surface-container object-cover sm:row-span-3 sm:h-full"
-            />
-
-            <div className="min-w-0">
-              <h4 className="text-base font-medium leading-6">
-                Walk through Higashiyama
-              </h4>
-
-              <p className="mt-1 flex items-start gap-1.5 text-sm text-on-surface-variant">
-                <MapPin aria-hidden size={14} className="mt-0.5 shrink-0" />
-                Ninenzaka, Kyoto
-              </p>
-            </div>
-            <p className="col-span-2 text-sm leading-5 text-on-surface-variant sm:col-span-1">
-              Side streets to Hokan-ji, then a stop for coffee.
-            </p>
-
-            <div className="col-span-2 flex flex-wrap items-center justify-between gap-2 sm:col-span-1">
-              <Button
-                disabled
-                variant="secondary"
-                leadingIcon={<Navigation aria-hidden size={16} />}
-              >
-                Directions
-              </Button>
-              <IconButton
-                disabled
-                aria-label="Edit Walk through Higashiyama"
-                icon={<Pencil aria-hidden size={18} />}
-              />
-            </div>
-          </article>
-        </li>
-      </ol>
+      {/* Disabled Add Event Bar */}
+      {!isEditing && (
+        <button
+          disabled
+          className="mt-8 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border-2 border-dashed border-outline-variant bg-transparent py-4 text-on-surface-variant opacity-50"
+        >
+          <Plus size={20} />
+          <span className="font-medium">Add Event</span>
+        </button>
+      )}
     </section>
   );
 }

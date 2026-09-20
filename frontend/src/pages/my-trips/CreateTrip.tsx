@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router';
 import { postToApi } from '../../utils/api';
 import { Button, Text } from '../../components/common';
 
+interface TripResponse {
+  savedTrip: {
+    _id: string;
+    name: string;
+    startDate: string;
+    endDate: string;
+  }
+}
+
 function CreateTrip() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -27,7 +36,15 @@ function CreateTrip() {
     }
 
     try {
-      await postToApi('/trip', { name, startDate, endDate });
+      const newTrip = await postToApi<TripResponse>('/trip', { name, startDate, endDate });
+      console.log("Trip Database Response:", newTrip);
+      await postToApi('/itinerary', {
+        tripId: newTrip.savedTrip._id,
+        title: 'Blank Itinerary',
+        description: '',
+        startDate,
+        endDate
+      });
       navigate ('/my-trips');
     } catch (error) {
       setError('Failed to create trip. Please try again.')
