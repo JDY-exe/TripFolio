@@ -1,7 +1,9 @@
 import { ArrowUpRight, CalendarDays, MapPin, UsersRound } from 'lucide-react';
 import { Button, Text } from '../../components/common';
+import { useNavigate } from 'react-router';
 
 export interface TripCardProps {
+  id: string;
   title: string;
   destination: string;
   dates: string;
@@ -18,6 +20,7 @@ export interface TripCardProps {
  * @returns A themed, presentation-only trip card.
  */
 function TripCard({
+  id,
   title,
   destination,
   dates,
@@ -25,6 +28,7 @@ function TripCard({
   status,
   image,
 }: TripCardProps) {
+  const navigate = useNavigate();
   return (
     <article className="overflow-hidden rounded-panel border border-outline-variant bg-surface-container-low">
       <div className="relative">
@@ -64,13 +68,13 @@ function TripCard({
         <div className="mt-5 border-t border-outline-variant pt-4">
           <Button
             variant="ghost"
-            disabled
+            onClick={() => navigate(`/trip/${id}`)}
             aria-label={`Open ${title}`}
             fullWidth
             className="justify-between px-0"
             trailingIcon={<ArrowUpRight aria-hidden size={18} />}
           >
-            View trip
+            View Trip
           </Button>
         </div>
       </div>

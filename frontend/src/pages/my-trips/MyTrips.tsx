@@ -73,6 +73,7 @@ function MyTrips() {
             trips.map((trip) => (
               <TripCard 
                 key={trip._id} 
+                id={trip._id}
                 title={trip.name}
                 dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
                 destination="Destination TBD"

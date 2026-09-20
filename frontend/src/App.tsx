@@ -35,7 +35,9 @@ function AppContent() {
   const navigate = useNavigate();
   const { isLoading } = useLoading();
   const showPrimaryNav =
-    location.pathname !== '/auth' && location.pathname !== '/trip';
+    location.pathname !== '/auth' &&
+    location.pathname !== '/create-trip' &&
+    !location.pathname.startsWith('/trip');
 
   return (
     <div
@@ -53,8 +55,9 @@ function AppContent() {
           <Route path="search" element={<Search />} />
           <Route path="my-trips" element={<MyTrips />} />
           <Route path="trip" element={<Trip />} />
-          <Route path="*" element={<Navigate to="/my-trips" replace />} />
           <Route path="/create-trip" element={<CreateTrip />} />
+          <Route path="/trip/:id" element={<Trip />} />
+          <Route path="*" element={<Navigate to="/my-trips" replace />} />
         </Routes>
       </main>
 
