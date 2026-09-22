@@ -4,14 +4,24 @@ require("dotenv").config();
 
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
+const tripRoutes = require("./routes/tripRoutes");
 
 const app = express();
 
-app.use(cors());
+// Middleware
+app.use(cors({
+  origin: "http://localhost:3001",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  credentials: true
+}));
 app.use(express.json());
 app.use("/api/users", userRoutes);
 
+// Database
 connectDB();
+
+// Routes
+app.use("/trip", tripRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running!");

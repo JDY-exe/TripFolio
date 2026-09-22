@@ -1,13 +1,16 @@
-import { ArrowUpRight, CalendarDays, MapPin, UsersRound } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, MapPin, UsersRound, Trash2 } from 'lucide-react';
 import { Button, Text } from '../../components/common';
+import { useNavigate } from 'react-router';
 
 export interface TripCardProps {
+  id: string;
   title: string;
   destination: string;
   dates: string;
   travelers: string;
   status: string;
   image: string;
+  onDelete: (id: string) => void;
 }
 
 /**
@@ -18,13 +21,22 @@ export interface TripCardProps {
  * @returns A themed, presentation-only trip card.
  */
 function TripCard({
+  id,
   title,
   destination,
   dates,
   travelers,
   status,
   image,
+  onDelete,
 }: TripCardProps) {
+  const navigate = useNavigate();
+  const handleDeleteClick = () => {
+    if (window.confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) {
+      onDelete(id);
+    }
+  };
+
   return (
     <article className="overflow-hidden rounded-panel border border-outline-variant bg-surface-container-low">
       <div className="relative">
@@ -41,12 +53,21 @@ function TripCard({
         </span>
       </div>
 
-      <div className="p-5 sm:p-6">
-        <Text color="muted" className="flex items-center gap-1.5 text-sm">
+      <div className="relative p-5 sm:p-6">
+
+        <button
+          onClick={handleDeleteClick}
+          className="absolute right-4 top-4 rounded-full bg-surface p-1.5 text-error hover:bg-error/10 motion-safe:transition-colors"
+          aria-label={`Delete ${title}`}
+        >
+          <Trash2 size={16} />
+        </button>
+
+        <Text color="muted" className="flex items-center gap-1.5 text-sm pr-8">
           <MapPin aria-hidden size={15} className="shrink-0" />
           {destination}
         </Text>
-        <Text as="h2" variant="title" className="mt-2">
+        <Text as="h2" variant="title" className="mt-2 pr-8">
           {title}
         </Text>
 
@@ -64,13 +85,13 @@ function TripCard({
         <div className="mt-5 border-t border-outline-variant pt-4">
           <Button
             variant="ghost"
-            disabled
+            onClick={() => navigate(`/trip/${id}`)}
             aria-label={`Open ${title}`}
             fullWidth
             className="justify-between px-0"
             trailingIcon={<ArrowUpRight aria-hidden size={18} />}
           >
-            View trip
+            View Trip
           </Button>
         </div>
       </div>
