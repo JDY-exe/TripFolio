@@ -144,4 +144,41 @@ router.get("/", async (req, res) => {
     }
 })
 
+router.patch("/profile_picture", async (req, res) => {
+    try {
+        const { username, profile_picture } = req.body;
+
+        if (!(username && profile_picture)) {
+            return res.status(400).json({
+                message: "Username and profile picture are required"
+            });
+        }
+        const user = await User.findOne({ username })
+        if (!user) {
+            return res.status(400).json({
+                message: "User not found"
+            });
+        }
+        user.profile_picture = profile_picture;
+        await user.save();
+        res.status(200).json({
+            message: "Profile picture updated successfully",
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                profile_picture: user.profile_picture,
+                friends: user.friends
+            }
+        });
+    }
+    catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
+
 module.exports = router;
