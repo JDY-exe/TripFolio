@@ -42,14 +42,14 @@ function ItineraryView() {
   const [editDescription, setEditDescription] = useState('');
   const [events, setEvents] = useState<EventData[]>([]);
 
-  const [editingEventId, setEditingEventId] = useState<string | null>(null);
-  const [editEventForm, setEditEventForm] = useState({
+  // null = closed, NEW = creating, <id> = editing
+  const [activeEventId, setActiveEventId] = useState<string | null>(null);
+  const [eventForm, setEventForm] = useState({
     title: '',
     startTime: '',
     endTime: '',
     notes: '',
   });
-
   const [eventError, setEventError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,30 +67,6 @@ function ItineraryView() {
         .catch(console.error);
     }
   }, [id]);
-
-  /**
-   * TEMPORARY FUNCTION FOR ADDING DUMMY EVENTS, WILL CHANGE LATER ON AS USER STORY DEVELOPS
-   */
-  const handleAddDummyEvent = async () => {
-    if (!itinerary) return;
-
-    try {
-      const newEvent = await postToApi<EventData>('/event', {
-        itineraryID: itinerary._id,
-        title: "Walk through Higashiyama",
-        startTime: itinerary.startDate,
-        endTime: itinerary.startDate,
-        notes: ""
-      });
-
-      setEvents([...events, newEvent]);
-    } catch (error) {
-      console.error('Failed to create event:', error);
-    }
-  };
-  /**
-   * END OF TEMPORARY FUNCTION
-   */
   
   const handleDeleteEvent = async (eventId: string) => {
     try {
@@ -101,10 +77,23 @@ function ItineraryView() {
     }
   };
 
-  const startEditingEvent = (event: EventData) => {
-    setEditingEventId(event._id);
+  const openCreateForm = () => {
+    if (!itinerary) return;
+    setActiveEventId('NEW');
     setEventError(null);
-    setEditEventForm({
+    const defaultTime = formatForInput(itinerary.startDate);
+    setEventForm({
+      title: '',
+      startTime: defaultTime,
+      endTime: defaultTime,
+      notes: '',
+    });
+  };
+
+  const openEditForm = (event: EventData) => {
+    setActiveEventId(event._id);
+    setEventError(null);
+    setEventForm({
       title: event.title,
       startTime: formatForInput(event.startTime),
       endTime: formatForInput(event.endTime),
@@ -112,54 +101,65 @@ function ItineraryView() {
     });
   };
 
-  const handleSaveEventEdit = async (eventId: string) => {
+  const closeForm = () => {
+    setActiveEventId(null);
+    setEventError(null);
+  }
+
+  const handleSaveEvent = async () => {
+    if (!itinerary || !activeEventId) return;
     try {
       setEventError(null);
 
-      const startObj = new Date(editEventForm.startTime + 'Z');
-      const endObj = new Date(editEventForm.endTime + 'Z');
+      const startObj = new Date(eventForm.startTime + 'Z');
+      const endObj = new Date(eventForm.endTime + 'Z');
 
       if (endObj < startObj) {
         setEventError("End time cannot be before start time.");
         return;
       }
 
-      if (itinerary) {
-        const tripStart = new Date(itinerary.startDate);
-        const tripEnd = new Date(itinerary.endDate);
+      const tripStart = new Date(itinerary.startDate);
+      const tripEnd = new Date(itinerary.endDate);
+      tripEnd.setUTCHours(23, 59, 59, 999);
 
-        tripEnd.setUTCHours(23, 59, 59, 999);
-
-        if (startObj < tripStart || endObj > tripEnd) {
-          setEventError("Event must occur within trip's duration.");
-          return;
-        }
+      if (startObj < tripStart || endObj > tripEnd) {
+        setEventError("Event must occur within trip's duration.");
+        return;
       }
 
       const startTimeUTC = startObj.toISOString();
       const endTimeUTC = endObj.toISOString();
+      
+      if (activeEventId == 'NEW') {
+        // POST
+        const newEvent = await postToApi<EventData>('/event', {
+          itineraryID: itinerary._id,
+          title: eventForm.title || "New Event",
+          startTime: startTimeUTC,
+          endTime: endTimeUTC,
+          notes: eventForm.notes,
+        });
+        setEvents([...events, newEvent]);
+      } else {
+        // PATCH
+        await patchToApi<EventData>(`/event/${activeEventId}`, {
+          title: eventForm.title,
+          startTime: startTimeUTC,
+          endTime: endTimeUTC,
+          notes: eventForm.notes,
+        });
 
-      await patchToApi<EventData>(`/event/${eventId}`, {
-        title: editEventForm.title,
-        startTime: startTimeUTC,
-        endTime: endTimeUTC,
-        notes: editEventForm.notes,
-      });
+        setEvents(events.map((e) => (e._id === activeEventId ? {
+          ...e,
+          title: eventForm.title,
+          startTime: startTimeUTC,
+          endTime: endTimeUTC,
+          notes: eventForm.notes
+        } : e)));
+      }
 
-      setEvents(events.map((e) => {
-        if (e._id === eventId) {
-          return {
-            ...e,
-            title: editEventForm.title,
-            startTime: startTimeUTC,
-            endTime: endTimeUTC,
-            notes: editEventForm.notes,
-          };
-        }
-        return e;
-      }));
-
-      setEditingEventId(null);
+      closeForm();
     } catch (error) {
       console.error('Failed to update event:', error);
       setEventError('Failed to save event. Please try again.')
@@ -286,11 +286,11 @@ function ItineraryView() {
         <div className="mt-8 mb-4 flex flex-col gap-4">
           {events.map((event) => (
             <div key={event._id} className="group relative flex flex-col gap-2 rounded-panel bg-surface-container-low p-4 shadow-sm border border-outline-variant">
-              {editingEventId === event._id ? (
+              {activeEventId === event._id ? (
                 <div className="flex w-full flex-col gap-3">
                   <input
-                    value={editEventForm.title}
-                    onChange={(e) => setEditEventForm({ ...editEventForm, title: e.target.value })}
+                    value={eventForm.title}
+                    onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
                     placeholder="Event Title"
                     className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
                   />
@@ -299,8 +299,8 @@ function ItineraryView() {
                       <label className="text-xs text-on-surface-variant">Start Time</label>
                       <input
                         type="datetime-local"
-                        value={editEventForm.startTime}
-                        onChange={(e) => setEditEventForm({ ...editEventForm, startTime: e.target.value })}
+                        value={eventForm.startTime}
+                        onChange={(e) => setEventForm({ ...eventForm, startTime: e.target.value })}
                         className="rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
                       />
                     </div>
@@ -308,15 +308,15 @@ function ItineraryView() {
                       <label className="text-xs text-on-surface-variant">End Time</label>
                       <input
                         type="datetime-local"
-                        value={editEventForm.endTime}
-                        onChange={(e) => setEditEventForm({ ...editEventForm, endTime: e.target.value })}
+                        value={eventForm.endTime}
+                        onChange={(e) => setEventForm({ ...eventForm, endTime: e.target.value })}
                         className="rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
                       />
                     </div>
                   </div>
                   <textarea
-                    value={editEventForm.notes}
-                    onChange={(e) => setEditEventForm({ ...editEventForm, notes: e.target.value })}
+                    value={eventForm.notes}
+                    onChange={(e) => setEventForm({ ...eventForm, notes: e.target.value })}
                     placeholder="Add notes..."
                     rows={2}
                     className="resize-none rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
@@ -327,8 +327,8 @@ function ItineraryView() {
                   )}
 
                   <div className="flex justify-end gap-2 mt-2">
-                    <Button onClick={() => handleSaveEventEdit(event._id)} size="sm" leadingIcon={<Check size={16} />}>Save</Button>
-                    <Button onClick={() => { setEditingEventId(null); setEventError(null); }} variant="ghost" size="sm" leadingIcon={<X size={16} />}>Cancel</Button>
+                    <Button onClick={() => handleSaveEvent()} size="sm" leadingIcon={<Check size={16} />}>Save</Button>
+                    <Button onClick={() => { closeForm(); setEventError(null); }} variant="ghost" size="sm" leadingIcon={<X size={16} />}>Cancel</Button>
                   </div>
                 </div>
               ) : (
@@ -348,7 +348,7 @@ function ItineraryView() {
                   </div>
                   <div className="flex items-center gap-3 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
-                      onClick={() => startEditingEvent(event)}
+                      onClick={() => openEditForm(event)}
                       className="text-on-surface-variant hover:text-primary"
                       aria-label="Edit event"
                     >
@@ -369,15 +369,41 @@ function ItineraryView() {
         </div>
       )}
 
-      {/* Add Event Bar */}
+      {/* Dynamic Add Event Section */}
       {!isEditing && (
-        <button
-          onClick={handleAddDummyEvent}
-          className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-dashed border-outline-variant bg-transparent py-4 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
-        >
-          <Plus size={20} />
-          <span className="font-medium">Add Event</span>
-        </button>
+        <div className="mt-6">
+          {activeEventId === 'NEW' ? (
+            <div className="flex w-full flex-col gap-3 rounded-panel bg-surface-container-low p-4 shadow-sm border-2 border-primary">
+              <h4 className="text-sm font-bold text-primary mb-1">Create New Event</h4>
+              
+              {/* Note: This is the exact same inputs as your edit form! */}
+              <input value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} placeholder="Event Title" className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary" autoFocus />
+              <div className="flex gap-2">
+                <div className="flex flex-1 flex-col gap-1">
+                  <label className="text-xs text-on-surface-variant">Start Time</label>
+                  <input type="datetime-local" value={eventForm.startTime} onChange={(e) => setEventForm({ ...eventForm, startTime: e.target.value })} className="rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary" />
+                </div>
+                <div className="flex flex-1 flex-col gap-1">
+                  <label className="text-xs text-on-surface-variant">End Time</label>
+                  <input type="datetime-local" value={eventForm.endTime} onChange={(e) => setEventForm({ ...eventForm, endTime: e.target.value })} className="rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary" />
+                </div>
+              </div>
+              <textarea value={eventForm.notes} onChange={(e) => setEventForm({ ...eventForm, notes: e.target.value })} placeholder="Add notes..." rows={2} className="resize-none rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary" />
+              
+              {eventError && <p className="text-sm font-medium text-error mt-1">{eventError}</p>}
+              
+              <div className="flex justify-end gap-2 mt-2">
+                <Button onClick={handleSaveEvent} size="sm" leadingIcon={<Check size={16} />}>Save Event</Button>
+                <Button onClick={closeForm} variant="ghost" size="sm" leadingIcon={<X size={16} />}>Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={openCreateForm} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-dashed border-outline-variant bg-transparent py-4 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary">
+              <Plus size={20} />
+              <span className="font-medium">Add Event</span>
+            </button>
+          )}
+        </div>
       )}
     </section>
   );
