@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
 
 const tripSchema = new mongoose.Schema({
+  profilePictureId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: false
+  },
   name: {
     type: String,
     required: [true, "Trip name is required"]

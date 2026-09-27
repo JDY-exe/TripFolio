@@ -36,8 +36,10 @@ export interface MediaUploadProps extends Omit<
   name?: string;
   /** Whether file selection is unavailable. */
   disabled?: boolean;
-  /** Receives selected filenames after their alerts are queued. */
+  /** Receives selected filenames after selection is processed. */
   onFilesSelected?: (fileNames: readonly string[]) => void;
+  /** Receives selected file objects when their contents need to be processed. */
+  onFilesPicked?: (files: readonly File[]) => void;
 }
 
 /**
@@ -68,8 +70,8 @@ function MediaArtworkIcon({ mediaType }: Pick<MediaUploadProps, 'mediaType'>) {
 
 /**
  * Renders a generic media picker with M3-inspired expressive artwork. Selection
- * opens the native file dialog, announces every filename, and then clears the
- * input so no selected file contents remain attached to the component.
+ * notifies filename-only consumers or passes files to content-aware consumers,
+ * then clears the native input so the same file can be selected again.
  *
  * @param props - Dimensions, accepted media, loading state, and container props.
  * @returns A reusable upload surface backed by a hidden native file input.
@@ -86,6 +88,7 @@ function MediaUpload({
   name = 'media',
   disabled = false,
   onFilesSelected,
+  onFilesPicked,
   className,
   style,
   ...containerProps
@@ -108,7 +111,8 @@ function MediaUpload({
 
   /**
    * Announces selected filenames and immediately resets the native input. This
-   * temporary behavior intentionally reads no file content and retains no files.
+   * Existing filename callbacks remain supported, while file callbacks can
+   * process the selected objects before the native input is reset.
    *
    * @returns Nothing; alerts are sent through the shared toast store.
    */
@@ -116,9 +120,11 @@ function MediaUpload({
     const input = inputRef.current;
     if (!input?.files) return;
 
-    const fileNames = Array.from(input.files, (file) => file.name);
-    announceMediaUploadFiles(input.files);
+    const files = Array.from(input.files);
+    const fileNames = files.map((file) => file.name);
+    if (!onFilesPicked) announceMediaUploadFiles(files);
     onFilesSelected?.(fileNames);
+    onFilesPicked?.(files);
     input.value = '';
   };
 
