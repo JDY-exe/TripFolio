@@ -1,8 +1,8 @@
-import { Plus, Pencil, Check, X } from 'lucide-react';
+import { Plus, Pencil, Check, X, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { Button, IconButton, Text } from '../../components/common';
-import { getFromApi, patchToApi } from '../../utils/api';
+import { Button, Text } from '../../components/common';
+import { postToApi, getFromApi, patchToApi, deleteFromApi } from '../../utils/api';
 
 interface ItineraryData {
   _id: string;
@@ -10,6 +10,20 @@ interface ItineraryData {
   description: string;
   startDate: string;
   endDate: string;
+}
+
+interface EventData {
+  _id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  notes?: string;
+}
+
+// Helper function that formats ISO UTC strings for HTML datetime-local inputs
+const formatForInput = (dateString: string) => {
+  if (!dateString) return '';
+  return new Date(dateString).toISOString().slice(0, 16);
 }
 
 /**
@@ -26,6 +40,17 @@ function ItineraryView() {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [events, setEvents] = useState<EventData[]>([]);
+
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editEventForm, setEditEventForm] = useState({
+    title: '',
+    startTime: '',
+    endTime: '',
+    notes: '',
+  });
+
+  const [eventError, setEventError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -34,10 +59,112 @@ function ItineraryView() {
           setItinerary(data);
           setEditTitle(data.title);
           setEditDescription(data.description);
+
+          // Fetch all events linked to this itinerary
+          return getFromApi<EventData[]>(`/event?itinerary_id=${data._id}`);
         })
+        .then((eventData) => setEvents(eventData || []))
         .catch(console.error);
     }
   }, [id]);
+
+  /**
+   * TEMPORARY FUNCTION FOR ADDING DUMMY EVENTS, WILL CHANGE LATER ON AS USER STORY DEVELOPS
+   */
+  const handleAddDummyEvent = async () => {
+    if (!itinerary) return;
+
+    try {
+      const newEvent = await postToApi<EventData>('/event', {
+        itineraryID: itinerary._id,
+        title: "Walk through Higashiyama",
+        startTime: itinerary.startDate,
+        endTime: itinerary.startDate,
+        notes: ""
+      });
+
+      setEvents([...events, newEvent]);
+    } catch (error) {
+      console.error('Failed to create event:', error);
+    }
+  };
+  /**
+   * END OF TEMPORARY FUNCTION
+   */
+  
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      await deleteFromApi(`/event/${eventId}`);
+      setEvents(events.filter((e) => e._id !== eventId));
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+    }
+  };
+
+  const startEditingEvent = (event: EventData) => {
+    setEditingEventId(event._id);
+    setEventError(null);
+    setEditEventForm({
+      title: event.title,
+      startTime: formatForInput(event.startTime),
+      endTime: formatForInput(event.endTime),
+      notes: event.notes || '',
+    });
+  };
+
+  const handleSaveEventEdit = async (eventId: string) => {
+    try {
+      setEventError(null);
+
+      const startObj = new Date(editEventForm.startTime + 'Z');
+      const endObj = new Date(editEventForm.endTime + 'Z');
+
+      if (endObj < startObj) {
+        setEventError("End time cannot be before start time.");
+        return;
+      }
+
+      if (itinerary) {
+        const tripStart = new Date(itinerary.startDate);
+        const tripEnd = new Date(itinerary.endDate);
+
+        tripEnd.setUTCHours(23, 59, 59, 999);
+
+        if (startObj < tripStart || endObj > tripEnd) {
+          setEventError("Event must occur within trip's duration.");
+          return;
+        }
+      }
+
+      const startTimeUTC = startObj.toISOString();
+      const endTimeUTC = endObj.toISOString();
+
+      await patchToApi<EventData>(`/event/${eventId}`, {
+        title: editEventForm.title,
+        startTime: startTimeUTC,
+        endTime: endTimeUTC,
+        notes: editEventForm.notes,
+      });
+
+      setEvents(events.map((e) => {
+        if (e._id === eventId) {
+          return {
+            ...e,
+            title: editEventForm.title,
+            startTime: startTimeUTC,
+            endTime: endTimeUTC,
+            notes: editEventForm.notes,
+          };
+        }
+        return e;
+      }));
+
+      setEditingEventId(null);
+    } catch (error) {
+      console.error('Failed to update event:', error);
+      setEventError('Failed to save event. Please try again.')
+    }
+  };
 
   const handleSave = async () => {
     if (!itinerary) return;
@@ -154,11 +281,99 @@ function ItineraryView() {
         </div>
       </div>
 
-      {/* Disabled Add Event Bar */}
+      {/* Event List Render */}
+      {events.length > 0 && (
+        <div className="mt-8 mb-4 flex flex-col gap-4">
+          {events.map((event) => (
+            <div key={event._id} className="group relative flex flex-col gap-2 rounded-panel bg-surface-container-low p-4 shadow-sm border border-outline-variant">
+              {editingEventId === event._id ? (
+                <div className="flex w-full flex-col gap-3">
+                  <input
+                    value={editEventForm.title}
+                    onChange={(e) => setEditEventForm({ ...editEventForm, title: e.target.value })}
+                    placeholder="Event Title"
+                    className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
+                  />
+                  <div className="flex gap-2">
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className="text-xs text-on-surface-variant">Start Time</label>
+                      <input
+                        type="datetime-local"
+                        value={editEventForm.startTime}
+                        onChange={(e) => setEditEventForm({ ...editEventForm, startTime: e.target.value })}
+                        className="rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
+                      />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className="text-xs text-on-surface-variant">End Time</label>
+                      <input
+                        type="datetime-local"
+                        value={editEventForm.endTime}
+                        onChange={(e) => setEditEventForm({ ...editEventForm, endTime: e.target.value })}
+                        className="rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
+                      />
+                    </div>
+                  </div>
+                  <textarea
+                    value={editEventForm.notes}
+                    onChange={(e) => setEditEventForm({ ...editEventForm, notes: e.target.value })}
+                    placeholder="Add notes..."
+                    rows={2}
+                    className="resize-none rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
+                  />
+                  {/* Error Display */}
+                  {eventError && (
+                    <p className="text-sm font-medium text-error mt-1">{eventError}</p>
+                  )}
+
+                  <div className="flex justify-end gap-2 mt-2">
+                    <Button onClick={() => handleSaveEventEdit(event._id)} size="sm" leadingIcon={<Check size={16} />}>Save</Button>
+                    <Button onClick={() => { setEditingEventId(null); setEventError(null); }} variant="ghost" size="sm" leadingIcon={<X size={16} />}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-medium text-on-surface">{event.title}</h4>
+                    <p className="text-sm font-semibold text-primary mt-1">
+                      {new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}
+                      {' - '}
+                      {new Date(event.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}
+                    </p>
+                    {event.notes && (
+                      <p className="text-sm text-on-surface-variant mt-2 border-l-2 border-outline-variant pl-3 italic">
+                        {event.notes}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      onClick={() => startEditingEvent(event)}
+                      className="text-on-surface-variant hover:text-primary"
+                      aria-label="Edit event"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteEvent(event._id)}
+                      className="text-on-surface-variant hover:text-error"
+                      aria-label="Delete event"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Event Bar */}
       {!isEditing && (
         <button
-          disabled
-          className="mt-8 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border-2 border-dashed border-outline-variant bg-transparent py-4 text-on-surface-variant opacity-50"
+          onClick={handleAddDummyEvent}
+          className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-dashed border-outline-variant bg-transparent py-4 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
         >
           <Plus size={20} />
           <span className="font-medium">Add Event</span>
