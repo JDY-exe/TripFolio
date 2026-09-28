@@ -5,6 +5,7 @@ require("dotenv").config();
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const tripRoutes = require("./routes/tripRoutes");
+const reservationRoutes = require("./routes/reservationRoutes");
 const itineraryRoutes = require("./routes/itineraryRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const destinationRoutes = require("./routes/destinationRoutes");
@@ -18,13 +19,15 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-app.use("/api/users", userRoutes);
+
 
 // Database
 connectDB();
 
 // Routes
 app.use("/trip", tripRoutes);
+app.use("/users", userRoutes);
+app.use("/logistics", reservationRoutes);
 app.use("/itinerary", itineraryRoutes);
 app.use("/event", eventRoutes);
 app.use("/destination", destinationRoutes);

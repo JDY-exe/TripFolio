@@ -5,6 +5,8 @@ const {
 	createTrip,
 	getTrips,
 	deleteTrip,
+  addUserToTrip,
+  getTripFromUser,
 	updateTripProfilePicture,
 	getTripProfilePicture
 } = require("../controllers/tripController");
@@ -33,5 +35,7 @@ router.get('/', getTrips);
 router.patch('/:id/profile_picture', parseTripPicture, updateTripProfilePicture);
 router.get('/:id/profile_picture', getTripProfilePicture);
 router.delete('/:id', deleteTrip);
+router.get('/userId=:userId', getTripFromUser);
+router.patch('/user', addUserToTrip);
 
 module.exports = router;
