@@ -2,6 +2,7 @@ const express = require("express");
 const Reservation = require("../models/Reservation");
 const router = require("./userRoutes");
 const Trip = require("../models/trip");
+const authenticateToken = require("../middleware/authenticateToken");
 
 router.post("/hotels", async (req, res) => {
     try {
@@ -25,13 +26,14 @@ router.post("/hotels", async (req, res) => {
             });
         }
         const reservation = new Reservation({
-            type: "accomodations",
+            type: "accommodations",
             name,
             startTime,
             endTime,
             confirmationNumber,
             cost,
             notes,
+            trip: tripId,
             accommodations: {
                 address: accommodations.address
             }
@@ -80,6 +82,7 @@ router.post("/rental_cars", async (req, res) => {
             confirmationNumber,
             cost,
             notes,
+            trip: tripId,
             rentals: {
                 company: rentals.company
             }
@@ -128,6 +131,7 @@ router.post("/flights", async (req, res) => {
             confirmationNumber,
             cost,
             notes,
+            trip: tripId,
             flights: {
                 airline: flights.airline,
                 flightNum: flights.flightNum,
@@ -158,7 +162,7 @@ router.patch("/hotels/:id", async (req, res) => {
 
 
         const reservation = await Reservation.findById(id);
-        if (reservation.type !== "accomodations") {
+        if (reservation.type !== "accommodations") {
             return res.status(400).json({ message: "Reservation is not a hotel reservation" });
         }
         if (name !== undefined) {
@@ -306,5 +310,120 @@ router.patch("/flights/:id", async (req, res) => {
         });
     }
 })
+router.get("/flights", authenticateToken, async (req, res) => {
+    try {
+        const { tripId } = req.query;
+
+        if (!tripId) {
+            return res.status(400).json({
+                message: "Trip ID is required"
+            });
+        }
+        const trip = await Trip.findById(tripId);
+        if (!trip) {
+            return res.status(404).json({
+                message: "Couldn't find trip"
+            });
+        }
+        const isUserOnTrip = trip.users.some(
+            userId => userId.toString() === req.user.id.toString()
+        );
+        if (!isUserOnTrip) {
+            return res.status(403).json({
+                message: "You are not a member of this trip"
+            });
+        }
+        const reservations = await Reservation.find({
+            trip: tripId,
+            type: "flights"
+        });
+        return res.status(200).json({
+            reservations
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
+router.get("/rental_cars", authenticateToken, async (req, res) => {
+    try {
+        const { tripId } = req.query;
+
+        if (!tripId) {
+            return res.status(400).json({
+                message: "Trip ID is required"
+            });
+        }
+        const trip = await Trip.findById(tripId);
+        if (!trip) {
+            return res.status(404).json({
+                message: "Couldn't find trip"
+            });
+        }
+        const isUserOnTrip = trip.users.some(
+            userId => userId.toString() === req.user.id.toString()
+        );
+        if (!isUserOnTrip) {
+            return res.status(403).json({
+                message: "You are not a member of this trip"
+            });
+        }
+        const reservations = await Reservation.find({
+            trip: tripId,
+            type: "rentals"
+        });
+        return res.status(200).json({
+            reservations
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
+router.get("/hotels", authenticateToken, async (req, res) => {
+    try {
+        const { tripId } = req.query;
+
+        if (!tripId) {
+            return res.status(400).json({
+                message: "Trip ID is required"
+            });
+        }
+        const trip = await Trip.findById(tripId);
+        if (!trip) {
+            return res.status(404).json({
+                message: "Couldn't find trip"
+            });
+        }
+        const isUserOnTrip = trip.users.some(
+            userId => userId.toString() === req.user.id.toString()
+        );
+        if (!isUserOnTrip) {
+            return res.status(403).json({
+                message: "You are not a member of this trip"
+            });
+        }
+        const reservations = await Reservation.find({
+            trip: tripId,
+            type: "accommodations"
+        });
+        return res.status(200).json({
+            reservations
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
+
 
 module.exports = router;

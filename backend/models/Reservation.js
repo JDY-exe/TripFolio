@@ -4,7 +4,7 @@ const reservationSchema = new mongoose.Schema(
     {
         type: {
             type: String,
-            enum: ["flights", "accomodations", "rentals"],
+            enum: ["flights", "accommodations", "rentals"],
             unique: false,
 
         },
