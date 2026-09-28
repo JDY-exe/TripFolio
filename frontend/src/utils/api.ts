@@ -6,6 +6,17 @@ const api = axios.create({
 });
 
 /**
+ * Builds an absolute backend URL for resources rendered outside Axios.
+ *
+ * @param url - The API path to resolve against the configured backend URL.
+ * @returns The absolute URL used by native browser resource requests.
+ */
+export const getApiUrl = (url: string): string => {
+  const baseUrl = api.defaults.baseURL ?? '';
+  return `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+};
+
+/**
  * Fetches a typed resource from the backend API. The shared Axios instance
  * applies the configured backend base URL, and only the response body is returned.
  *

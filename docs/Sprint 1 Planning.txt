@@ -1,0 +1,604 @@
+﻿Sprint 1 Planning
+Group 8: TripFolio
+John Yuan
+Daniel Choi
+Bryce Miller
+Piper Elling
+________________
+
+
+Sprint overview
+Sprint Overview
+This sprint will focus on setting up the repository, AGENTS.md, mongo schemas, fundamental endpoints, and a few of the essential frontend functions. Users should be able to create accounts, sign in, create itineraries, and set up various logistics for their trip. We will delegate the photos and social aspect to the later sprints as we want to make sure that our itinerary foundation is solid before building other complex features. 
+
+
+Scrum Master: Bryce Miller
+Meeting Plan: Wednesday afternoons/evenings
+
+
+Risks and challenges
+A major challenge of this sprint is that not everyone on the team is completely familiar with the chosen stack, MongoDB, Express.js , React and Node.js. There will be a learning curve for those who are new to parts of the stack and therefore we have allocated more hours for the beginning tasks to account for this transition. To help mitigate this challenge, members of our team will be choosing tasks based on what they are most familiar with or what they can expect to pick up more easily. We aim to work with the strengths and weaknesses of the team to create a cohesive and smooth workflow. In addition, another risk is that because not everyone is familiar with all parts of the stack, it is more difficult to allocate hours. This is because not everyone has full comprehension of how long tasks will take with the chosen stack. 
+Sprint Details
+________________
+As a user, I want to create an account with username, email, and password
+Description
+	Hours
+	Owner
+	Make signup screen in frontend
+	3
+	John
+	Create User entity in backend
+	2
+	Bryce
+	Create POST /user/login in backend
+	1
+	Bryce
+	Hook up backend/frontend
+	2
+	Bryce
+	Backend Test Suite
+	1
+	Bryce
+	TOTAL
+	9 Hours
+	===
+	Acceptance criteria
+1. Given account creation is working properly, when I enter an email, password, and username that are new, then I should create a new account.
+2. Given account creation is working properly, when I enter an email, password, and username that aren’t new, then a new account should not be created and I should see an error.
+3. Given account creation is working properly, when I enter an email, password, and username that are new, then I should be logged in instantly.
+4. Given account creation is working properly, when I do cypress testing, then all cypress tests should pass
+5. Given account creation is working properly, when I do JEST testing, then all JEST tests should pass
+
+
+As a user, I want to login to my account using my email and password
+Description
+	Hours
+	Owner
+	Make login screen in frontend
+	3
+	John
+	Persist logged in user object in browser’s cache for some TTL
+	1
+	John
+	Create POST /user/login in backend
+	1
+	Bryce
+	Create GET /user in backend (returns user object after logging in)
+	1
+	Bryce
+	Hook up backend/frontend
+	2
+	Bryce
+	Backend Test Suite
+	1
+	Bryce
+	TOTAL
+	9 Hours
+	===
+	Acceptance criteria
+1. Given login is working properly, when I enter a correct username and password, then I should be successfully logged in.
+2. Given login is working properly, when I enter an incorrect username and password, then I should not be logged in.
+3. Given login is working properly, when I refresh the page, then I should still be logged in
+4. Given login is working properly, when I do JEST testing, then all JEST tests should pass
+
+
+As a user, I want to set a profile picture
+Description
+	Hours
+	Owner
+	[F] Make the user profile page on frontend, with a profile picture upload functionality
+	2
+	John
+	[B] Make PATCH user/profile_picture
+	1
+	Bryce
+	[I] Hook up frontend and backend
+	1
+	Bryce
+	Backend Test Suite
+	1
+	Bryce
+	TOTAL
+	5 Hours
+	===
+	Acceptance criteria
+1. Given profile picture set up is working properly, when I upload a picture of proper size through the user profile page, then I should set my profile picture
+2. Given profile picture set up is working properly, when I upload a picture of improper size through the user profile page, then the front end should reject that picture
+3. Given the profile picture set up is working properly, when I haven’t uploaded a profile picture, then I will have a default one.
+4. Given profile picture set up is working properly, when I do JEST testing, then all JEST tests should pass
+As a user, I want to be able to friend other users
+Description
+	Hours
+	Owner
+	Create friend list UI, viewable from user’s profile
+	2
+	Piper
+	Build friend search, send/accept request buttons, and notifications list to view friend requests
+	2
+	Piper
+	Create friendship schema and POST /user/friends/request endpoint
+	1
+	Piper
+	Create GET /user/friends and PATCH /user/friends/accept endpoints
+	1
+	Piper
+	Hook up frontend and backend
+	1
+	Piper
+	TOTAL
+	7 Hours
+	===
+	Acceptance criteria
+1. Given an authenticated user viewing another user's profile, when they click "Send Friend Request", then a pending friendship record is created and the UI updates to show "Request Pending"
+2. Given a user with a pending incoming friend request, when they click "Accept", then both users' friends lists in MongoDB are updated to include each other, and the UI reflects them as friends.
+3. Given an authenticated user, when they attempt to send a friend request to themselves or to an existing friend, then the backend returns an HTTP 400 Bad Request and the client displays an appropriate error prompt.
+4. Given a user viewing their own profile page, when the page loads, then all confirmed friends are fetched via GET /api/user/friends and displayed chronologically. 
+5. Given any client-server friendship interaction, when automated test suites execute, then all unit tests pass. 
+
+
+As a user, I want to create a trip with a defined time period and trip name
+Description
+	Hours
+	Owner
+	[F] Make Trip, Itinerary, Ledger, Logistics pages
+	4
+	John
+	[B] Make POST /trip in backend
+	3
+	Daniel
+	[B] Make GET /trip in frontend
+	2
+	Daniel
+	[I] Hook up frontend and backend
+	2
+	Daniel
+	TOTAL
+	11 Hours
+	===
+	Acceptance criteria
+1. Given the user is on the “My Trips” page, when a user creates a trip, then the user should be able to specify which days the trip lasts, and what the name for the trip is.
+2. Given the user is creating a trip, when the user does not fill out a required field, then the app will prompt the user to fill out all required fields and will not allow the user to create the trip.
+3. Given the user is creating a trip, when the user enters an End Date that is chronologically before the Start Date, then the app prevents the user from creating a trip.
+4. Given the user has created a trip, when the user views the trip’s detailed info, the user should be able to see the trip’s itinerary, ledger, and logistics tabs, although they should be empty because the user hasn’t filled them out yet
+5. Given the user has created a trip, when the user returns to the “My Trips” menu, then the app shows the newly created trip.
+________________
+
+
+As a user, I want to view all the upcoming trips I’m in
+Description
+	Hours
+	Owner
+	[F] Make Upcoming trips page
+	2
+	John
+	[B] Make GET /trip?userId={id} in backend
+	1
+	Bryce
+	[I] Hook up frontend and backend
+	2
+	Bryce
+	Backend Test Suite
+	1
+	Bryce
+	TOTAL
+	6 Hours
+	===
+	Acceptance criteria
+1. Given the upcoming trip view is working properly, when I click on the upcoming trips page, then I will see all the trips that I have created.
+2. Given the upcoming trip view is working properly, when I click on an upcoming trip, then I will be redirected to that trips page.
+3. Given the upcoming trip view is working properly, when I do JEST testing, then all JEST tests should pass
+
+
+
+
+As a user, I want to set a profile picture for the trip
+Description
+	Hours
+	Owner
+	Create a photo upload UI and file picker component
+	2
+	Piper
+	Implement client-side image compression and file size validation in React
+	2
+	Piper
+	Implement PATCH /trip/profile_picture
+	2
+	Piper
+	Hook up frontend and backend
+	1
+	Piper
+	Implement unit tests
+	1
+	Piper
+	TOTAL
+	8 Hours
+	===
+	Acceptance criteria
+1. Given a trip organizer viewing their trip details, when they select a valid image (JPEG/PNG under 16MB), then the image is compressed locally and saved via GridFS.
+2. Given an uploaded trip profile image, when the user navigates to the trips tab, then the trip card displays the updated thumbnail cover.  
+3. Given a user attempting to upload a file exceeding 16MB or an unsupported format (e.g., .txt, .pdf), When the file is selected, Then the frontend rejects the file and displays a validation error.  
+4. Given an uninvited user or viewer-role traveler, when they attempt to modify the trip profile picture, then they receive an error 
+5. Given automated unit tests for trip media, when image upload suites are executed, then all test pass
+
+
+As a user, I want to set a trip as public vs. private
+Description
+	Hours
+	Owner
+	Build a privacy toggle switch when creating a group
+	1
+	Piper
+	Update the trip and itinerary models in backend to support visibility
+	1
+	Piper
+	Implement PATCH /trip/id/visibility
+	1.5
+	Piper
+	Hook up frontend and backend
+	1
+	Piper
+	Create unit tests
+	1.5
+	Piper
+	TOTAL
+	6 Hours
+	===
+	Acceptance criteria
+1. Given a trip creator in Trip Settings, when they toggle the visibility from "Private" to "Public", then the visibility field in MongoDB is set to true and the trip becomes discoverable on the global feed.
+2. Given a trip marked as "Private", when an unauthenticated user or non-member attempts to access the trip, then they cannot find it. 
+3. Given a public trip, when any registered user views the public feed, then they can view the read-only itinerary details.
+4. Given an invited trip collaborator with "Viewer" role, when they view the trip settings, then the visibility toggle is disabled.
+5. Given the tests are implemented, when unit and endpoint tests are run, then all the tests pass
+________________
+
+
+As a User, I want to be able to add flights to my trip
+Description
+	Hours
+	Owner
+	[F] Make the logistics page, which will house the accommodations, rental cars, and hotels sub-pages
+	3
+	John
+	[F] Make the flights sub page, where users will be able to view flight info 
+	1
+	John
+	[F] Make it such that users can add new flights and edit existing flights on the flights sub page.
+	3
+	John
+	[B] Make POST /logistics/flights for creating flights
+	1
+	Bryce
+	[B] Make GET /logistics/flights?tripId={id} for viewing all flights on an itinerary (see security concerns in criteria)
+	2
+	Bryce
+	[B] Make PATCH /logistics/flights for changing flight info
+	1
+	Bryce
+	[I] Integrate frontend and backend
+	2
+	Bryce
+	Backend Test Suite
+	1.5
+	Bryce
+	TOTAL
+	14.5 Hours
+	===
+	Acceptance criteria
+1. Given the add flights function is working properly, when I add flights to the logistics, then I can see layovers in my flights.
+2. Given the add flights function is working properly, when I add flights to the logistics, then I can see the flights I have added.
+3. Given the add flights function is working properly, when I am viewing flights, then I should be able to edit them.
+4. Given the add flights function is working properly, when I do JEST testing, then all JEST tests should pass
+5. Given the add flights function is working properly, when I call the backend endpoint to get flight info, then I can only see the flight info if I am a part of it.
+
+
+As a User, I want to be able to add rental cars to my trip
+Description
+	Hours
+	Owner
+	[F] Make the rental cars subpage, where users will be able to see rental car info
+	1
+	John
+	[F] Make it such that users can add rental car info and edit rental car info on the rental car subpage. 
+	3
+	John
+	[B] Make POST /logistics/rental_cars for creating rental car entries
+	1
+	Bryce
+	[B] Make GET /logistics/rental_cars?tripId={id} for viewing all rental cars on itinerary (See security concerns in criteria)
+	2
+	Bryce
+	[B] Make PATCH /logistics/rental_cars for changing flight info
+	1
+	Bryce
+	[I] Integrate frontend and backend
+	2
+	Bryce
+	Backend Test Suite
+	1.5
+	Bryce
+	TOTAL
+	11.5 Hours
+	===
+	Acceptance criteria
+1. Given the add rental cars function is working properly, when I add rental cars to the logistics, then I can see the rental cars I have added.
+2. Given the add rental cars function is working properly, when I am viewing rental cars, then I should be able to edit them.
+3. Given the add rental cars function is working properly, when I am viewing rental cars, then I should be able to see all rental cars I have added.
+4. Given the add rental cars function is working properly, when I do JEST testing, then all JEST tests should pass
+5. Given the add rental cars function is working properly, when I call the backend endpoint to get rental car info, then I can only see the rental car info if I am a part of it.
+
+
+As A user, I want to be able to add hotels to my trip
+Description
+	Hours
+	Owner
+	[F] Make the hotel subpage, where users will be able to see hotel car info
+	1
+	John
+	[F] Make it such that users can add hotel info and edit hotel info on the hotel car subpage. 
+	3
+	John
+	[B] Make POST /logistics/hotels for creating hotel entries
+	1
+	Bryce
+	[B] Make GET /logistics/hotels?tripId={id} for viewing all hotels on itinerary (See security concerns in criteria)
+	2
+	Bryce
+	[B] Make PATCH /logistics/hotels for changing hotel info
+	1
+	Bryce
+	[I] Integrate frontend and backend
+	2
+	Bryce
+	Backend Test Suite
+	1
+	Bryce
+	TOTAL
+	11 Hours
+	===
+	Acceptance criteria
+1. Given the add hotels function is working properly, when I add hotels to the logistics, then I can see the hotels I have added.
+2. Given the add hotels function is working properly, when I am viewing hotels, then I should be able to edit them.
+3. Given the add hotels function is working properly, when I am viewing hotels, then I should be able to see all hotels I have added.
+4. Given the add hotels function is working properly, when I do JEST testing, then all JEST tests should pass
+5. Given the add hotels function is working properly, when I call the backend endpoint to get hotels info, then I can only see the hotels info if I am a part of it.
+As a user, I want to create a blank itinerary with a title, description and dates
+Description
+	Hours
+	Owner
+	[F] Create itinerary page
+	6
+	John
+	[B] Create itinerary entities
+	3
+	Daniel
+	[B] Create POST /itineraries
+	2
+	Daniel
+	[B] Create GET /itineraries?id={id}. See security concerns below
+	4
+	Daniel
+	[I] Integrate with frontend such that when a trip is created, the black itinerary is also created. 
+	3
+	Daniel
+	TOTAL
+	18 Hours
+	===
+	Acceptance criteria
+1. Given a user is creating a new trip, when the trip is successfully saved to the system, then a blank itinerary is attached to the new trip
+2. Given a trip has been created, when the user navigates to the trip’s itinerary tab, then the frontend successfully fetches and displays the correct details for that specific itinerary.
+3. Given a user is authenticated, when they view all of their trips on the “My Trips” page, then they will not see any trips that they are not a part of.
+4. Given an itinerary has specific dates and times, when a user’s timezone changes, the dates and times saved in the itinerary will not change.
+5. Given a trip has an itinerary, when the user deletes a trip, then the attached itinerary is also deleted from the database.
+
+
+As a user, I want to be able to add destinations/attractions to my itinerary
+Description
+	Hours
+	Owner
+	[F] Create modal/popup to add events to the itinerary.
+	1
+	John
+	[F] In the modal, user should be able to search for attraction by name, with autocomplete
+	3
+	John
+	[F] User should be able to select a timeframe for the event
+	1
+	John
+	[B] Make GET /destations/query_term={string}
+	8
+	Daniel
+	[B] Make POST /events
+	4
+	Daniel
+	[B] Make PATCH /events and DELETE /event
+	4
+	Daniel
+	[B] Make GET /events?itinerary_id={id}
+	2
+	Daniel
+	[I] Integrate
+	3
+	Daniel
+	TOTAL
+	26 Hours
+	===
+	Acceptance criteria
+1. Given that a user is viewing a specific trip, when they navigate to the itinerary page, then they are able to view the details of the itinerary
+2. Given that a user is looking to add an event to the itinerary, when they search for an attraction in the app, then the app presents options that match the same attractions shown in Google Maps.
+3. Given that a user is selecting important details for an event in the itinerary, when they prepare to add it to the itinerary, then they are given the option to select a timeframe for that event.
+4. Given there is already an event in the itinerary, when the user edits that itinerary, then the itinerary UI changes to immediately reflect that change without refreshing the full page.
+5. Given the user is typing in the search bar for an attraction, when their keystrokes are continuous, then the app debounces the input before dispatching a network request to prevent spamming the API.
+
+
+As a user, I want to add restaurants or bars to an itinerary
+Description
+	Hours
+	Owner
+	Build dining entry form UI with auto-complete from google maps
+	4
+	Piper
+	Implement dining event timecards within itinerary 
+	2
+	Piper
+	Implement POST /dining
+	1
+	Piper
+	Implement GET /dining
+	1
+	Piper
+	Implement PATCH and DELETE endpoints
+	1
+	Piper
+	Write unit tests
+	1
+	Piper
+	TOTAL
+	10 Hours
+	===
+	Acceptance criteria
+1. Given an itinerary editor, when they enter restaurant details and click "Add Dining", then the item is saved as an Event document in MongoDB and rendered on the itinerary timeline.
+2. Given multiple scheduled itinerary items, when dining events are added, then they are displayed in ascending chronological order according to startTime.  
+3. Given an existing dining item, when the user clicks "Delete Dining", then the event is removed from MongoDB and disappears from the day's view.
+4. Given invalid input fields, when the user attempts to submit, then validation blocks submission with an inline alert
+5. Given backend unit tests for itinerary items, when test suites execute, then all tests pass.
+
+
+As a user, I want to view a scrollable feed of public itineraries
+Description
+	Hours
+	Owner
+	Build the vertically scrollable social media page
+	3
+	Piper
+	Implement chronologically sorting, first putting friends itineraries at the top.
+	2
+	Piper
+	Create GET endpoint with visibility=true
+	2
+	Piper
+	Connect frontend and backend
+	1
+	Piper
+	Implement unit tests
+	1
+	Piper
+	TOTAL
+	9 Hours
+	===
+	Acceptance criteria
+1. Given a logged-in user navigating to the Social Page, when the view renders, then an initial batch of public itineraries is displayed in a responsive, scrollable list.
+2. Given a user scrolling to the bottom of the feed, when the scroll trigger is reached, then the next page of public itineraries is fetched and appended seamlessly. 
+3. Given trips marked as private, when the feed endpoint GET /api/itineraries/feed is queried, then private trips are strictly omitted from the query results.
+4. Given a public itinerary card in the feed, when a user clicks on the card, then they are routed to a read-only view of that trip's itinerary.
+5. Given implementation of integration tests, when executed, then all tests pass
+Team member hour breakdown
+Member
+	General responsibilities
+	Hours
+	John
+	Frontend
+	41
+	Piper
+	Adding friends, Trip profile pictures, Public vs. Private, Dining, and Scrollable feed
+	40
+	Bryce
+	Backend routes, Integrating backend to front end, Backend Test Suites
+	40
+	Daniel
+	Backend routes and Integration of backend and frontend. Main Focus on itinerary functionality.
+	40
+	TOTAL
+	===
+	161
+	________________
+
+
+
+
+Remaining backlog
+User Account (Backend: 15h, Frontend: 20h, Connecting: 10h) = 45
+* As a user, I want to create an account with username, email, and password
+* As a user, I want to set a profile picture
+* As a user, I want to login to my account using my email and password
+* As a user, I want to be able to reset my password (if time allows)
+* As a user, I want to be able to friend other users
+* As an admin, I want to be able to delete user accounts (if time allows)
+
+
+Trip Creation (Backend: 15h, Frontend: 20h, Connecting 5h) = 40
+* As a user, I want to create a trip with a defined time period and trip name
+* As a user, I want to view a tab with all trips I am in
+* As a user, I want to set a profile picture for the trip
+* As a user, I want to set a trip as private vs. public
+
+
+Logistics (Backend: 10h, Frontend: 15h, Connecting: 5h) = 30
+* As a user, I want to be able to add flights to my trip. 
+* As a user, I want to be able to add rental cars to my trip.
+* As a user, I want to be able to add hotels to my trip.
+
+
+Itinerary planning (Backend: 20h, Frontend: 40h, Connecting: 10h) = 70
+* As a user, I want to create a blank itinerary with a title, description and dates
+* As a user, I want to be able to add destinations/attractions to my itinerary
+* As a user, I want to be able to add restaurants or bars to my itinerary
+* As a user, I want to be able to add transit to my itinerary (if time allows)
+* As a user, I want to be able to see a map with items on my itinerary (if time allows)
+
+
+Trip sharing (Backend: 20h, Frontend: 20h, Connecting: 10h) = 50
+* As a user, I want to be able to share my trip with my friends or family.
+* As a user, I want to be able to accept an invite to a trip
+* As a user, I want to be able to designate users as read-only users
+* As a user, I want to be able to edit the trip one-at-a-time. (We do not want to implement something like google docs live-update yet. One user will be able to commit changes at a time, with a write lock)
+* As a user, I want to be able to edit the trip in real-time (if time allows). This is the above mentioned google-docs-live-update
+
+
+Photo Upload (Backend: 20h, Frontend: 25h, Connecting: 10h) = 55
+* As a user, I want to be able to upload photos to the app
+* As a user, I want my photos to be linked to events on my itinerary
+* As a user, I want to be able to view all of my photos associated with a trip in a grid like menu
+* As a user, I want my past uploaded photos to be visible when viewing my archived itineraries
+* As a user I want to view photos that other users have uploaded to a trip
+* As a user, I want to be able to see on a map where my photos were taken using the geotagging available in most photos
+* As a user, I can hide certain photos on a public trip (if time allows)
+
+
+Ledger (Backend: 10h, Frontend: 15h, Connecting: 5h) = 30
+* As a user, I want to be able to set an overall budget
+* As a user, I want to be able to add costs to every item in the itinerary, such as flights, rental cars, hotels, etc. (see section B for all features)
+* As a user, if I upload an expense I want to be able designate other users to split the expense.
+* As a user, I want to be able to see how much money is owed to everyone else on the trip.
+* As a user, I want to be able to remove an item from the ledger (in case someone double adds the same item).
+
+
+Archiving (Backend: 10h, Frontend: 30h, Connecting: 5h) = 45
+* As a user, when a trip is over, I want to be able to archive a trip
+* As a user, I want to be able to view my archived trip
+* As a user, I want to be able to add notes to an archived itinerary
+* As a user, I want to be able to share an archived trip with another user
+* As a user, I want to be able to set an archived trip to public or private
+
+
+Statistics (Backend: 15h Frontend: 20h, Connecting 5h) = 40
+* As a user, I want to be able to view basic statistics of a trip on a dashboard
+* As a user, I want to know how many days and nights I spent, how much total money I spent, and how many locations I visited given a specific itinerary.
+* As a user, I want to know how much distance I covered throughout a specific itinerary.
+* As a user, I want to know how many pictures I uploaded to a trip
+
+
+Polling (Backend: 20h, Frontend: 20h, Connecting 5h) = 45
+* As a user, I want to create a poll for itinerary options
+* As a user, I want to embed links to itinerary options for a poll so other users can view the options
+* As a user, I want to be able to vote on an itinerary poll
+* As a user, I want to be able to close polls at a specified time or at my discretion
+* As a user, once a poll is closed, I would like to see the result of the poll reflected in the itinerary
+* As a user, I would like to delete a poll
+
+
+Social (Backend: 15h Frontend: 10h, Connecting 5:) = 30
+* As a user, I want to be able to share the highlights of my trip to external social medias such as facebook or instagram
+* As a user, I want to view a scrollable feed of public itineraries
+* As a user, I want to be able to upvote itineraries
+* As a user, I want to be able to search by location and get the most popular itineraries
+* As a user, I want to hide myself from a public trip
