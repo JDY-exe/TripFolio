@@ -5,7 +5,7 @@ const createTrip = async (req, res) => {
     const { name, startDate, endDate } = req.body;
 
     if (!name || !startDate || !endDate) {
-      return res.status(400).json({ message: "All fields are required"});
+      return res.status(400).json({ message: "All fields are required" });
     }
 
     // Validate dates
@@ -43,4 +43,52 @@ const deleteTrip = async (req, res) => {
   }
 };
 
-module.exports = { createTrip, getTrips, deleteTrip };
+const getTripFromUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({
+        message: "UserId is required"
+      });
+    }
+    const trips = await Trip.find({ users: userId });
+    return res.status(200).json({ trips });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
+}
+
+const addUserToTrip = async (req, res) => {
+  try {
+    const { tripId, userId } = req.body;
+    if (!tripId || !userId) {
+      return res.status(400).json({
+        message: "tripId and userId are required"
+      });
+    }
+    const trip = await Trip.findByIdAndUpdate(
+      tripId,
+      { $addToSet: { users: userId } },
+      { new: true }
+    );
+    if (!trip) {
+      return res.status(404).json({
+        message: "Trip no found"
+      });
+    }
+    return res.status(200).json({
+      message: "User added to trip successfully",
+      trip
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
+}
+module.exports = { createTrip, getTrips, deleteTrip, getTripFromUser, addUserToTrip };

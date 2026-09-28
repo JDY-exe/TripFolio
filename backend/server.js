@@ -15,13 +15,14 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-app.use("/api/users", userRoutes);
+
 
 // Database
 connectDB();
 
 // Routes
 app.use("/trip", tripRoutes);
+app.use("/users", userRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running!");

@@ -12,7 +12,13 @@ const tripSchema = new mongoose.Schema({
   endDate: {
     type: Date,
     required: [true, "End date is required"]
-  }
+  },
+  users: [
+          {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: "User"
+          }
+      ]
 }, { timestamps: true });
 
 module.exports = mongoose.model("Trip", tripSchema);
