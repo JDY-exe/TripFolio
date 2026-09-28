@@ -13,6 +13,15 @@ import {
   validateTripCoverImage,
 } from './tripCoverImage';
 
+interface TripResponse {
+  savedTrip: {
+    _id: string;
+    name: string;
+    startDate: string;
+    endDate: string;
+  }
+}
+
 /** Creates a trip and optionally uploads a compressed cover image. */
 function CreateTrip() {
   const navigate = useNavigate();
@@ -83,22 +92,27 @@ function CreateTrip() {
 
     setLoading(true);
     try {
-      const response = await postToApi<{ savedTrip: { _id: string } }>(
-        '/trip',
-        {
-          name,
-          startDate,
-          endDate,
-        },
-      );
+      // Create Trip
+      const newTrip = await postToApi<TripResponse>('/trip', { name, startDate, endDate });
+      console.log("Trip Database Response:", newTrip);
 
+      // Create Blank Itinerary
+      await postToApi('/itinerary', {
+        tripId: newTrip.savedTrip._id,
+        title: 'Blank Itinerary',
+        description: '',
+        startDate,
+        endDate
+      });
+
+      // Upload Cover Image
       if (coverFile) {
         const imageData = new FormData();
         imageData.append('image', coverFile);
 
         try {
           await patchToApi(
-            `/trip/${response.savedTrip._id}/profile_picture`,
+            `/trip/${newTrip.savedTrip._id}/profile_picture`,
             imageData,
           );
         } catch {
