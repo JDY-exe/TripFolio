@@ -7,39 +7,6 @@ const getDestinations = async (req, res) => {
       return res.status(200).json({ suggestions: [] });
     }
     
-    /**
-     * MOCK DATA AND SIMULATED NETWORK DELAY FOR TESTING
-     */
-    
-    /*
-    const dummyData = {
-      suggestions: [
-        {
-          placePrediction: {
-            placeId: "ChIJd8BlQ2BZwokRAFUEcm_qrcA",
-            text: { text: `${query_term} Bakery & Cafe` }
-          }
-        },
-        {
-          placePrediction: {
-            placeId: "ChIJIQBpAG2ahYAR_6128GcTUEo",
-            text: { text: `${query_term} National Museum` }
-          }
-        }
-      ]
-    };
-
-    setTimeout(() => {
-      res.status(200).json(dummyData);
-    }, 500);
-    */
-
-    /**
-     * END OF MOCK DATA FOR TESTING
-     */
-
-    // Real Google API Logic (Uncomment when ready to test Google Maps Lookup feature)
-    
     const url = 'https://places.googleapis.com/v1/places:autocomplete';
     const response = await fetch(url, {
       method: 'POST',
