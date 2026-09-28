@@ -1,6 +1,6 @@
 const getDestinations = async (req, res) => {
   try {
-    const { query_term } = req.query;
+    const { query_term, session_token } = req.query;
 
     // Do not process if search box is empty
     if (!query_term || query_term.trim() === '') {
@@ -15,7 +15,10 @@ const getDestinations = async (req, res) => {
         'X-Goog-Api-Key': process.env.GOOGLE_API_KEY,
         'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text',
       },
-      body: JSON.stringify({ input: query_term }),
+      body: JSON.stringify({
+        input: query_term,
+        sessionToken: session_token
+      }),
     });
 
     if (!response.ok) {

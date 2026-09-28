@@ -60,6 +60,8 @@ function ItineraryView() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  const [sessionToken, setSessionToken] = useState('');
+
   // Debounce Timer
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -75,7 +77,7 @@ function ItineraryView() {
       return;
     }
 
-    getFromApi<any>(`/destination?query_term=${encodeURIComponent(debouncedTerm)}`)
+    getFromApi<any>(`/destination?query_term=${encodeURIComponent(debouncedTerm)}&session_token=${sessionToken}`)
       .then((data) => {
         if (data && data.suggestions) {
           setSuggestions(data.suggestions);
@@ -116,6 +118,9 @@ function ItineraryView() {
     setEventError(null);
     setSearchTerm('');
     setShowSuggestions(false);
+
+    setSessionToken(Math.random().toString(36).substring(2));
+
     const defaultTime = formatForInput(itinerary.startDate);
     setEventForm({
       title: '',
@@ -131,6 +136,9 @@ function ItineraryView() {
     setEventError(null);
     setSearchTerm(event.address || '');
     setShowSuggestions(false);
+
+    setSessionToken(Math.random().toString(36).substring(2));
+
     setEventForm({
       title: event.title,
       address: event.address || '',
