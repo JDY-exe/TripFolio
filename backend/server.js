@@ -6,6 +6,7 @@ const connectDB = require("./config/db");
 const tripRoutes = require("./routes/tripRoutes");
 const itineraryRoutes = require("./routes/itineraryRoutes");
 const eventRoutes = require("./routes/eventRoutes");
+const destinationRoutes = require("./routes/destinationRoutes");
 
 const app = express();
 
@@ -24,6 +25,7 @@ connectDB();
 app.use("/trip", tripRoutes);
 app.use("/itinerary", itineraryRoutes);
 app.use("/event", eventRoutes);
+app.use("/destination", destinationRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running!");

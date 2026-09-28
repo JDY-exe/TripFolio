@@ -15,6 +15,7 @@ interface ItineraryData {
 interface EventData {
   _id: string;
   title: string;
+  address: string;
   startTime: string;
   endTime: string;
   notes?: string;
@@ -46,12 +47,44 @@ function ItineraryView() {
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [eventForm, setEventForm] = useState({
     title: '',
+    address: '',
     startTime: '',
     endTime: '',
     notes: '',
   });
   const [eventError, setEventError] = useState<string | null>(null);
 
+  // Autocomplete States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedTerm, setDebouncedTerm] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Debounce Timer
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedTerm(searchTerm);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // API Fetcher
+  useEffect(() => {
+    if (debouncedTerm.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    getFromApi<any>(`/destination?query_term=${encodeURIComponent(debouncedTerm)}`)
+      .then((data) => {
+        if (data && data.suggestions) {
+          setSuggestions(data.suggestions);
+        }
+      })
+      .catch(console.error);
+  }, [debouncedTerm]);
+
+  // Load Events
   useEffect(() => {
     if (id) {
       getFromApi<ItineraryData>(`/itinerary?id=${id}`)
@@ -81,9 +114,12 @@ function ItineraryView() {
     if (!itinerary) return;
     setActiveEventId('NEW');
     setEventError(null);
+    setSearchTerm('');
+    setShowSuggestions(false);
     const defaultTime = formatForInput(itinerary.startDate);
     setEventForm({
       title: '',
+      address: '',
       startTime: defaultTime,
       endTime: defaultTime,
       notes: '',
@@ -93,8 +129,11 @@ function ItineraryView() {
   const openEditForm = (event: EventData) => {
     setActiveEventId(event._id);
     setEventError(null);
+    setSearchTerm(event.address || '');
+    setShowSuggestions(false);
     setEventForm({
       title: event.title,
+      address: event.address || '',
       startTime: formatForInput(event.startTime),
       endTime: formatForInput(event.endTime),
       notes: event.notes || '',
@@ -104,7 +143,14 @@ function ItineraryView() {
   const closeForm = () => {
     setActiveEventId(null);
     setEventError(null);
+    setShowSuggestions(false);
   }
+
+  const handleSelectSuggestion = (suggestionText: string) => {
+    setSearchTerm(suggestionText);
+    setEventForm({...eventForm, address: suggestionText});
+    setShowSuggestions(false);
+  };
 
   const handleSaveEvent = async () => {
     if (!itinerary || !activeEventId) return;
@@ -136,6 +182,7 @@ function ItineraryView() {
         const newEvent = await postToApi<EventData>('/event', {
           itineraryID: itinerary._id,
           title: eventForm.title || "New Event",
+          address: eventForm.address,
           startTime: startTimeUTC,
           endTime: endTimeUTC,
           notes: eventForm.notes,
@@ -145,6 +192,7 @@ function ItineraryView() {
         // PATCH
         await patchToApi<EventData>(`/event/${activeEventId}`, {
           title: eventForm.title,
+          address: eventForm.address,
           startTime: startTimeUTC,
           endTime: endTimeUTC,
           notes: eventForm.notes,
@@ -153,6 +201,7 @@ function ItineraryView() {
         setEvents(events.map((e) => (e._id === activeEventId ? {
           ...e,
           title: eventForm.title,
+          address: eventForm.address,
           startTime: startTimeUTC,
           endTime: endTimeUTC,
           notes: eventForm.notes
@@ -288,12 +337,46 @@ function ItineraryView() {
             <div key={event._id} className="group relative flex flex-col gap-2 rounded-panel bg-surface-container-low p-4 shadow-sm border border-outline-variant">
               {activeEventId === event._id ? (
                 <div className="flex w-full flex-col gap-3">
-                  <input
-                    value={eventForm.title}
-                    onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                    placeholder="Event Title"
-                    className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary"
+                  {/* 1. Custom Event Title */}
+                  <input 
+                    value={eventForm.title} 
+                    onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} 
+                    placeholder="Event Title (e.g. Anniversary Dinner)" 
+                    className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary" 
+                    autoFocus 
                   />
+                  
+                  {/* 2. Google Maps Location Search */}
+                  <div className="relative flex w-full flex-col gap-1">
+                    <input 
+                      value={searchTerm} 
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setEventForm({ ...eventForm, address: e.target.value }); 
+                        setShowSuggestions(true);
+                      }} 
+                      placeholder="Search location (e.g. Tokyo Tower)..." 
+                      className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary" 
+                    />
+                    
+                    {/* Autocomplete Dropdown Menu */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <ul className="absolute top-full left-0 z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md bg-surface-container shadow-lg border border-outline-variant">
+                        {suggestions.map((item, index) => {
+                          const placeName = item.placePrediction?.text?.text || 'Unknown Place';
+                          return (
+                            <li 
+                              key={index}
+                              onClick={() => handleSelectSuggestion(placeName)}
+                              className="cursor-pointer p-3 text-sm text-on-surface hover:bg-surface-container-high border-b border-outline-variant last:border-0"
+                            >
+                              {placeName}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <div className="flex flex-1 flex-col gap-1">
                       <label className="text-xs text-on-surface-variant">Start Time</label>
@@ -335,6 +418,9 @@ function ItineraryView() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h4 className="font-medium text-on-surface">{event.title}</h4>
+                    {event.address && (
+                      <p className="text-sm text-on-surface-variant mt-0.5">{event.address}</p>
+                    )}
                     <p className="text-sm font-semibold text-primary mt-1">
                       {new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}
                       {' - '}
@@ -376,8 +462,46 @@ function ItineraryView() {
             <div className="flex w-full flex-col gap-3 rounded-panel bg-surface-container-low p-4 shadow-sm border-2 border-primary">
               <h4 className="text-sm font-bold text-primary mb-1">Create New Event</h4>
               
-              {/* Note: This is the exact same inputs as your edit form! */}
-              <input value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} placeholder="Event Title" className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary" autoFocus />
+              {/* 1. Custom Event Title */}
+              <input 
+                value={eventForm.title} 
+                onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} 
+                placeholder="Event Title (e.g. Anniversary Dinner)" 
+                className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary" 
+                autoFocus 
+              />
+              
+              {/* 2. Google Maps Location Search */}
+              <div className="relative flex w-full flex-col gap-1">
+                <input 
+                  value={searchTerm} 
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setEventForm({ ...eventForm, address: e.target.value }); 
+                    setShowSuggestions(true);
+                  }} 
+                  placeholder="Search location (e.g. Tokyo Tower)..." 
+                  className="w-full rounded bg-surface-container p-2 text-sm text-on-surface focus:outline-primary" 
+                />
+                
+                {/* Autocomplete Dropdown Menu */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="absolute top-full left-0 z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md bg-surface-container shadow-lg border border-outline-variant">
+                    {suggestions.map((item, index) => {
+                      const placeName = item.placePrediction?.text?.text || 'Unknown Place';
+                      return (
+                        <li 
+                          key={index}
+                          onClick={() => handleSelectSuggestion(placeName)}
+                          className="cursor-pointer p-3 text-sm text-on-surface hover:bg-surface-container-high border-b border-outline-variant last:border-0"
+                        >
+                          {placeName}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
               <div className="flex gap-2">
                 <div className="flex flex-1 flex-col gap-1">
                   <label className="text-xs text-on-surface-variant">Start Time</label>
