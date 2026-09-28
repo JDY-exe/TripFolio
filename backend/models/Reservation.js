@@ -29,7 +29,7 @@ const reservationSchema = new mongoose.Schema(
         },
         cost:
         {
-            type: Double,
+            type: Number,
             required: false,
             unique: false
         },
@@ -73,6 +73,11 @@ const reservationSchema = new mongoose.Schema(
                 required: true,
                 unique: false
             }
+        },
+        trip:
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "trip"
         }
     },
     {

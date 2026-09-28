@@ -5,6 +5,7 @@ require("dotenv").config();
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const tripRoutes = require("./routes/tripRoutes");
+const reservationRoutes = require("./routes/reservationRoutes");
 
 const app = express();
 
@@ -23,6 +24,7 @@ connectDB();
 // Routes
 app.use("/trip", tripRoutes);
 app.use("/users", userRoutes);
+app.use("/logistics", reservationRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running!");

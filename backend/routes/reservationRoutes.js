@@ -1,10 +1,12 @@
 const express = require("express");
 const Reservation = require("../models/Reservation");
+const router = require("./userRoutes");
+const trip = require("../models/trip");
 
 router.post("/hotels", async (req, res) => {
     try {
-        const { name, startTime, endTime, confirmationNumber, cost, notes, accommodations } = req.body;
-        if (!name || !startTime || !endTime || !accommodations?.address) {
+        const { name, startTime, endTime, confirmationNumber, cost, notes, accommodations, tripId } = req.body;
+        if (!name || !startTime || !endTime || !accommodations?.address || !tripId) {
             return res.status(400).json({
                 message: "Name, start time, end time, and hotel address are required"
             });
@@ -13,6 +15,12 @@ router.post("/hotels", async (req, res) => {
         if (new Date(endTime) < new Date(startTime)) {
             return res.status(400).json({
                 message: "End time cannot be before start time"
+            });
+        }
+        const trip = await trip.findById(tripId);
+        if (!trip) {
+            return res.status(400).json({
+                message: "Couldn't find trip"
             });
         }
         const reservation = new Reservation({
@@ -28,6 +36,8 @@ router.post("/hotels", async (req, res) => {
             }
         });
         const savedReservation = await reservation.save();
+        trip.reservations.push(savedReservation._id);
+        await trip.save();
         return res.status(201).json({
             message: "Hotel reservation created successfully",
             reservation: savedReservation
@@ -43,8 +53,8 @@ router.post("/hotels", async (req, res) => {
 
 router.post("/rental_cars", async (req, res) => {
     try {
-        const { name, startTime, endTime, confirmationNumber, cost, notes, rentals } = req.body;
-        if (!name || !startTime || !endTime || !rentals?.company) {
+        const { name, startTime, endTime, confirmationNumber, cost, notes, rentals, tripId } = req.body;
+        if (!name || !startTime || !endTime || !rentals?.company || !tripId) {
             return res.status(400).json({
                 message: "Name, start time, end time, and rental comapny are required"
             });
@@ -53,6 +63,12 @@ router.post("/rental_cars", async (req, res) => {
         if (new Date(endTime) < new Date(startTime)) {
             return res.status(400).json({
                 message: "End time cannot be before start time"
+            });
+        }
+        const trip = await trip.findById(tripId);
+        if (!trip) {
+            return res.status(400).json({
+                message: "Couldn't find trip"
             });
         }
         const reservation = new Reservation({
@@ -68,6 +84,8 @@ router.post("/rental_cars", async (req, res) => {
             }
         });
         const savedReservation = await reservation.save();
+        trip.reservations.push(savedReservation._id);
+        await trip.save();
         return res.status(201).json({
             message: "Rental reservation created successfully",
             reservation: savedReservation
@@ -83,8 +101,8 @@ router.post("/rental_cars", async (req, res) => {
 
 router.post("/flights", async (req, res) => {
     try {
-        const { name, startTime, endTime, confirmationNumber, cost, notes, flights } = req.body;
-        if (!name || !startTime || !endTime || !flights?.airline || !flights?.flightNum || !flights?.departAirport || !flights?.arriveAirport) {
+        const { name, startTime, endTime, confirmationNumber, cost, notes, flights, tripId } = req.body;
+        if (!name || !startTime || !endTime || !flights?.airline || !flights?.flightNum || !flights?.departAirport || !flights?.arriveAirport || !tripId) {
             return res.status(400).json({
                 message: "Name, start time, end time, and flight information are required"
             });
@@ -93,6 +111,12 @@ router.post("/flights", async (req, res) => {
         if (new Date(endTime) < new Date(startTime)) {
             return res.status(400).json({
                 message: "End time cannot be before start time"
+            });
+        }
+        const trip = await trip.findById(tripId);
+        if (!trip) {
+            return res.status(400).json({
+                message: "Couldn't find trip"
             });
         }
         const reservation = new Reservation({
@@ -111,6 +135,8 @@ router.post("/flights", async (req, res) => {
             }
         });
         const savedReservation = await reservation.save();
+        trip.reservations.push(savedReservation._id);
+        await trip.save();
         return res.status(201).json({
             message: "Flight reservation created successfully",
             reservation: savedReservation
@@ -294,3 +320,5 @@ router.patch("/flights/:id", async (req, res) => {
         });
     }
 })
+
+module.exports = router;
