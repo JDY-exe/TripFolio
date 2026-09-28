@@ -6,11 +6,12 @@ const getDestinations = async (req, res) => {
     if (!query_term || query_term.trim() === '') {
       return res.status(200).json({ suggestions: [] });
     }
-
+    
     /**
      * MOCK DATA AND SIMULATED NETWORK DELAY FOR TESTING
      */
-
+    
+    /*
     const dummyData = {
       suggestions: [
         {
@@ -31,13 +32,14 @@ const getDestinations = async (req, res) => {
     setTimeout(() => {
       res.status(200).json(dummyData);
     }, 500);
+    */
 
     /**
      * END OF MOCK DATA FOR TESTING
      */
 
     // Real Google API Logic (Uncomment when ready to test Google Maps Lookup feature)
-    /*
+    
     const url = 'https://places.googleapis.com/v1/places:autocomplete';
     const response = await fetch(url, {
       method: 'POST',
@@ -55,7 +57,6 @@ const getDestinations = async (req, res) => {
 
     const data = await response.json();
     res.status(200).json(data);
-    */
   
   } catch (error) {
     console.error('Destination Lookup Error:', error.message);
