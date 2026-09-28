@@ -41,36 +41,36 @@ const reservationSchema = new mongoose.Schema(
         flights: {
             airline: {
                 type: String,
-                required: true,
+                required: function () { return this.type === "flights"; },
                 unique: false
             },
             flightNum: {
                 type: String,
-                required: true,
+                required: function () { return this.type === "flights"; },
                 unique: false
             },
             departAirport: {
                 type: String,
-                required: true,
+                required: function () { return this.type === "flights"; },
                 unique: false
             },
             arriveAirport: {
                 type: String,
-                required: true,
+                required: function () { return this.type === "flights"; },
                 unique: false
             }
         },
         accommodations: {
             address: {
                 type: String,
-                required: true,
+                required: function () { return this.type === "accommodations"; },
                 unique: false
             }
         },
         rentals: {
             company: {
                 type: String,
-                required: true,
+                required: function () { return this.type === "rentals"; },
                 unique: false
             }
         },
