@@ -2,7 +2,7 @@ import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Text } from '../../components/common';
-import { getFromApi, deleteFromApi } from '../../utils/api';
+import { deleteFromApi, getApiUrl, getFromApi } from '../../utils/api';
 import TripCard from './TripCard';
 
 // Trip data shape
@@ -11,6 +11,7 @@ interface Trip {
   name: string;
   startDate: string;
   endDate: string;
+  profilePictureId?: string;
 }
 
 /**
@@ -28,17 +29,17 @@ function MyTrips() {
     const fetchTrips = async () => {
       try {
         const data = await getFromApi<Trip[]>('/trip');
-        
+
         // Debug output to consol
-        console.log("Backend responded with:", data);
+        console.log('Backend responded with:', data);
         if (Array.isArray(data)) {
           setTrips(data);
         } else {
           setTrips([]);
-          console.error("Expected an array of trips, but got something else.");
+          console.error('Expected an array of trips, but got something else.');
         }
       } catch (error) {
-        console.error("Failed to fetch trips", error);
+        console.error('Failed to fetch trips', error);
       } finally {
         setIsLoading(false);
       }
@@ -79,15 +80,19 @@ function MyTrips() {
             <p>No trips found. Create one to get started!</p>
           ) : (
             trips.map((trip) => (
-              <TripCard 
-                key={trip._id} 
+              <TripCard
+                key={trip._id}
                 id={trip._id}
                 title={trip.name}
                 dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
                 destination="Destination TBD"
                 travelers="1 Traveler"
                 status="Upcoming"
-                image="https://placehold.co/600x400"
+                image={
+                  trip.profilePictureId
+                    ? getApiUrl(`/trip/${trip._id}/profile_picture`)
+                    : 'https://placehold.co/600x400'
+                }
                 onDelete={handleDeleteTrip}
               />
             ))

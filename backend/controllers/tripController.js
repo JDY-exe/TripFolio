@@ -1,5 +1,7 @@
 const Trip = require("../models/trip");
 const Itinerary = require("../models/itinerary");
+const mongoose = require("mongoose");
+const { validateTripProfilePicture } = require("../utils/tripMedia");
 
 const createTrip = async (req, res) => {
   try {
@@ -47,4 +49,94 @@ const deleteTrip = async (req, res) => {
   }
 };
 
-module.exports = { createTrip, getTrips, deleteTrip };
+const updateTripProfilePicture = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+
+    const validationMessage = validateTripProfilePicture(req.file);
+    if (validationMessage) {
+      return res.status(400).json({ message: validationMessage });
+    }
+
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      bucketName: "tripProfilePictures"
+    });
+    const uploadStream = bucket.openUploadStream(req.file.originalname, {
+      metadata: { contentType: req.file.mimetype }
+    });
+
+    await new Promise((resolve, reject) => {
+      uploadStream.once("error", reject);
+      uploadStream.once("finish", resolve);
+      uploadStream.end(req.file.buffer);
+    });
+
+    const previousPictureId = trip.profilePictureId;
+    trip.profilePictureId = uploadStream.id;
+    await trip.save();
+
+    if (previousPictureId) {
+      await bucket.delete(previousPictureId).catch(() => undefined);
+    }
+
+    return res.status(200).json({
+      message: "Trip cover updated successfully",
+      trip
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const getTripProfilePicture = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+
+    const trip = await Trip.findById(req.params.id);
+    if (!trip || !trip.profilePictureId) {
+      return res.status(404).json({ message: "Trip cover not found" });
+    }
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      bucketName: "tripProfilePictures"
+    });
+    const [picture] = await bucket
+      .find({ _id: trip.profilePictureId })
+      .toArray();
+
+    if (!picture) {
+      return res.status(404).json({ message: "Trip cover not found" });
+    }
+
+    res.set("Content-Type", picture.metadata?.contentType || "application/octet-stream");
+    res.set("Cache-Control", "public, max-age=3600");
+    const downloadStream = bucket.openDownloadStream(trip.profilePictureId);
+    downloadStream.on("error", (error) => {
+      if (!res.headersSent) {
+        res.status(404).json({ message: "Trip cover could not be read" });
+      } else {
+        res.destroy(error);
+      }
+    });
+    return downloadStream.pipe(res);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  createTrip,
+  getTrips,
+  deleteTrip,
+  updateTripProfilePicture,
+  getTripProfilePicture
+};
