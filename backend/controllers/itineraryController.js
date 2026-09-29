@@ -1,4 +1,6 @@
 const Itinerary = require ('../models/itinerary');
+const Trip = require('../models/trip');
+const mongoose = require('mongoose');
 
 const createItinerary = async (req, res) => {
   try {
@@ -27,10 +29,26 @@ const getItinerary = async (req, res) => {
       return res.status(400).json({ message: 'Missing ID parameter in query string' });
     }
 
-    const itinerary = await Itinerary.findOne({ tripId: tripId });
+    if (!mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ message: 'Invalid trip ID' });
+    }
+
+    let itinerary = await Itinerary.findOne({ tripId });
 
     if (!itinerary) {
-      return res.status(404).json({ message: 'Itinerary not found for this trip' });
+      const trip = await Trip.findById(tripId);
+
+      if (!trip) {
+        return res.status(404).json({ message: 'Trip not found' });
+      }
+
+      itinerary = await Itinerary.create({
+        tripId: trip._id,
+        title: 'Blank Itinerary',
+        description: '',
+        startDate: trip.startDate,
+        endDate: trip.endDate
+      });
     }
 
     res.status(200).json(itinerary);

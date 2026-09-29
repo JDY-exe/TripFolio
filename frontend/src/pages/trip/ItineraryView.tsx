@@ -37,6 +37,10 @@ const formatForInput = (dateString: string) => {
 function ItineraryView() {
   const { id } = useParams<{ id: string }>();
   const [itinerary, setItinerary] = useState<ItineraryData | null>(null);
+  const [loadedTripId, setLoadedTripId] = useState<string | null>(null);
+  const [isLoadingItinerary, setIsLoadingItinerary] = useState(true);
+  const [itineraryLoadError, setItineraryLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -86,22 +90,43 @@ function ItineraryView() {
       .catch(console.error);
   }, [debouncedTerm]);
 
-  // Load Events
+  // Load the itinerary first, then its events.
   useEffect(() => {
-    if (id) {
-      getFromApi<ItineraryData>(`/itinerary?id=${id}`)
-        .then((data) => {
-          setItinerary(data);
-          setEditTitle(data.title);
-          setEditDescription(data.description);
+    if (!id) return;
 
-          // Fetch all events linked to this itinerary
-          return getFromApi<EventData[]>(`/event?itinerary_id=${data._id}`);
-        })
-        .then((eventData) => setEvents(eventData || []))
-        .catch(console.error);
-    }
-  }, [id]);
+    let isActive = true;
+    const loadItinerary = async () => {
+      try {
+        const data = await getFromApi<ItineraryData>(`/itinerary?id=${id}`);
+        if (!isActive) return;
+
+        setItinerary(data);
+        setLoadedTripId(id);
+        setEditTitle(data.title);
+        setEditDescription(data.description);
+
+        try {
+          const eventData = await getFromApi<EventData[]>(
+            `/event?itinerary_id=${data._id}`,
+          );
+          if (isActive) setEvents(eventData || []);
+        } catch (error) {
+          console.error('Failed to load itinerary events:', error);
+          if (isActive) setEvents([]);
+        }
+      } catch (error) {
+        console.error('Failed to load itinerary:', error);
+        if (isActive) setItineraryLoadError(true);
+      } finally {
+        if (isActive) setIsLoadingItinerary(false);
+      }
+    };
+
+    void loadItinerary();
+    return () => {
+      isActive = false;
+    };
+  }, [id, loadAttempt]);
   
   const handleDeleteEvent = async (eventId: string) => {
     try {
@@ -245,9 +270,40 @@ function ItineraryView() {
     setIsEditing(false);
   };
 
-  if (!itinerary) {
+  if (!id) {
+    return <div className="p-4 text-on-surface">Trip not found.</div>;
+  }
+
+  if (
+    !itineraryLoadError &&
+    (isLoadingItinerary || loadedTripId !== id)
+  ) {
     return <div className="p-4 text-on-surface">Loading itinerary...</div>;
   }
+
+  if (itineraryLoadError || !itinerary || loadedTripId !== id) {
+    return (
+      <div className="flex flex-col items-start gap-3 p-4 text-on-surface">
+        <p>Could not load this itinerary.</p>
+        <Button
+          onClick={() => {
+            setItineraryLoadError(false);
+            setIsLoadingItinerary(true);
+            setLoadAttempt((attempt) => attempt + 1);
+          }}
+          size="sm"
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  const sortedEvents = [...events].sort(
+    (firstEvent, secondEvent) =>
+      new Date(firstEvent.startTime).getTime() -
+      new Date(secondEvent.startTime).getTime(),
+  );
 
   const startDate = new Date(itinerary.startDate);
   const month = startDate.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short' });
@@ -341,7 +397,7 @@ function ItineraryView() {
       {/* Event List Render */}
       {events.length > 0 && (
         <div className="mt-8 mb-4 flex flex-col gap-4">
-          {events.map((event) => (
+          {sortedEvents.map((event) => (
             <div key={event._id} className="group relative flex flex-col gap-2 rounded-panel bg-surface-container-low p-4 shadow-sm border border-outline-variant">
               {activeEventId === event._id ? (
                 <div className="flex w-full flex-col gap-3">
