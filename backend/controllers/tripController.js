@@ -1,5 +1,7 @@
 const Trip = require("../models/trip");
 const Itinerary = require("../models/itinerary");
+const Event = require("../models/event");
+
 const mongoose = require("mongoose");
 const { validateTripProfilePicture } = require("../utils/tripMedia");
 
@@ -37,11 +39,10 @@ const getTrips = async (req, res) => {
 const deleteTrip = async (req, res) => {
   try {
     const deletedTrip = await Trip.findByIdAndDelete(req.params.id);
-    if (!deleteTrip) {
+
+    if (!deletedTrip) {
       return res.status(400).json({ message: 'Trip not found' });
     }
-    
-    await Itinerary.deleteMany({ tripId: req.params.id });
 
     return res.status(200).json({ message: 'Trip successfully deleted' });
   } catch (error) {
