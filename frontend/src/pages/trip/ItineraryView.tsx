@@ -249,6 +249,12 @@ function ItineraryView() {
     return <div className="p-4 text-on-surface">Loading itinerary...</div>;
   }
 
+  const sortedEvents = [...events].sort(
+    (firstEvent, secondEvent) =>
+      new Date(firstEvent.startTime).getTime() -
+      new Date(secondEvent.startTime).getTime(),
+  );
+
   const startDate = new Date(itinerary.startDate);
   const month = startDate.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short' });
   const day = startDate.toLocaleDateString('en-US', { timeZone: 'UTC', day: '2-digit' });
@@ -341,7 +347,7 @@ function ItineraryView() {
       {/* Event List Render */}
       {events.length > 0 && (
         <div className="mt-8 mb-4 flex flex-col gap-4">
-          {events.map((event) => (
+          {sortedEvents.map((event) => (
             <div key={event._id} className="group relative flex flex-col gap-2 rounded-panel bg-surface-container-low p-4 shadow-sm border border-outline-variant">
               {activeEventId === event._id ? (
                 <div className="flex w-full flex-col gap-3">
