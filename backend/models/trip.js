@@ -32,12 +32,17 @@ const tripSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Script for cascading delete middleware
-tripSchema.pre('findOneAndDelete', async function(next) {
+tripSchema.pre('findOneAndDelete', async function() {
   const tripId = this.getQuery()._id;
 
   // All Mongoose models of a Trip that needs cascading deletion goes here
-  const Itinerary = mongoose.model('Itinerary');
-  const Event = mongoose.model('Event');
+  const Itinerary = mongoose.models.Itinerary;
+  const Event = mongoose.models.Event;
+
+  if (!Itinerary || !Event) {
+    console.warn("Mongoose models not found during cascading delete.");
+    return;
+  }
 
   // Gather all itinerary IDs to delete child Events
   const itineraries = await Itinerary.find({ tripId });
@@ -50,8 +55,6 @@ tripSchema.pre('findOneAndDelete', async function(next) {
 
   // Delete the itinerary(ies) related to this trip
   await Itinerary.deleteMany({ tripId });
-
-  next();
 })
 
 module.exports = mongoose.model("Trip", tripSchema);
