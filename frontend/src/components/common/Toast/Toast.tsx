@@ -48,15 +48,18 @@ export interface ToastProps {
  * @param props.onDismiss - Called with the alert identifier when closed.
  * @returns A styled, accessible toast notification.
  */
-function Toast({ alert, onDismiss }: ToastProps) {
+const Toast = ({ alert, onDismiss }: ToastProps) => {
   const ToneIcon = toneIcons[alert.tone];
   const toneStyle = toneStyles[alert.tone];
   const isUrgent = alert.tone === 'warning' || alert.tone === 'error';
+  const animationClass = alert.isExiting
+    ? 'pointer-events-none motion-safe:animate-[toast-out_200ms_var(--ease-standard)_forwards]'
+    : 'motion-safe:animate-[toast-in_240ms_var(--ease-standard)]';
 
   return (
     <article
       role={isUrgent ? 'alert' : 'status'}
-      className="relative flex w-full items-start gap-3 overflow-hidden rounded-panel border border-outline-variant/60 bg-surface-container-high p-4 pl-5 text-on-surface shadow-raised motion-safe:animate-[toast-in_240ms_var(--ease-standard)]"
+      className={`${animationClass} relative flex w-full items-start gap-3 overflow-hidden rounded-panel border border-outline-variant/60 bg-surface-container-high p-4 pl-5 text-on-surface shadow-raised`}
     >
       <span
         aria-hidden
@@ -90,6 +93,6 @@ function Toast({ alert, onDismiss }: ToastProps) {
       />
     </article>
   );
-}
+};
 
 export default Toast;

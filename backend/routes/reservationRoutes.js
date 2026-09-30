@@ -1,8 +1,10 @@
 const express = require("express");
 const Reservation = require("../models/Reservation");
-const router = require("./userRoutes");
+const router = express.Router();
 const Trip = require("../models/trip");
 const authenticateToken = require("../middleware/authenticateToken");
+
+router.use(authenticateToken);
 
 router.post("/hotels", async (req, res) => {
     try {
@@ -310,7 +312,7 @@ router.patch("/flights/:id", async (req, res) => {
         });
     }
 })
-router.get("/flights", authenticateToken, async (req, res) => {
+router.get("/flights", async (req, res) => {
     try {
         const { tripId } = req.query;
 
@@ -348,7 +350,7 @@ router.get("/flights", authenticateToken, async (req, res) => {
         });
     }
 });
-router.get("/rental_cars", authenticateToken, async (req, res) => {
+router.get("/rental_cars", async (req, res) => {
     try {
         const { tripId } = req.query;
 
@@ -386,7 +388,7 @@ router.get("/rental_cars", authenticateToken, async (req, res) => {
         });
     }
 });
-router.get("/hotels", authenticateToken, async (req, res) => {
+router.get("/hotels", async (req, res) => {
     try {
         const { tripId } = req.query;
 

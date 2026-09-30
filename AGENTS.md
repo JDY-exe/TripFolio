@@ -5,6 +5,7 @@ The frontend stack consists of react using vite, tailwindcss, lucide-react for i
 ### Standards
 - Always document your code. Write JSDocs for functions. Your JSDocs should contain a brief explanation of WHAT the function does and HOW it does it, as well as brief explanations for parameters and returns.
 - Use inline comments sparingly for code that is hard to read/understand.
+- Define frontend functions with `const name = () => {}` syntax.
 - Unit test any complex or important logic.
 - Avoid everything-components. If a component contains both complex business logic and DOM elements, split it up.
 
@@ -12,6 +13,7 @@ The frontend stack consists of react using vite, tailwindcss, lucide-react for i
 - Before frontend UI work, read and follow `.agents/design-system.md`. It is the source of truth for shared components, visual conventions, and component-selection guidance.
 
 ### Checking your work
+- Run validation after the feature is polished, not after every incremental change.
 - Consider running the below commands to check your work after.
 ```
 npm run typecheck

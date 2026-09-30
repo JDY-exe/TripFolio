@@ -26,7 +26,8 @@ describe('toastStore', () => {
     ]);
   });
 
-  it('notifies subscribers when a persistent alert is dismissed', () => {
+  it('marks a persistent alert as exiting before removing it', () => {
+    vi.useFakeTimers();
     const listener = vi.fn();
     const unsubscribe = subscribeToAlerts(listener);
     const id = displayAlert({
@@ -37,10 +38,19 @@ describe('toastStore', () => {
     });
 
     dismissAlert(id);
-    unsubscribe();
 
     expect(listener).toHaveBeenCalledTimes(2);
+    expect(getAlertsSnapshot()).toEqual([
+      expect.objectContaining({ id, isExiting: true }),
+    ]);
+
+    vi.advanceTimersByTime(199);
+    expect(getAlertsSnapshot()).toHaveLength(1);
+
+    vi.advanceTimersByTime(1);
     expect(getAlertsSnapshot()).toHaveLength(0);
+    expect(listener).toHaveBeenCalledTimes(3);
+    unsubscribe();
   });
 
   it('automatically dismisses alerts after their duration', () => {
@@ -51,6 +61,11 @@ describe('toastStore', () => {
     expect(getAlertsSnapshot()).toHaveLength(1);
 
     vi.advanceTimersByTime(1);
+    expect(getAlertsSnapshot()).toEqual([
+      expect.objectContaining({ isExiting: true }),
+    ]);
+
+    vi.advanceTimersByTime(200);
     expect(getAlertsSnapshot()).toHaveLength(0);
   });
 });

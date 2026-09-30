@@ -257,7 +257,9 @@ so bypasses the shared queue. Call `displayAlert(...)` instead.
 
 `ToastViewport` renders the queued notification stack. It subscribes to the
 shared external store, returns nothing when the queue is empty, and is mounted
-once by `App`. It has no props.
+once by `App`. It has no props. Toasts fade out and collapse over 200 ms before
+leaving the queue whether they expire automatically or are dismissed manually;
+the visual animation is disabled when reduced motion is requested.
 
 Application features should normally call `displayAlert(...)`:
 
@@ -284,8 +286,8 @@ toast ID.
 | `tone` | `info \| success \| warning \| error` | `info` | Selects icon, color, and urgency. |
 | `duration` | `number` | `5000` | Auto-dismiss delay in milliseconds; `0` persists. |
 
-`dismissAlert(id)` removes one toast. `clearAlerts()` removes every toast and is
-primarily useful for session teardown and tests.
+`dismissAlert(id)` starts one toast's exit transition. `clearAlerts()` removes
+every toast immediately and is primarily useful for session teardown and tests.
 
 ## Shared control tokens
 

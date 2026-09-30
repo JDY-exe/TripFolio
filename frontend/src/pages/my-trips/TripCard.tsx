@@ -1,6 +1,14 @@
-import { ArrowUpRight, CalendarDays, MapPin, UsersRound, Trash2 } from 'lucide-react';
+import {
+  ArrowUpRight,
+  CalendarDays,
+  MapPin,
+  UsersRound,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button, Text } from '../../components/common';
 import { useNavigate } from 'react-router';
+import { getBlobFromApi } from '../../utils/api';
 
 export interface TripCardProps {
   id: string;
@@ -9,7 +17,8 @@ export interface TripCardProps {
   dates: string;
   travelers: string;
   status: string;
-  image: string;
+  image?: string;
+  imagePath?: string;
   onDelete: (id: string) => void;
 }
 
@@ -17,22 +26,28 @@ export interface TripCardProps {
  * Displays a sample trip as a photo, destination, and compact planning summary.
  * All fields are display copy and the action is inactive in this UI mockup.
  *
- * @param props - Static trip copy and cover image URL.
+ * @param props - Trip copy and optional protected cover-image API path.
  * @returns A themed, presentation-only trip card.
  */
-function TripCard({
+const TripCard = ({
   id,
   title,
   destination,
   dates,
   travelers,
   status,
-  image,
+  image: publicImage,
+  imagePath,
   onDelete,
-}: TripCardProps) {
+}: TripCardProps) => {
   const navigate = useNavigate();
+  const image = useProtectedImage(imagePath, publicImage);
   const handleDeleteClick = () => {
-    if (window.confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) {
+    if (
+      window.confirm(
+        `Are you sure you want to delete "${title}"? This cannot be undone.`,
+      )
+    ) {
       onDelete(id);
     }
   };
@@ -54,7 +69,6 @@ function TripCard({
       </div>
 
       <div className="relative p-5 sm:p-6">
-
         <button
           onClick={handleDeleteClick}
           className="absolute right-4 top-4 rounded-full bg-surface p-1.5 text-error hover:bg-error/10 motion-safe:transition-colors"
@@ -97,6 +111,57 @@ function TripCard({
       </div>
     </article>
   );
-}
+};
+
+const fallbackImage = 'https://placehold.co/600x400';
+
+/**
+ * Loads a protected image through Axios and exposes a temporary object URL.
+ * Revoking the URL during cleanup releases the browser-held Blob allocation.
+ *
+ * @param imagePath - Authenticated API path for the image, when one exists.
+ * @param publicImage - Public fallback supplied by static fixtures.
+ * @returns An object URL for the image or the shared placeholder URL.
+ */
+const useProtectedImage = (
+  imagePath?: string,
+  publicImage = fallbackImage,
+): string => {
+  const [protectedImage, setProtectedImage] = useState<{
+    path: string;
+    url: string;
+  }>();
+
+  useEffect(() => {
+    if (!imagePath) return;
+
+    let active = true;
+    let objectUrl: string | undefined;
+
+    /** Fetches the image with the active bearer token and creates a renderable URL. */
+    const loadImage = async () => {
+      try {
+        const imageBlob = await getBlobFromApi(imagePath);
+        if (!active) return;
+
+        objectUrl = URL.createObjectURL(imageBlob);
+        setProtectedImage({ path: imagePath, url: objectUrl });
+      } catch {
+        if (active) setProtectedImage({ path: imagePath, url: publicImage });
+      }
+    };
+
+    void loadImage();
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [imagePath, publicImage]);
+
+  return imagePath && protectedImage?.path === imagePath
+    ? protectedImage.url
+    : publicImage;
+};
 
 export default TripCard;
