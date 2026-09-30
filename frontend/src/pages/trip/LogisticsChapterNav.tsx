@@ -12,10 +12,8 @@ const chapters = [
  */
 function LogisticsChapterNav() {
   return (
-    <nav
-      aria-label="Logistics chapters"
-      className="min-w-0 lg:sticky lg:top-8 lg:col-start-2 lg:row-start-1"
-    >
+    <nav className="min-w-0 lg:sticky lg:top-8 lg:col-start-2 lg:row-start-1">
+      <span className="sr-only">Logistics chapters</span>
       <ol className="flex gap-1 overflow-x-auto pb-2 lg:flex-col lg:gap-2 lg:overflow-visible lg:border-l lg:border-outline-variant lg:pb-0 lg:pl-3">
         {chapters.map((chapter) => (
           <li key={chapter.href} className="shrink-0">

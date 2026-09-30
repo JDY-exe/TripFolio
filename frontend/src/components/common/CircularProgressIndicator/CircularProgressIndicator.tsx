@@ -88,7 +88,6 @@ function CircularProgressIndicator({
   return (
     <svg
       {...svgProps}
-      aria-label={label}
       aria-valuemax={indeterminate ? undefined : safeMax}
       aria-valuemin={indeterminate ? undefined : 0}
       aria-valuenow={indeterminate ? undefined : progress * safeMax}
@@ -104,6 +103,7 @@ function CircularProgressIndicator({
       style={mergedStyle}
       viewBox={`0 0 ${safeSize} ${safeSize}`}
     >
+      <title>{label}</title>
       <circle
         cx={safeSize / 2}
         cy={safeSize / 2}

@@ -12,6 +12,8 @@ export type {
   MediaUploadMediaType,
   MediaUploadProps,
 } from './MediaUpload';
+export { default as Modal } from './Modal';
+export type { ModalProps } from './Modal';
 export { default as Text } from './Text';
 export type { TextColor, TextProps, TextVariant } from './Text';
 export { default as TextField } from './TextField';
