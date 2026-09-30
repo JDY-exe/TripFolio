@@ -125,7 +125,7 @@ function Auth() {
 
       <div className="group mx-auto w-full max-w-sm py-4 sm:py-8">
         <Text as="h1" variant="headline">
-          Your account
+          Your <span className="text-primary">account</span>
         </Text>
 
         <fieldset className="mb-8 mt-6 flex gap-1 rounded-full bg-surface-container p-1">
@@ -166,7 +166,6 @@ function Auth() {
           <form
             ref={loginRef}
             id="login-form"
-            aria-label="Log in"
             onSubmit={handleLogin}
             noValidate
             aria-hidden={mode !== 'login'}
@@ -201,7 +200,6 @@ function Auth() {
           <form
             ref={signupRef}
             id="signup-form"
-            aria-label="Sign up"
             onSubmit={handleSignup}
             noValidate
             aria-hidden={mode !== 'signup'}

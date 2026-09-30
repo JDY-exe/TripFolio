@@ -33,15 +33,13 @@ function Onboard({ onComplete }: OnboardProps) {
       aria-labelledby="onboard-heading"
       className="mx-auto max-w-xl py-4 text-on-surface sm:py-8"
     >
-      <div className="text-center">
-        <div
-          aria-hidden="true"
-          className="mx-auto mb-6 grid size-20 place-items-center rounded-full bg-secondary-container text-on-secondary-container"
+      <div className="mt-20 text-center">
+        <Text
+          as="h1"
+          id="onboard-heading"
+          variant="headline"
         >
-          <UserRound size={34} strokeWidth={1.5} />
-        </div>
-        <Text as="h1" id="onboard-heading" variant="headline">
-          Add a profile picture
+          Add a <span className="text-primary">profile picture?</span>
         </Text>
       </div>
 

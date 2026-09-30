@@ -1,4 +1,4 @@
-import PageIntro from '../../components/PageIntro';
+import { Text } from '../../components/common';
 
 /**
  * Presents the placeholder search experience for trips and travel content.
@@ -8,11 +8,9 @@ import PageIntro from '../../components/PageIntro';
 function Search() {
   return (
     <section>
-      <PageIntro
-        eyebrow="Discover"
-        title="Search"
-        description="Find trips, destinations, reservations, and saved travel ideas."
-      />
+      <Text as="h1" variant="headline">
+        Search
+      </Text>
     </section>
   );
 }

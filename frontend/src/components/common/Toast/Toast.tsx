@@ -81,7 +81,7 @@ function Toast({ alert, onDismiss }: ToastProps) {
         </Text>
       </div>
       <IconButton
-        aria-label="Dismiss notification"
+        label="Dismiss notification"
         size="sm"
         variant="ghost"
         icon={<X aria-hidden size={18} />}

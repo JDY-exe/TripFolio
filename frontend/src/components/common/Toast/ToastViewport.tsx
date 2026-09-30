@@ -26,10 +26,8 @@ function ToastViewport() {
   if (alerts.length === 0) return null;
 
   return (
-    <aside
-      aria-label="Notifications"
-      className="pointer-events-none fixed inset-x-4 top-4 z-50 ml-auto flex max-w-sm flex-col gap-3 sm:inset-x-auto sm:right-6 sm:top-6 sm:w-full"
-    >
+    <aside className="pointer-events-none fixed inset-x-4 top-4 z-50 ml-auto flex max-w-sm flex-col gap-3 sm:inset-x-auto sm:right-6 sm:top-6 sm:w-full">
+      <h2 className="sr-only">Notifications</h2>
       {alerts.map((alert) => (
         <div key={alert.id} className="pointer-events-auto">
           <Toast alert={alert} onDismiss={dismissAlert} />

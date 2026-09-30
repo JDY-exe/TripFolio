@@ -58,6 +58,16 @@
   }
 }
 
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.modal-enter {
+  animation: modal-fade-in 200ms var(--ease-standard);
+}
+
 @keyframes circular-progress-indicator-spin {
   to {
     transform: rotate(360deg);
@@ -90,6 +100,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .modal-enter {
+    animation: none;
+  }
+
   .circular-progress-indicator__active--indeterminate {
     animation: none;
     stroke-dasharray: 24 76;
