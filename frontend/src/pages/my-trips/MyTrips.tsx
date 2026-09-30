@@ -2,7 +2,7 @@ import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Text } from '../../components/common';
-import { deleteFromApi, getApiUrl, getFromApi } from '../../utils/api';
+import { deleteFromApi, getFromApi } from '../../utils/api';
 import TripCard from './TripCard';
 
 // Trip data shape
@@ -20,7 +20,7 @@ interface Trip {
  *
  * @returns The presentation-only My Trips page.
  */
-function MyTrips() {
+const MyTrips = () => {
   const navigate = useNavigate();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,10 +88,10 @@ function MyTrips() {
                 destination="Destination TBD"
                 travelers="1 Traveler"
                 status="Upcoming"
-                image={
+                imagePath={
                   trip.profilePictureId
-                    ? getApiUrl(`/trip/${trip._id}/profile_picture`)
-                    : 'https://placehold.co/600x400'
+                    ? `/trip/${trip._id}/profile_picture`
+                    : undefined
                 }
                 onDelete={handleDeleteTrip}
               />
@@ -101,6 +101,6 @@ function MyTrips() {
       )}
     </section>
   );
-}
+};
 
 export default MyTrips;

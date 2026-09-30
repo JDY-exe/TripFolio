@@ -119,7 +119,7 @@ const getTripProfilePicture = async (req, res) => {
     }
 
     res.set("Content-Type", picture.metadata?.contentType || "application/octet-stream");
-    res.set("Cache-Control", "public, max-age=3600");
+    res.set("Cache-Control", "private, max-age=3600");
     const downloadStream = bucket.openDownloadStream(trip.profilePictureId);
     downloadStream.on("error", (error) => {
       if (!res.headersSent) {

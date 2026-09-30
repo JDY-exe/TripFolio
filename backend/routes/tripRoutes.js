@@ -11,6 +11,7 @@ const {
 	getTripProfilePicture
 } = require("../controllers/tripController");
 const { MAX_TRIP_PICTURE_SIZE_BYTES } = require("../utils/tripMedia");
+const authenticateToken = require("../middleware/authenticateToken");
 
 const upload = multer({
 	storage: multer.memoryStorage(),
@@ -29,6 +30,8 @@ const parseTripPicture = (req, res, next) => {
 		return next();
 	});
 };
+
+router.use(authenticateToken);
 
 router.post('/', createTrip);
 router.get('/', getTrips);

@@ -13,13 +13,16 @@ export interface ToastAlert extends Required<
   id: string;
   title?: string;
   duration: number;
+  isExiting?: boolean;
 }
 
 type AlertListener = () => void;
 
 const defaultDuration = 5000;
+const exitAnimationDuration = 200;
 const listeners = new Set<AlertListener>();
 const expiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const exitTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let alerts: readonly ToastAlert[] = [];
 let nextAlertId = 0;
 
@@ -29,10 +32,10 @@ let nextAlertId = 0;
  *
  * @returns Nothing.
  */
-function emitChange() {
+const emitChange = () => {
   const currentListeners = [...listeners];
   currentListeners.forEach((listener) => listener());
-}
+};
 
 /**
  * Returns the stable alert snapshot consumed by React's external-store hook.
@@ -40,9 +43,9 @@ function emitChange() {
  *
  * @returns The current read-only alert queue.
  */
-export function getAlertsSnapshot() {
+export const getAlertsSnapshot = () => {
   return alerts;
-}
+};
 
 /**
  * Subscribes a viewport to global alert queue changes.
@@ -51,28 +54,59 @@ export function getAlertsSnapshot() {
  * @param listener - Callback invoked whenever alerts are added or removed.
  * @returns A cleanup function that cancels the subscription.
  */
-export function subscribeToAlerts(listener: AlertListener) {
+export const subscribeToAlerts = (listener: AlertListener) => {
   listeners.add(listener);
   return () => listeners.delete(listener);
-}
+};
 
 /**
- * Removes one alert and cancels its pending expiry timer.
- * Queue subscribers are notified only when the requested alert existed.
+ * Removes an alert after its exit animation has finished.
+ * The helper also clears both timers so no stale callbacks remain.
+ *
+ * @param id - Unique identifier for the alert to remove.
+ * @returns Nothing.
+ */
+const removeAlert = (id: string) => {
+  const nextAlerts = alerts.filter((alert) => alert.id !== id);
+  if (nextAlerts.length === alerts.length) return;
+
+  const expiryTimer = expiryTimers.get(id);
+  if (expiryTimer) clearTimeout(expiryTimer);
+  expiryTimers.delete(id);
+
+  const exitTimer = exitTimers.get(id);
+  if (exitTimer) clearTimeout(exitTimer);
+  exitTimers.delete(id);
+
+  alerts = nextAlerts;
+  emitChange();
+};
+
+/**
+ * Starts dismissing one alert and removes it when the fade-out completes.
+ * Marking the alert as exiting keeps it mounted long enough for CSS to animate.
  *
  * @param id - Unique identifier returned by `displayAlert`.
  * @returns Nothing.
  */
-export function dismissAlert(id: string) {
-  const nextAlerts = alerts.filter((alert) => alert.id !== id);
-  if (nextAlerts.length === alerts.length) return;
+export const dismissAlert = (id: string) => {
+  const alert = alerts.find((candidate) => candidate.id === id);
+  if (!alert || alert.isExiting) return;
 
   const timer = expiryTimers.get(id);
   if (timer) clearTimeout(timer);
   expiryTimers.delete(id);
-  alerts = nextAlerts;
+
+  alerts = alerts.map((candidate) =>
+    candidate.id === id ? { ...candidate, isExiting: true } : candidate,
+  );
   emitChange();
-}
+
+  exitTimers.set(
+    id,
+    setTimeout(() => removeAlert(id), exitAnimationDuration),
+  );
+};
 
 /**
  * Enqueues a global toast alert from any application module.
@@ -82,7 +116,7 @@ export function dismissAlert(id: string) {
  * @param alert - Message shorthand or fully configured alert.
  * @returns The alert identifier, which can be passed to `dismissAlert`.
  */
-export function displayAlert(alert: string | AlertOptions) {
+export const displayAlert = (alert: string | AlertOptions) => {
   const options = typeof alert === 'string' ? { message: alert } : alert;
   nextAlertId += 1;
 
@@ -91,6 +125,7 @@ export function displayAlert(alert: string | AlertOptions) {
     message: options.message,
     tone: options.tone ?? 'info',
     duration: options.duration ?? defaultDuration,
+    isExiting: false,
     ...(options.title ? { title: options.title } : {}),
   };
 
@@ -105,7 +140,7 @@ export function displayAlert(alert: string | AlertOptions) {
   }
 
   return toast.id;
-}
+};
 
 /**
  * Removes all alerts and timers from the global queue.
@@ -113,11 +148,13 @@ export function displayAlert(alert: string | AlertOptions) {
  *
  * @returns Nothing.
  */
-export function clearAlerts() {
+export const clearAlerts = () => {
   expiryTimers.forEach((timer) => clearTimeout(timer));
   expiryTimers.clear();
+  exitTimers.forEach((timer) => clearTimeout(timer));
+  exitTimers.clear();
   if (alerts.length === 0) return;
 
   alerts = [];
   emitChange();
-}
+};
