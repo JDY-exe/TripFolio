@@ -195,14 +195,55 @@ selection, and uses the shared loading indicators.
 | `loadingLabel` | `string` | `Uploading media` | Describes the loading state. |
 | `name` | `string` | `media` | Sets the hidden input's native form name. |
 | `disabled` | `boolean` | `false` | Prevents picker and drop selection. |
+| `buttonOnly` | `boolean` | `false` | Shows only the picker button when replacing an existing image. |
 | `onFilesSelected` | `(names: readonly string[]) => void` | — | Reports accepted filenames. |
 
-Current limitation: `MediaUpload` does not upload, read, preview, or retain file
-contents. It sends one toast per accepted filename, reports names, and clears
-the hidden input so the same file can be selected again. Extend this shared
-component when real upload behavior is introduced.
+`MediaUpload` does not upload, preview, or retain file contents itself. It can
+report filenames or selected `File` objects and clears the hidden input so the
+same file can be selected again. Use `ImageUploadField` for the complete
+single-image crop and preview workflow.
 
-## 9. Modal
+## 9. ImageUploadField
+
+The shared single-image workflow for selection, interactive cropping, zoom,
+compression, and preview. It composes `MediaUpload` and uses a destination
+preset to keep output shape and size consistent.
+
+```tsx
+<ImageUploadField
+  label="Add a cover image"
+  name="trip-cover"
+  onAccept={setCoverFile}
+  preset={tripCoverImagePreset}
+  previewAlt="Selected trip cover"
+  value={coverFile}
+/>
+```
+
+| Prop | Type | Purpose |
+| --- | --- | --- |
+| `preset` | `ImageUploadPreset` | Sets aspect ratio, guide shape, output dimensions, and compression limit. |
+| `value` | `File` | Supplies the processed image owned by the consuming form. |
+| `existingImageUrl` | `string` | Shows a previously saved image until a new crop is accepted. |
+| `previewAlt` | `string` | Describes the accepted or existing preview. |
+| `label` | `string` | Labels the initial picker action. |
+| `replaceLabel` | `string` | Labels the picker after a preview exists. |
+| `name` | `string` | Sets the hidden input's native form name. |
+| `pickerHeight` | `number` | Sets the non-editing picker height. |
+| `disabled` | `boolean` | Prevents selection and crop confirmation. |
+| `onAccept` | `(file: File) => void \| Promise<void>` | Receives the cropped JPEG for draft state or immediate persistence. |
+| `onCancelEdit` | `() => void` | Optionally runs after canceling the crop, such as closing an image-only modal. |
+| `onCropStatusChange` | `(status: ImageCropStatus) => void` | Reports whether cropping or processing is active so a larger form can disable its own actions. |
+| `acceptLabel`, `cancelLabel`, `processingLabel` | `string` | Customize the crop action labels. |
+| `showAcceptedPreview` | `boolean` | Displays an accepted crop; set to `false` when acceptance closes the editor. |
+
+Use `profileImagePreset` for square avatars and `tripCoverImagePreset` for 16:9
+trip covers. The field renders its own crop actions and uses the format caption
+for validation errors. When an image is accepted, it shows a preview with only
+a replacement button. Features retain responsibility for persistence because
+profile images use data URLs while trip covers use multipart uploads.
+
+## 10. Modal
 
 A controlled modal rendered directly where it appears in the React tree. It
 does not use a portal or shadow DOM. The fixed overlay uses `z-[100]`, the panel
@@ -227,16 +268,18 @@ has four equally rounded corners, and opening and closing fade over 200 ms.
 | `onClose` | `() => void` | Required | Handles Close, Escape, and backdrop dismissal. |
 | `children` | `ReactNode` | Required | Supplies the main modal content. |
 | `footer` | `ReactNode` | — | Supplies the responsive action row. |
+| `panelClassName` | `string` | — | Sets panel layout classes, including a wider maximum width when a form needs columns. |
 
-The modal traps Tab focus, restores the previously focused element, and keeps
-itself mounted during the fade-out. Consumer `onKeyDown` and `onMouseDown`
+The modal traps Tab focus, locks background scrolling, restores the previously
+focused element, and keeps itself mounted during the fade-out. Its overlay can
+still scroll when modal content exceeds the viewport. Consumer `onKeyDown` and `onMouseDown`
 handlers are composed before built-in behavior; calling `preventDefault()`
 stops the corresponding built-in behavior.
 
 Render `Modal` as a direct sibling of the page section so it does not inherit
 layout constraints from a card or panel.
 
-## 10. Toast
+## 11. Toast
 
 The visual component for one normalized notification. Tone selects its icon,
 accent colors, and status urgency. A small `IconButton` dismisses it.
@@ -253,7 +296,7 @@ accent colors, and status urgency. A small `IconButton` dismisses it.
 Application features should not normally render `Toast` directly because doing
 so bypasses the shared queue. Call `displayAlert(...)` instead.
 
-## 11. ToastViewport and notification API
+## 12. ToastViewport and notification API
 
 `ToastViewport` renders the queued notification stack. It subscribes to the
 shared external store, returns nothing when the queue is empty, and is mounted

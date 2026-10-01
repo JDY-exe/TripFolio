@@ -4,6 +4,21 @@ export { default as CircularProgressIndicator } from './CircularProgressIndicato
 export type { CircularProgressIndicatorProps } from './CircularProgressIndicator';
 export { default as IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
+export { default as ImageUploadField } from './ImageUpload';
+export {
+  cropAndCompressImage,
+  imageFileToDataUrl,
+  MAX_IMAGE_SOURCE_SIZE_BYTES,
+  profileImagePreset,
+  tripCoverImagePreset,
+  validateImageUpload,
+} from './ImageUpload';
+export type {
+  ImageCropArea,
+  ImageUploadFieldProps,
+  ImageCropStatus,
+  ImageUploadPreset,
+} from './ImageUpload';
 export { default as LoadingIndicator } from './LoadingIndicator';
 export type { LoadingIndicatorProps } from './LoadingIndicator';
 export { default as MediaUpload } from './MediaUpload';

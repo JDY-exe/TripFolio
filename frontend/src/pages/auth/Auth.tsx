@@ -24,7 +24,7 @@ const modeClasses =
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { status, login, register } = useAuth();
+  const { status, login, register, updateProfilePicture } = useAuth();
   const { setLoading } = useLoading();
   const [mode, setMode] = useState<AuthMode>('login');
   const [isOnboarding, setIsOnboarding] = useState(false);
@@ -124,20 +124,34 @@ const Auth = () => {
   };
 
   /**
-   * Finishes the in-memory onboarding step and enters the trip collection. A
-   * toast confirms whether the selected or default profile picture was chosen.
+   * Persists the prepared onboarding picture, when supplied, then enters the
+   * trip collection and confirms the completed account setup.
    *
-   * @param useDefaultPicture - Whether the user skipped image selection.
-   * @returns Nothing; the current route is replaced with the trips screen.
+   * @param picture - Center-cropped image data, or undefined when skipped.
+   * @returns A promise resolving after persistence and navigation complete.
    */
-  const handleOnboardingComplete = (useDefaultPicture: boolean) => {
-    displayAlert({
-      message: useDefaultPicture
-        ? 'Using the default profile picture.'
-        : 'Profile picture selected.',
-      tone: 'success',
-    });
-    navigate('/my-trips');
+  const handleOnboardingComplete = async (picture?: string) => {
+    try {
+      if (picture) await updateProfilePicture(picture);
+      displayAlert({
+        message: picture
+          ? 'Profile picture saved.'
+          : 'Using the default profile picture.',
+        tone: 'success',
+      });
+      navigate('/my-trips');
+    } catch (error) {
+      const message = getApiErrorMessage(
+        error,
+        'Your profile picture could not be saved. Try again.',
+      );
+      displayAlert({
+        title: 'Unable to finish setup',
+        message,
+        tone: 'error',
+      });
+      throw new Error(message, { cause: error });
+    }
   };
 
   if (isOnboarding) {

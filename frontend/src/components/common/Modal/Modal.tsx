@@ -11,6 +11,7 @@ import {
 } from 'react';
 import Button from '../Button';
 import Text from '../Text';
+import { lockBodyScroll } from '../scrollLock';
 
 const focusableSelector = [
   'a[href]',
@@ -38,6 +39,8 @@ export interface ModalProps extends Omit<
   children: ReactNode;
   /** Optional action row displayed beneath the content. */
   footer?: ReactNode;
+  /** Optional panel layout classes; defaults to the standard narrow width. */
+  panelClassName?: string;
 }
 
 /**
@@ -66,6 +69,7 @@ function Modal({
   onClose,
   children,
   footer,
+  panelClassName,
   className,
   onKeyDown,
   onMouseDown,
@@ -90,6 +94,11 @@ function Modal({
     );
     return () => window.clearTimeout(timeout);
   }, [open, shouldRender]);
+
+  useEffect(() => {
+    if (!shouldRender) return;
+    return lockBodyScroll();
+  }, [shouldRender]);
 
   useEffect(() => {
     if (!open) return;
@@ -161,7 +170,7 @@ function Modal({
       aria-labelledby={titleId}
       aria-modal="true"
       className={[
-        'fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-on-surface/45 p-4 backdrop-blur-sm transition-opacity duration-200 ease-standard motion-reduce:transition-none sm:p-8',
+        'fixed inset-0 z-[100] grid place-items-center overflow-y-auto overscroll-contain bg-on-surface/45 p-4 backdrop-blur-sm transition-opacity duration-200 ease-standard motion-reduce:transition-none sm:p-8',
         open ? 'modal-enter opacity-100' : 'pointer-events-none opacity-0',
         className,
       ]
@@ -173,7 +182,10 @@ function Modal({
     >
       <div
         ref={panelRef}
-        className="w-full max-w-xl rounded-3xl bg-surface-container p-5 text-on-surface sm:p-7"
+        className={[
+          'w-full rounded-3xl bg-surface-container p-5 text-on-surface sm:p-7',
+          panelClassName ?? 'max-w-xl',
+        ].join(' ')}
         tabIndex={-1}
       >
         <header className="flex items-start justify-between gap-6">

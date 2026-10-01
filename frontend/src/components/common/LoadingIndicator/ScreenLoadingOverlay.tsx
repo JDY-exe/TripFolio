@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useLoading } from '../../../contexts/LoadingContext';
+import { lockBodyScroll } from '../scrollLock';
 import LoadingIndicator from './LoadingIndicator';
 
 /**
@@ -19,13 +20,11 @@ function ScreenLoadingOverlay() {
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    const previousOverflow = document.body.style.overflow;
-
-    document.body.style.overflow = 'hidden';
+    const releaseScrollLock = lockBodyScroll();
     overlayRef.current?.focus();
 
     return () => {
-      document.body.style.overflow = previousOverflow;
+      releaseScrollLock();
       previouslyFocused?.focus();
     };
   }, [isLoading]);

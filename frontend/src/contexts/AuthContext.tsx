@@ -13,6 +13,7 @@ import {
   getFromApi,
   isUnauthorizedApiError,
   postToApi,
+  patchToApi,
   setApiAccessToken,
   setUnauthorizedHandler,
 } from '../utils/api';
@@ -221,6 +222,24 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     [saveSession],
   );
 
+  /**
+   * Saves an image through the account API and persists the returned identity.
+   * @param picture - Compressed image data URL to store for this account.
+   * @returns A promise resolving when the account and browser session are updated.
+   */
+  const updateProfilePicture = async (picture: string): Promise<void> => {
+    if (!session) throw new Error('Log in to set a profile picture.');
+    const response = await patchToApi<CurrentUserResponse>(
+      '/users/profile_picture',
+      {
+        profile_picture: picture,
+      },
+    );
+    if (readStoredSession().session?.token === session.token) {
+      saveSession({ ...session, user: response.user });
+    }
+  };
+
   return (
     <AuthContext
       value={{
@@ -229,6 +248,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         login,
         register,
         logout: clearSession,
+        updateProfilePicture,
       }}
     >
       {children}
