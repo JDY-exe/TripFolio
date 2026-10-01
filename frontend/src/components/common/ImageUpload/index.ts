@@ -1,8 +1,5 @@
 export { default } from './ImageUploadField';
-export type {
-  ImageCropStatus,
-  ImageUploadFieldProps,
-} from './ImageUploadField';
+export type { ImageCropStatus } from './ImageUploadField';
 export {
   cropAndCompressImage,
   imageFileToDataUrl,
@@ -10,5 +7,8 @@ export {
   profileImagePreset,
   tripCoverImagePreset,
   validateImageUpload,
-} from './imageProcessing';
-export type { ImageCropArea, ImageUploadPreset } from './imageProcessing';
+} from '../../../utils/imageProcessing';
+export type {
+  ImageCropArea,
+  ImageUploadPreset,
+} from '../../../utils/imageProcessing';

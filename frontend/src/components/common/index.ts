@@ -15,7 +15,6 @@ export {
 } from './ImageUpload';
 export type {
   ImageCropArea,
-  ImageUploadFieldProps,
   ImageCropStatus,
   ImageUploadPreset,
 } from './ImageUpload';

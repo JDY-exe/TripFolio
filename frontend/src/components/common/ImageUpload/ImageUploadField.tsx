@@ -9,9 +9,9 @@ import {
   type ImageCropArea,
   type ImageUploadPreset,
   validateImageUpload,
-} from './imageProcessing';
+} from '../../../utils/imageProcessing';
 
-export interface ImageUploadFieldProps {
+interface ImageUploadFieldProps {
   /** Destination-specific crop shape, dimensions, and compression limits. */
   preset: ImageUploadPreset;
   /** Processed file currently owned by the consuming form. */

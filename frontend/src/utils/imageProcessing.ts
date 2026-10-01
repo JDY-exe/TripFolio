@@ -2,6 +2,8 @@ import imageCompression from 'browser-image-compression';
 
 export const MAX_IMAGE_SOURCE_SIZE_BYTES = 16 * 1024 * 1024;
 const supportedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+// The backend /users/profile_picture route caps the encoded data URL at 90,000 characters.
+const MAX_PROFILE_PICTURE_DATA_URL_LENGTH = 90_000;
 
 export interface ImageCropArea {
   /** Horizontal crop offset in source-image pixels. */
@@ -134,7 +136,7 @@ export const cropAndCompressImage = async (
  */
 export const imageFileToDataUrl = async (file: File): Promise<string> => {
   const dataUrl = await imageCompression.getDataUrlFromFile(file);
-  if (dataUrl.length > 90_000) {
+  if (dataUrl.length > MAX_PROFILE_PICTURE_DATA_URL_LENGTH) {
     throw new Error('This image is too large. Choose a smaller picture.');
   }
   return dataUrl;
