@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   BrowserRouter,
   Navigate,
@@ -23,6 +24,8 @@ import Profile from './pages/profile/Profile';
 import Search from './pages/search/Search';
 import Trip from './pages/trip/Trip';
 import { AuthStatus } from './types/auth';
+
+const queryClient = new QueryClient();
 
 /**
  * Renders the route tree and the primary application navigation.
@@ -109,14 +112,16 @@ const RequireAuth = () => {
  */
 const App = () => {
   return (
-    <LoadingProvider>
-      <BrowserRouter>
-        <AuthProvider>
-          <AppContent />
-          <ScreenLoadingOverlay />
-        </AuthProvider>
-      </BrowserRouter>
-    </LoadingProvider>
+    <QueryClientProvider client={queryClient}>
+      <LoadingProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <AppContent />
+            <ScreenLoadingOverlay />
+          </AuthProvider>
+        </BrowserRouter>
+      </LoadingProvider>
+    </QueryClientProvider>
   );
 };
 

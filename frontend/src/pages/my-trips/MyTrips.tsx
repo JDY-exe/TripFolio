@@ -1,11 +1,12 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button, Text } from '../../components/common';
+import { useAuth } from '../../contexts/AuthContext';
 import { deleteFromApi, getFromApi } from '../../utils/api';
 import CreateTrip from './CreateTrip';
 import TripCard from './TripCard';
 
-// Trip data shape
 interface Trip {
   _id: string;
   name: string;
@@ -14,52 +15,46 @@ interface Trip {
   profilePictureId?: string;
 }
 
+/** Fetches and validates the trip collection for the active account. @returns Trips returned by the API. */
+const getTrips = async (): Promise<Trip[]> => {
+  const trips = await getFromApi<Trip[]>('/trip');
+  if (!Array.isArray(trips)) throw new Error('Expected an array of trips.');
+  return trips;
+};
+
 /** Fetches and displays trips, with creation available from an in-page modal. @returns The My Trips page. */
 const MyTrips = () => {
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const tripsQueryKey = ['trips', user?.id] as const;
+  const {
+    data: trips = [],
+    isPending,
+    isError,
+  } = useQuery({
+    queryKey: tripsQueryKey,
+    queryFn: getTrips,
+    enabled: Boolean(user?.id),
+  });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-
-  /** Retrieves the latest trip collection for the initial view and after creation. @returns A promise that resolves after the list is updated. */
-  const fetchTrips = useCallback(
-    () =>
-      getFromApi<Trip[]>('/trip')
-        .then((data) => {
-          if (Array.isArray(data)) {
-            setTrips(data);
-          } else {
-            setTrips([]);
-            console.error(
-              'Expected an array of trips, but got something else.',
-            );
-          }
-        })
-        .catch((error) => {
-          console.error('Failed to fetch trips', error);
-        })
-        .finally(() => setIsLoading(false)),
-    [],
-  );
-
-  useEffect(() => {
-    void fetchTrips();
-  }, [fetchTrips]);
 
   /** Deletes a trip and removes it from the visible collection. @param id - Trip identifier. @returns A promise that resolves after deletion completes. */
   const handleDeleteTrip = async (id: string) => {
     try {
       await deleteFromApi(`/trip/${id}`);
-      setTrips((prevTrips) => prevTrips.filter((trip) => trip._id !== id));
+      queryClient.setQueryData<Trip[]>(tripsQueryKey, (previous) =>
+        previous?.filter((trip) => trip._id !== id),
+      );
+      void queryClient.invalidateQueries({ queryKey: tripsQueryKey });
     } catch (error) {
       console.error('Failed to delete trip on the server', error);
     }
   };
 
-  /** Closes creation and reloads trips so the new cover appears. @returns Nothing. */
+  /** Closes creation and invalidates trips so the new cover appears. @returns Nothing. */
   const handleTripCreated = () => {
     setIsCreateOpen(false);
-    setIsLoading(true);
-    void fetchTrips();
+    void queryClient.invalidateQueries({ queryKey: tripsQueryKey });
   };
 
   return (
@@ -78,8 +73,10 @@ const MyTrips = () => {
           </Button>
         </header>
 
-        {isLoading ? (
+        {isPending ? (
           <p className="mt-8">Loading trips...</p>
+        ) : isError ? (
+          <p className="mt-8">Unable to load trips. Please try again.</p>
         ) : (
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             {trips.length === 0 ? (
