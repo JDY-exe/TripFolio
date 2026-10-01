@@ -1,17 +1,16 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useState } from 'react';
 import {
   Button,
-  MediaUpload,
+  ImageUploadField,
+  Modal,
   Text,
+  TextField,
   displayAlert,
+  tripCoverImagePreset,
+  type ImageCropStatus,
 } from '../../components/common';
 import { useLoading } from '../../contexts/LoadingContext';
 import { patchToApi, postToApi } from '../../utils/api';
-import {
-  compressTripCoverImage,
-  validateTripCoverImage,
-} from './tripCoverImage';
 
 interface TripResponse {
   savedTrip: {
@@ -19,65 +18,44 @@ interface TripResponse {
     name: string;
     startDate: string;
     endDate: string;
-  }
+  };
 }
 
-/** Creates a trip and optionally uploads a compressed cover image. */
-function CreateTrip() {
-  const navigate = useNavigate();
+interface CreateTripProps {
+  /** Closes the creation dialog. */
+  onClose: () => void;
+  /** Refreshes the trip collection after creation succeeds. */
+  onCreated: () => void;
+}
+
+/**
+ * Presents trip creation in a modal and saves its optional cover after the trip.
+ *
+ * @param props - Callbacks for dismissing the dialog and refreshing trips.
+ * @returns The trip creation modal and its form.
+ */
+const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
   const { setLoading } = useLoading();
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [error, setError] = useState('');
   const [coverFile, setCoverFile] = useState<File>();
-  const [coverPreview, setCoverPreview] = useState<string>();
-  const [isCompressing, setIsCompressing] = useState(false);
+  const [cropStatus, setCropStatus] = useState<ImageCropStatus>({
+    active: false,
+    processing: false,
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    return () => {
-      if (coverPreview) URL.revokeObjectURL(coverPreview);
-    };
-  }, [coverPreview]);
-
-  /** Validates and locally compresses the selected trip cover. */
-  const handleCoverPicked = async (files: readonly File[]) => {
-    const selectedFile = files[0];
-    if (!selectedFile) return;
-
-    const validationMessage = validateTripCoverImage(selectedFile);
-    if (validationMessage) {
-      setCoverFile(undefined);
-      setCoverPreview(undefined);
-      displayAlert({
-        title: 'Unable to use this image',
-        message: validationMessage,
-        tone: 'error',
-      });
-      return;
-    }
-
-    setIsCompressing(true);
-    try {
-      const compressedFile = await compressTripCoverImage(selectedFile);
-      setCoverFile(compressedFile);
-      setCoverPreview(URL.createObjectURL(compressedFile));
-    } catch {
-      setCoverFile(undefined);
-      setCoverPreview(undefined);
-      displayAlert({
-        title: 'Image compression failed',
-        message: 'Choose another JPEG or PNG image and try again.',
-        tone: 'error',
-      });
-    } finally {
-      setIsCompressing(false);
-    }
-  };
-
-  /** Validates trip details, saves the trip, then uploads its optional cover. */
+  /**
+   * Validates trip details, creates the itinerary, and uploads the optional cover.
+   *
+   * @param e - Submission event from the creation form.
+   * @returns A promise that settles when saving and feedback finish.
+   */
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSaving || cropStatus.active) return;
     setError('');
 
     if (!name || !startDate || !endDate) {
@@ -90,22 +68,22 @@ function CreateTrip() {
       return;
     }
 
+    setIsSaving(true);
     setLoading(true);
     try {
-      // Create Trip
-      const newTrip = await postToApi<TripResponse>('/trip', { name, startDate, endDate });
-      console.log("Trip Database Response:", newTrip);
-
-      // Create Blank Itinerary
+      const newTrip = await postToApi<TripResponse>('/trip', {
+        name,
+        startDate,
+        endDate,
+      });
       await postToApi('/itinerary', {
         tripId: newTrip.savedTrip._id,
         title: 'Blank Itinerary',
         description: '',
         startDate,
-        endDate
+        endDate,
       });
 
-      // Upload Cover Image
       if (coverFile) {
         const imageData = new FormData();
         imageData.append('image', coverFile);
@@ -124,97 +102,110 @@ function CreateTrip() {
         }
       }
 
-      navigate('/my-trips');
+      onCreated();
     } catch {
       setError('Failed to create trip. Please try again.');
     } finally {
+      setIsSaving(false);
       setLoading(false);
     }
   };
 
+  /** Dismisses the modal when no save request is active. @returns Nothing. */
+  const closeModal = () => {
+    if (!isSaving && !cropStatus.processing) onClose();
+  };
+
   return (
-    <section className="mx-auto mt-10 max-w-lg text-on-surface">
-      <Text as="h1" variant="headline" className="mb-6">
-        Create a New Trip
-      </Text>
+    <Modal
+      open
+      title="Create a New Trip"
+      onClose={closeModal}
+      className="[align-items:safe_center]"
+      panelClassName="max-w-5xl"
+      footer={
+        <Button
+          type="submit"
+          form="create-trip-form"
+          disabled={isSaving || cropStatus.active}
+        >
+          Create Trip
+        </Button>
+      }
+    >
+      {error ? (
+        <Text color="error" role="alert" className="mb-4">
+          {error}
+        </Text>
+      ) : null}
 
-      {error ? <p className="mb-4 text-error">{error}</p> : null}
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div>
-          <label htmlFor="trip-name" className="mb-1 block">
-            Trip Name *
-          </label>
-          <input
+      <form
+        id="create-trip-form"
+        onSubmit={handleSubmit}
+        className="grid gap-8 md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]"
+      >
+        <div className="grid content-start gap-7">
+          <TextField
             id="trip-name"
+            label="Trip Name *"
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="w-full rounded bg-surface-container p-2 text-on-surface"
             required
           />
+
+          <div>
+            <Text as="h3" variant="title">
+              Trip cover
+            </Text>
+            <Text color="muted" className="mt-1">
+              Optional. Crop and zoom your cover image.
+            </Text>
+            <ImageUploadField
+              className="mt-4"
+              disabled={isSaving}
+              label="Add a cover image"
+              name="trip-cover"
+              onAccept={setCoverFile}
+              onCropStatusChange={setCropStatus}
+              pickerHeight={384}
+              preset={tripCoverImagePreset}
+              previewAlt="Selected trip cover preview"
+              replaceLabel="Replace cover image"
+              value={coverFile}
+            />
+          </div>
         </div>
-        <div>
-          <label htmlFor="trip-start-date" className="mb-1 block">
-            Start Date *
-          </label>
-          <input
+
+        <div className="grid content-start gap-6 md:border-l md:border-outline md:pl-8">
+          <div>
+            <Text as="h3" variant="title">
+              Travel dates
+            </Text>
+          </div>
+          <TextField
             id="trip-start-date"
+            label="Start Date *"
             type="date"
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
-            className="w-full rounded bg-surface-container p-2 text-on-surface"
             required
           />
-        </div>
-        <div>
-          <label htmlFor="trip-end-date" className="mb-1 block">
-            End Date *
-          </label>
-          <input
+          <TextField
             id="trip-end-date"
+            label="End Date *"
             type="date"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
-            className="w-full rounded bg-surface-container p-2 text-on-surface"
             required
           />
-        </div>
-
-        <div className="mt-2">
-          <Text as="h2" variant="title">
-            Trip cover
+          <Text as="h3" variant="title">
+            Add friends (coming soon!)
           </Text>
-          <Text color="muted" className="mt-1 text-sm">
-            Optional. JPEG or PNG, up to 16 MB.
-          </Text>
-
-          {coverPreview ? (
-            <img
-              src={coverPreview}
-              alt="Selected trip cover preview"
-              className="mt-4 aspect-video w-full rounded-panel object-cover"
-            />
-          ) : null}
-
-          <MediaUpload
-            className="mt-4"
-            height={isCompressing ? 176 : 136}
-            label={coverFile ? 'Replace cover image' : 'Add a cover image'}
-            loading={isCompressing}
-            loadingLabel="Compressing trip cover"
-            mediaType="image"
-            name="trip-cover"
-            onFilesPicked={handleCoverPicked}
-          />
         </div>
-
-        <Button type="submit" className="mt-2" disabled={isCompressing}>
-          Create Trip
-        </Button>
       </form>
-    </section>
+    </Modal>
   );
-}
+};
 
 export default CreateTrip;

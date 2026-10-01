@@ -55,6 +55,8 @@ export interface AuthContextValue {
     password: string,
   ) => Promise<AuthUser>;
   logout: () => void;
+  /** Saves a profile image and refreshes the persisted account data. */
+  updateProfilePicture: (picture: string) => Promise<void>;
 }
 
 /** Minimal JWT payload decoded locally to detect expired persisted sessions. */

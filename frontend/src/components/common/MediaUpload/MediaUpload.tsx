@@ -45,6 +45,8 @@ export interface MediaUploadProps extends Omit<
   name?: string;
   /** Whether file selection is unavailable. */
   disabled?: boolean;
+  /** Shows only the picker button, for replacing an existing selection. */
+  buttonOnly?: boolean;
   /** Receives selected filenames after selection is processed. */
   onFilesSelected?: (fileNames: readonly string[]) => void;
   /** Receives selected file objects when their contents need to be processed. */
@@ -96,6 +98,7 @@ function MediaUpload({
   loadingLabel = 'Uploading media',
   name = 'media',
   disabled = false,
+  buttonOnly = false,
   onFilesSelected,
   onFilesPicked,
   className,
@@ -113,8 +116,8 @@ function MediaUpload({
   const dropLabel = getMediaUploadDropLabel(mediaType, multiple);
   const mergedStyle: CSSProperties = {
     boxSizing: 'border-box',
-    width,
-    height,
+    width: buttonOnly ? 'fit-content' : width,
+    height: buttonOnly ? undefined : height,
     ...style,
   };
 
@@ -219,15 +222,28 @@ function MediaUpload({
     reportFiles(event.dataTransfer.files);
   };
 
+  const pickerButton = (
+    <Button
+      disabled={disabled}
+      leadingIcon={<Upload aria-hidden size={18} />}
+      onClick={openFilePicker}
+    >
+      {pickerLabel}
+    </Button>
+  );
+
   return (
     <div
       {...containerProps}
       aria-busy={loading || undefined}
       className={[
-        'flex flex-col items-center justify-center gap-8 rounded-[2rem_0.75rem_2rem_0.75rem] px-6 py-12 transition-colors motion-reduce:transition-none',
-        isDraggingFiles
-          ? 'bg-primary-container'
-          : 'bg-surface-container-low',
+        buttonOnly
+          ? 'inline-flex'
+          : 'flex flex-col items-center justify-center gap-8 rounded-[2rem_0.75rem_2rem_0.75rem] px-6 py-12 transition-colors motion-reduce:transition-none',
+        !buttonOnly &&
+          (isDraggingFiles
+            ? 'bg-primary-container'
+            : 'bg-surface-container-low'),
         className,
       ]
         .filter(Boolean)
@@ -244,6 +260,8 @@ function MediaUpload({
         ) : (
           <LoadingIndicator label={loadingLabel} />
         )
+      ) : buttonOnly ? (
+        pickerButton
       ) : (
         <>
           <div
@@ -256,30 +274,24 @@ function MediaUpload({
             </div>
           </div>
 
-          <Button
-            disabled={disabled}
-            leadingIcon={<Upload aria-hidden size={18} />}
-            onClick={openFilePicker}
-          >
-            {pickerLabel}
-          </Button>
+          {pickerButton}
           <Text aria-live="polite" color="muted" variant="label">
             {isDraggingFiles
               ? `${dropLabel} here`
               : `or ${dropLabel.toLowerCase()} here`}
           </Text>
-          <input
-            ref={inputRef}
-            accept={getMediaUploadAccept(mediaType)}
-            disabled={disabled}
-            hidden
-            multiple={multiple}
-            name={name}
-            onChange={handleFileSelection}
-            type="file"
-          />
         </>
       )}
+      <input
+        ref={inputRef}
+        accept={getMediaUploadAccept(mediaType)}
+        disabled={disabled}
+        hidden
+        multiple={multiple}
+        name={name}
+        onChange={handleFileSelection}
+        type="file"
+      />
     </div>
   );
 }

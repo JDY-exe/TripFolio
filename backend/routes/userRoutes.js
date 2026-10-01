@@ -194,16 +194,16 @@ router.get("/", async (req, res) => {
     }
 })
 
-router.patch("/profile_picture", async (req, res) => {
+router.patch("/profile_picture", authenticateToken, async (req, res) => {
     try {
-        const { username, profile_picture } = req.body;
+        const { profile_picture } = req.body;
 
-        if (!(username && profile_picture)) {
+        if (typeof profile_picture !== 'string' || !profile_picture || profile_picture.length > 90000) {
             return res.status(400).json({
-                message: "Username and profile picture are required"
+                message: "A profile picture under 90 KB is required"
             });
         }
-        const user = await User.findOne({ username })
+        const user = await User.findById(req.user.id)
         if (!user) {
             return res.status(400).json({
                 message: "User not found"
