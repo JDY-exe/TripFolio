@@ -3,8 +3,37 @@ const Reservation = require("../models/Reservation");
 const router = express.Router();
 const Trip = require("../models/trip");
 const authenticateToken = require("../middleware/authenticateToken");
+const { canEditTrip, canReadTrip, getTripRole } = require("../utils/tripAccess");
 
 router.use(authenticateToken);
+
+const findTripWithAccess = async (req, res, tripId, needsWriteAccess = false) => {
+    const trip = await Trip.findById(tripId);
+    const role = getTripRole(trip, req.user.id);
+
+    if (!trip || !canReadTrip(trip, req.user.id)) {
+        res.status(404).json({ message: "Trip not found" });
+        return null;
+    }
+    if (needsWriteAccess && !canEditTrip(trip, req.user.id)) {
+        res.status(role ? 403 : 404).json({
+            message: role ? "You do not have permission to edit this trip" : "Trip not found"
+        });
+        return null;
+    }
+    return trip;
+};
+
+const findEditableReservation = async (req, res, reservationId) => {
+    const reservation = await Reservation.findById(reservationId);
+    if (!reservation) {
+        res.status(404).json({ message: "Reservation not found" });
+        return null;
+    }
+
+    const trip = await findTripWithAccess(req, res, reservation.trip, true);
+    return trip ? reservation : null;
+};
 
 router.post("/hotels", async (req, res) => {
     try {
@@ -21,12 +50,8 @@ router.post("/hotels", async (req, res) => {
                 message: "End time cannot be before start time"
             });
         }
-        const trip = await Trip.findById(tripId);
-        if (!trip) {
-            return res.status(400).json({
-                message: "Couldn't find trip"
-            });
-        }
+        const trip = await findTripWithAccess(req, res, tripId, true);
+        if (!trip) return;
         const reservation = new Reservation({
             type: "accommodations",
             name,
@@ -70,12 +95,8 @@ router.post("/rental_cars", async (req, res) => {
                 message: "End time cannot be before start time"
             });
         }
-        const trip = await Trip.findById(tripId);
-        if (!trip) {
-            return res.status(400).json({
-                message: "Couldn't find trip"
-            });
-        }
+        const trip = await findTripWithAccess(req, res, tripId, true);
+        if (!trip) return;
         const reservation = new Reservation({
             type: "rentals",
             name,
@@ -119,12 +140,8 @@ router.post("/flights", async (req, res) => {
                 message: "End time cannot be before start time"
             });
         }
-        const trip = await Trip.findById(tripId);
-        if (!trip) {
-            return res.status(400).json({
-                message: "Couldn't find trip"
-            });
-        }
+        const trip = await findTripWithAccess(req, res, tripId, true);
+        if (!trip) return;
         const reservation = new Reservation({
             type: "flights",
             name,
@@ -163,7 +180,8 @@ router.patch("/hotels/:id", async (req, res) => {
         const { id } = req.params;
 
 
-        const reservation = await Reservation.findById(id);
+        const reservation = await findEditableReservation(req, res, id);
+        if (!reservation) return;
         if (reservation.type !== "accommodations") {
             return res.status(400).json({ message: "Reservation is not a hotel reservation" });
         }
@@ -212,7 +230,8 @@ router.patch("/rental_cars/:id", async (req, res) => {
     try {
         const { name, startTime, endTime, confirmationNumber, cost, notes, rentals } = req.body;
         const { id } = req.params;
-        const reservation = await Reservation.findById(id);
+        const reservation = await findEditableReservation(req, res, id);
+        if (!reservation) return;
         if (reservation.type !== "rentals") {
             return res.status(400).json({ message: "Reservation is not a rental reservation" });
         }
@@ -260,7 +279,8 @@ router.patch("/flights/:id", async (req, res) => {
     try {
         const { name, startTime, endTime, confirmationNumber, cost, notes, flights } = req.body;
         const { id } = req.params;
-        const reservation = await Reservation.findById(id);
+        const reservation = await findEditableReservation(req, res, id);
+        if (!reservation) return;
         if (reservation.type !== "flights") {
             return res.status(400).json({ message: "Reservation is not a flight reservation" });
         }
@@ -321,20 +341,8 @@ router.get("/flights", async (req, res) => {
                 message: "Trip ID is required"
             });
         }
-        const trip = await Trip.findById(tripId);
-        if (!trip) {
-            return res.status(404).json({
-                message: "Couldn't find trip"
-            });
-        }
-        const isUserOnTrip = trip.users.some(
-            userId => userId.toString() === req.user.id.toString()
-        );
-        if (!isUserOnTrip) {
-            return res.status(403).json({
-                message: "You are not a member of this trip"
-            });
-        }
+        const trip = await findTripWithAccess(req, res, tripId);
+        if (!trip) return;
         const reservations = await Reservation.find({
             trip: tripId,
             type: "flights"
@@ -359,20 +367,8 @@ router.get("/rental_cars", async (req, res) => {
                 message: "Trip ID is required"
             });
         }
-        const trip = await Trip.findById(tripId);
-        if (!trip) {
-            return res.status(404).json({
-                message: "Couldn't find trip"
-            });
-        }
-        const isUserOnTrip = trip.users.some(
-            userId => userId.toString() === req.user.id.toString()
-        );
-        if (!isUserOnTrip) {
-            return res.status(403).json({
-                message: "You are not a member of this trip"
-            });
-        }
+        const trip = await findTripWithAccess(req, res, tripId);
+        if (!trip) return;
         const reservations = await Reservation.find({
             trip: tripId,
             type: "rentals"
@@ -397,20 +393,8 @@ router.get("/hotels", async (req, res) => {
                 message: "Trip ID is required"
             });
         }
-        const trip = await Trip.findById(tripId);
-        if (!trip) {
-            return res.status(404).json({
-                message: "Couldn't find trip"
-            });
-        }
-        const isUserOnTrip = trip.users.some(
-            userId => userId.toString() === req.user.id.toString()
-        );
-        if (!isUserOnTrip) {
-            return res.status(403).json({
-                message: "You are not a member of this trip"
-            });
-        }
+        const trip = await findTripWithAccess(req, res, tripId);
+        if (!trip) return;
         const reservations = await Reservation.find({
             trip: tripId,
             type: "accommodations"

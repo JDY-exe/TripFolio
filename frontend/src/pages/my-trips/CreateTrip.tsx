@@ -39,6 +39,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
   const [error, setError] = useState('');
   const [coverFile, setCoverFile] = useState<File>();
   const [cropStatus, setCropStatus] = useState<ImageCropStatus>({
@@ -75,6 +76,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
         name,
         startDate,
         endDate,
+        isPublic,
       });
       await postToApi('/itinerary', {
         tripId: newTrip.savedTrip._id,
@@ -125,10 +127,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
       panelClassName="max-w-5xl"
       footer={
         <>
-          <Button
-            onClick={closeModal}
-            variant='secondary'
-          >
+          <Button onClick={closeModal} variant="secondary">
             Cancel
           </Button>
           <Button
@@ -207,6 +206,23 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
             onChange={(event) => setEndDate(event.target.value)}
             required
           />
+          <label className="flex items-start gap-3 rounded-panel border border-outline-variant p-4">
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(event) => setIsPublic(event.target.checked)}
+              disabled={isSaving}
+              className="mt-1 size-4 shrink-0 accent-primary"
+            />
+            <span>
+              <Text as="span" variant="label">
+                Make this trip public
+              </Text>
+              <Text color="muted" className="mt-1">
+                Any signed-in user can view a public trip.
+              </Text>
+            </span>
+          </label>
           <Text as="h3" variant="title">
             Add friends (coming soon!)
           </Text>
