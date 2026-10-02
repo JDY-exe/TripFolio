@@ -22,7 +22,7 @@ const reservationSchema = new mongoose.Schema(
             type: Date,
             required: [true, "End date is required"]
         },
-        confrimationNumber: {
+        confirmationNumber: {
             type: String,
             required: false,
             unique: false,
