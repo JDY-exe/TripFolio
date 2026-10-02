@@ -24,7 +24,13 @@ import Search from './pages/search/Search';
 import Trip from './pages/trip/Trip';
 import { AuthStatus } from './types/auth';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 /**
  * Renders the route tree and the primary application navigation.

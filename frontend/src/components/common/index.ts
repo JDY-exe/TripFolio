@@ -36,6 +36,8 @@ export { default as Stepper } from './Stepper';
 export type { StepperProps, StepperStep } from './Stepper';
 export { default as Text } from './Text';
 export type { TextColor, TextProps, TextVariant } from './Text';
+export { default as TextArea } from './TextArea';
+export type { TextAreaProps } from './TextArea';
 export { default as TextField } from './TextField';
 export type { TextFieldProps } from './TextField';
 export { default as Toast } from './Toast';
