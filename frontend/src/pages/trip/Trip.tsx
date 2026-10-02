@@ -11,6 +11,7 @@ import AlbumView from './AlbumView';
 import ItineraryView from './ItineraryView';
 import LedgerView from './LedgerView';
 import LogisticsView from './LogisticsView';
+import TripSettings from './TripSettings';
 
 /**
  * Presents the placeholder detail view for an individual trip.
@@ -24,11 +25,14 @@ function Trip() {
 
   return (
     <section>
-      <div className="mt-10 grid gap-5 lg:grid-cols-[2fr_1fr]">
+      <div
+        className={`mt-10 grid gap-5 ${section === 'settings' ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
+      >
         {section === 'itinerary' ? <ItineraryView /> : null}
         {section === 'ledger' ? <LedgerView /> : null}
         {section === 'logistics' ? <LogisticsView /> : null}
         {section === 'album' ? <AlbumView /> : null}
+        {section === 'settings' ? <TripSettings /> : null}
         {section === 'itinerary' || section === 'ledger' ? (
           <aside className="rounded-panel bg-surface-container p-8 text-on-surface">
             <Text as="h2" variant="title">

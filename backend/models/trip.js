@@ -1,6 +1,21 @@
 const mongoose = require("mongoose");
 
 const tripSchema = new mongoose.Schema({
+  ownerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: false
+  },
+  isPublic: {
+    type: Boolean,
+    default: false
+  },
+  viewerIds: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }
+  ],
   profilePictureId: {
     type: mongoose.Schema.Types.ObjectId,
     required: false
