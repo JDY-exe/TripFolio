@@ -1,3 +1,5 @@
+import { Text } from '../../../components/common';
+
 /**
  * Displays the shared-expense section for the selected trip.
  * It renders a titled placeholder panel for future expenses and balances.
@@ -18,4 +20,3 @@ function LedgerView() {
 }
 
 export default LedgerView;
-import { Text } from '../../components/common';

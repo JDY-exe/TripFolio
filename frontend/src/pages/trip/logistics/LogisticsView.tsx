@@ -10,7 +10,7 @@ import {
   Settings2,
   UsersRound,
 } from 'lucide-react';
-import { IconButton, Text } from '../../components/common';
+import { IconButton, Text } from '../../../components/common';
 import LogisticsChapterNav from './LogisticsChapterNav';
 
 /**
