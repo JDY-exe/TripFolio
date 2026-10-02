@@ -75,8 +75,33 @@ while `variant` controls appearance independently.
 
 Use `Text` for routine headings, labels, descriptions, and body copy. Choose
 semantic elements such as `h1`, `h2`, `label`, `dt`, and `dd` through `as`.
+The `display` and `headline` variants use Instrument Serif for page-level
+headings; `title` and smaller variants stay in the sans-serif family.
 
-## 4. TextField
+## 4. DropdownMenu
+
+An icon-triggered action menu with keyboard navigation, outside dismissal, and
+themed destructive actions.
+
+```tsx
+<DropdownMenu
+  label="Trip actions"
+  icon={<Ellipsis aria-hidden size={20} />}
+  items={[{ label: 'Delete trip', tone: 'danger', onSelect: removeTrip }]}
+/>
+```
+
+| Prop | Type | Purpose |
+| --- | --- | --- |
+| `label` | `string` | Accessible name for the icon-only trigger and menu. |
+| `icon` | `ReactNode` | Icon displayed inside the trigger. |
+| `items` | `DropdownMenuItem[]` | Menu actions with optional icons and `default` or `danger` tone. |
+| `className` | `string` | Optional classes on the menu wrapper. |
+
+Menu items support arrow, Home, End, Escape, and Tab keys. Destructive actions
+use the error color token and should retain their confirmation step where needed.
+
+## 5. TextField
 
 A labeled native text input with optional hint or validation copy. Native input
 attributes such as `name`, `type`, `autoComplete`, `required`, and `disabled`
@@ -102,7 +127,7 @@ pass through; native `size` is intentionally omitted.
 When both `error` and `hint` are supplied, the error is displayed. Validation
 and form state remain the responsibility of the consuming feature.
 
-## 5. LoadingIndicator
+## 6. LoadingIndicator
 
 An indeterminate M3 Expressive wait animation rendered on a canvas. It morphs
 through seven shapes and becomes static when reduced motion is requested.
@@ -123,7 +148,7 @@ through seven shapes and becomes static when reduced motion is requested.
 Use this when work has an unknown duration. Use `useLoading()` for
 screen-blocking work rather than creating a page-specific overlay.
 
-## 6. CircularProgressIndicator
+## 7. CircularProgressIndicator
 
 A determinate or indeterminate SVG progress ring. The active indicator uses the
 M3 Expressive wave treatment while the remaining track stays circular.
@@ -151,7 +176,7 @@ M3 Expressive wave treatment while the remaining track stays circular.
 Invalid sizes and ranges are normalized internally. Prefer this component over
 `LoadingIndicator` when progress is measurable or progress semantics matter.
 
-## 7. ScreenLoadingOverlay
+## 8. ScreenLoadingOverlay
 
 The application-shell overlay for screen-blocking work. It reads `isLoading`
 from `LoadingContext`, locks document scrolling, moves focus into the overlay,
@@ -168,7 +193,7 @@ Unlike the other components in this document, it is an internal direct import:
 import ScreenLoadingOverlay from './components/common/LoadingIndicator/ScreenLoadingOverlay';
 ```
 
-## 8. MediaUpload
+## 9. MediaUpload
 
 A shared file-picker and drag-and-drop surface for images, video, audio, or
 unrestricted files. It filters dropped files, supports single or multiple
@@ -203,7 +228,7 @@ report filenames or selected `File` objects and clears the hidden input so the
 same file can be selected again. Use `ImageUploadField` for the complete
 single-image crop and preview workflow.
 
-## 9. ImageUploadField
+## 10. ImageUploadField
 
 The shared single-image workflow for selection, interactive cropping, zoom,
 compression, and preview. It composes `MediaUpload` and uses a destination
@@ -243,7 +268,7 @@ for validation errors. When an image is accepted, it shows a preview with only
 a replacement button. Features retain responsibility for persistence because
 profile images use data URLs while trip covers use multipart uploads.
 
-## 10. Modal
+## 11. Modal
 
 A controlled modal rendered directly where it appears in the React tree. It
 does not use a portal or shadow DOM. The fixed overlay uses `z-[100]`, the panel
@@ -279,7 +304,7 @@ stops the corresponding built-in behavior.
 Render `Modal` as a direct sibling of the page section so it does not inherit
 layout constraints from a card or panel.
 
-## 11. Toast
+## 12. Toast
 
 The visual component for one normalized notification. Tone selects its icon,
 accent colors, and status urgency. A small `IconButton` dismisses it.
@@ -296,7 +321,7 @@ accent colors, and status urgency. A small `IconButton` dismisses it.
 Application features should not normally render `Toast` directly because doing
 so bypasses the shared queue. Call `displayAlert(...)` instead.
 
-## 12. ToastViewport and notification API
+## 13. ToastViewport and notification API
 
 `ToastViewport` renders the queued notification stack. It subscribes to the
 shared external store, returns nothing when the queue is empty, and is mounted

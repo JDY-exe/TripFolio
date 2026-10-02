@@ -167,7 +167,7 @@ const Auth = () => {
       <AuthArtwork />
 
       <div className="group mx-auto w-full max-w-sm py-4 sm:py-8">
-        <Text as="h1" variant="headline">
+        <Text as="h1" variant="display">
           Your <span className="text-primary">account</span>
         </Text>
 

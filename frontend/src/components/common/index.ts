@@ -2,6 +2,8 @@ export { default as Button } from './Button';
 export type { ButtonProps } from './Button';
 export { default as CircularProgressIndicator } from './CircularProgressIndicator';
 export type { CircularProgressIndicatorProps } from './CircularProgressIndicator';
+export { default as DropdownMenu } from './DropdownMenu';
+export type { DropdownMenuItem, DropdownMenuProps } from './DropdownMenu';
 export { default as IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
 export { default as ImageUploadField } from './ImageUpload';

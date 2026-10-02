@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Friends from './Friends';
 import ProfileInfo from './ProfileInfo';
 import ProfilePictureEditor from './ProfilePictureEditor';
+import { Text } from '../../components/common';
 
 /**
  * Shows the authenticated identity with inline logout and a picture editor.
@@ -24,6 +25,7 @@ const Profile = () => {
 
   return (
     <>
+      <Text as="h1" variant="display">My Profile</Text>
       <section className="mx-auto max-w-2xl text-on-surface">
         <ProfileInfo
           email={user.email}

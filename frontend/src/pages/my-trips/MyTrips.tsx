@@ -61,7 +61,7 @@ const MyTrips = () => {
     <>
       <section className="text-on-surface">
         <header className="flex items-center justify-between gap-4">
-          <Text as="h1" variant="headline">
+          <Text as="h1" variant="display">
             My Upcoming Trips
           </Text>
           <Button
@@ -88,7 +88,6 @@ const MyTrips = () => {
                   id={trip._id}
                   title={trip.name}
                   dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
-                  destination="Destination TBD"
                   travelers="1 Traveler"
                   status="Upcoming"
                   imagePath={

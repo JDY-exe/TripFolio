@@ -3,6 +3,7 @@
 /* Matugen tonal-spot colors from sakura-blue.jpg; source seed #b4e4e0. */
 @theme {
   --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
 
   --color-primary: #006a66;
   --color-on-primary: #ffffff;
@@ -55,6 +56,14 @@
   from {
     opacity: 0;
     translate: 0 -0.75rem;
+  }
+}
+
+@keyframes menu-enter {
+  from {
+    opacity: 0;
+    scale: 0.96;
+    translate: 0 -0.25rem;
   }
 }
 

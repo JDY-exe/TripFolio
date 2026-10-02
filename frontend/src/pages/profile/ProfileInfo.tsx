@@ -39,7 +39,7 @@ const ProfileInfo = ({
   const handlePictureError = () => setFailedPictureUrl(pictureUrl);
   return (
     <section aria-labelledby="profile-info-heading">
-      <Text as="h1" id="profile-info-heading" variant="headline">
+      <Text as="h1" id="profile-info-heading" variant="title">
         Profile Info
       </Text>
 
