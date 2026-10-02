@@ -46,7 +46,7 @@ function BottomNav({
 }: BottomNavProps) {
   const LeadingIcon = leadingAction?.icon;
   const rowStyle = {
-    '--nav-width': `${items.length * 120}px`,
+    '--nav-width': `${items.length * 136}px`,
     '--nav-hover-grow': getExpandedFlexGrow(items.length, 1.1),
     '--nav-pressed-grow': getExpandedFlexGrow(items.length, 1.2),
   } as CSSProperties;

@@ -124,13 +124,21 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
       className="[align-items:safe_center]"
       panelClassName="max-w-5xl"
       footer={
-        <Button
-          type="submit"
-          form="create-trip-form"
-          disabled={isSaving || cropStatus.active}
-        >
-          Create Trip
-        </Button>
+        <>
+          <Button
+            onClick={closeModal}
+            variant='secondary'
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="create-trip-form"
+            disabled={isSaving || cropStatus.active}
+          >
+            Create Trip
+          </Button>
+        </>
       }
     >
       {error ? (

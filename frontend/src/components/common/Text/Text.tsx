@@ -1,8 +1,8 @@
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
 
 const textVariants = {
-  display: 'text-4xl leading-tight tracking-tight',
-  headline: 'text-headline tracking-tight',
+  display: 'font-display text-4xl leading-tight tracking-tight',
+  headline: 'font-display text-headline tracking-tight',
   title: 'text-title',
   body: 'text-body',
   label: 'text-label',

@@ -1,4 +1,3 @@
-import { X } from 'lucide-react';
 import {
   useEffect,
   useId,
@@ -9,7 +8,6 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import Button from '../Button';
 import Text from '../Text';
 import { lockBodyScroll } from '../scrollLock';
 
@@ -199,14 +197,6 @@ function Modal({
               </Text>
             ) : null}
           </div>
-          <Button
-            leadingIcon={<X size={18} />}
-            onClick={onClose}
-            size="sm"
-            variant="ghost"
-          >
-            Close
-          </Button>
         </header>
 
         <div className="mt-6">{children}</div>

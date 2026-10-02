@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Text } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
-import { deleteFromApi, getFromApi } from '../../utils/api';
+import { getFromApi } from '../../utils/api';
 import CreateTrip from './CreateTrip';
 import TripCard from './TripCard';
 
@@ -38,19 +38,6 @@ const MyTrips = () => {
   });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  /** Deletes a trip and removes it from the visible collection. @param id - Trip identifier. @returns A promise that resolves after deletion completes. */
-  const handleDeleteTrip = async (id: string) => {
-    try {
-      await deleteFromApi(`/trip/${id}`);
-      queryClient.setQueryData<Trip[]>(tripsQueryKey, (previous) =>
-        previous?.filter((trip) => trip._id !== id),
-      );
-      void queryClient.invalidateQueries({ queryKey: tripsQueryKey });
-    } catch (error) {
-      console.error('Failed to delete trip on the server', error);
-    }
-  };
-
   /** Closes creation and invalidates trips so the new cover appears. @returns Nothing. */
   const handleTripCreated = () => {
     setIsCreateOpen(false);
@@ -61,7 +48,7 @@ const MyTrips = () => {
     <>
       <section className="text-on-surface">
         <header className="flex items-center justify-between gap-4">
-          <Text as="h1" variant="headline">
+          <Text as="h1" variant="display">
             My Upcoming Trips
           </Text>
           <Button
@@ -88,7 +75,6 @@ const MyTrips = () => {
                   id={trip._id}
                   title={trip.name}
                   dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
-                  destination="Destination TBD"
                   travelers="1 Traveler"
                   status="Upcoming"
                   imagePath={
@@ -96,7 +82,6 @@ const MyTrips = () => {
                       ? `/trip/${trip._id}/profile_picture`
                       : undefined
                   }
-                  onDelete={handleDeleteTrip}
                 />
               ))
             )}

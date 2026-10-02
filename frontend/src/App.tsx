@@ -8,7 +8,6 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router';
-import AppHeader from './components/AppHeader';
 import { ToastViewport } from './components/common';
 import ScreenLoadingOverlay from './components/common/LoadingIndicator/ScreenLoadingOverlay';
 import BottomNav from './components/navigation/BottomNav';
@@ -51,9 +50,7 @@ const AppContent = () => {
       className="min-h-screen bg-surface text-on-surface"
       inert={isLoading || undefined}
     >
-      <AppHeader />
-
-      <main className="mx-auto max-w-6xl px-6 py-12 pb-28">
+      <main className="mx-auto max-w-6xl px-6 pt-8 pb-28">
         <Routes>
           <Route path="auth" element={<Auth />} />
           <Route element={<RequireAuth />}>

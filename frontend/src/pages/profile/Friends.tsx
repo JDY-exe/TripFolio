@@ -9,7 +9,7 @@ import { Text } from '../../components/common';
 function Friends() {
   return (
     <section aria-labelledby="friends-heading">
-      <Text as="h2" id="friends-heading" variant="headline">
+      <Text as="h2" id="friends-heading" variant="title">
         Friends
       </Text>
       <Text className="mt-4" color="muted">

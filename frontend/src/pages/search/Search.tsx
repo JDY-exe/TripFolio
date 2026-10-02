@@ -8,7 +8,7 @@ import { Text } from '../../components/common';
 function Search() {
   return (
     <section>
-      <Text as="h1" variant="headline">
+      <Text as="h1" variant="display">
         Search
       </Text>
     </section>
