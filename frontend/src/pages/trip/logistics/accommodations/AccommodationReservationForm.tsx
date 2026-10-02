@@ -1,35 +1,37 @@
 import { useState } from 'react';
-import { Button, Modal, TextField } from '../../../components/common';
+import { Button, Modal, TextField } from '../../../../components/common';
 import {
   ReservationType,
   useSaveReservation,
-} from '../../../queries/reservations';
+} from '../../../../queries/reservations';
 import type {
   Reservation,
   ReservationInput,
-} from '../../../queries/reservations';
-import { getApiErrorMessage } from '../../../utils/api';
-import { toLocalDateTimeInput } from './reservationDateInput';
+} from '../../../../queries/reservations';
+import { getApiErrorMessage } from '../../../../utils/api';
+import { toLocalDateTimeInput } from '../reservationDateInput';
 
-interface RentalCarReservationFormProps {
+interface AccommodationReservationFormProps {
   tripId: string;
   reservation?: Reservation;
   onClose: () => void;
 }
 
 /**
- * Edits rental car details independently of the other reservation forms.
- * @param props - Trip, optional rental reservation, and close action.
- * @returns The rental car reservation modal.
+ * Edits accommodation details independently of the other reservation forms.
+ * @param props - Trip, optional accommodation reservation, and close action.
+ * @returns The accommodation reservation modal.
  */
-const RentalCarReservationForm = ({
+const AccommodationReservationForm = ({
   tripId,
   reservation,
   onClose,
-}: RentalCarReservationFormProps) => {
+}: AccommodationReservationFormProps) => {
   const saveReservation = useSaveReservation(tripId);
   const [name, setName] = useState(reservation?.name ?? '');
-  const [company, setCompany] = useState(reservation?.rentals?.company ?? '');
+  const [address, setAddress] = useState(
+    reservation?.accommodations?.address ?? '',
+  );
   const [startTime, setStartTime] = useState(
     toLocalDateTimeInput(reservation?.startTime),
   );
@@ -44,25 +46,25 @@ const RentalCarReservationForm = ({
   const [error, setError] = useState('');
 
   /**
-   * Validates and saves a rental car reservation.
+   * Validates and saves an accommodation reservation.
    * @returns A promise that settles after the save request.
    */
   const handleSave = async () => {
-    const pickup = new Date(startTime);
-    const returnTime = new Date(endTime);
+    const checkIn = new Date(startTime);
+    const checkOut = new Date(endTime);
     if (
       !name.trim() ||
-      !company.trim() ||
+      !address.trim() ||
       !startTime ||
       !endTime ||
-      Number.isNaN(pickup.getTime()) ||
-      Number.isNaN(returnTime.getTime())
+      Number.isNaN(checkIn.getTime()) ||
+      Number.isNaN(checkOut.getTime())
     ) {
-      setError('Enter a vehicle, rental company, and both times.');
+      setError('Enter a property name, address, and both times.');
       return;
     }
-    if (returnTime < pickup) {
-      setError('Return cannot be before pick-up.');
+    if (checkOut < checkIn) {
+      setError('Check-out cannot be before check-in.');
       return;
     }
     const parsedCost = cost.trim() ? Number(cost) : null;
@@ -75,17 +77,17 @@ const RentalCarReservationForm = ({
     }
     const values: ReservationInput = {
       name: name.trim(),
-      startTime: pickup.toISOString(),
-      endTime: returnTime.toISOString(),
+      startTime: checkIn.toISOString(),
+      endTime: checkOut.toISOString(),
       confirmationNumber: confirmationNumber.trim(),
       cost: parsedCost,
       notes: notes.trim(),
-      rentals: { company: company.trim() },
+      accommodations: { address: address.trim() },
     };
     setError('');
     try {
       await saveReservation.mutateAsync({
-        type: ReservationType.Rentals,
+        type: ReservationType.Accommodations,
         values,
         id: reservation?._id,
       });
@@ -94,7 +96,7 @@ const RentalCarReservationForm = ({
       setError(
         getApiErrorMessage(
           cause,
-          'Could not save the rental car. Please try again.',
+          'Could not save the accommodation. Please try again.',
         ),
       );
     }
@@ -103,7 +105,7 @@ const RentalCarReservationForm = ({
   return (
     <Modal
       open
-      title={reservation ? 'Edit rental car' : 'Add rental car'}
+      title={reservation ? 'Edit accommodation' : 'Add accommodation'}
       onClose={() => {
         if (!saveReservation.isPending) onClose();
       }}
@@ -120,7 +122,7 @@ const RentalCarReservationForm = ({
             disabled={saveReservation.isPending}
             onClick={() => void handleSave()}
           >
-            {saveReservation.isPending ? 'Saving...' : 'Save rental car'}
+            {saveReservation.isPending ? 'Saving...' : 'Save accommodation'}
           </Button>
         </>
       }
@@ -128,8 +130,8 @@ const RentalCarReservationForm = ({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <TextField
-            id="rental-name"
-            label="Vehicle"
+            id="accommodation-name"
+            label="Property name"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
@@ -137,37 +139,37 @@ const RentalCarReservationForm = ({
         </div>
         <div className="sm:col-span-2">
           <TextField
-            id="rental-company"
-            label="Rental company"
-            value={company}
-            onChange={(event) => setCompany(event.target.value)}
+            id="accommodation-address"
+            label="Address"
+            value={address}
+            onChange={(event) => setAddress(event.target.value)}
             required
           />
         </div>
         <TextField
-          id="rental-pickup"
-          label="Pick-up"
+          id="accommodation-check-in"
+          label="Check-in"
           type="datetime-local"
           value={startTime}
           onChange={(event) => setStartTime(event.target.value)}
           required
         />
         <TextField
-          id="rental-return"
-          label="Return"
+          id="accommodation-check-out"
+          label="Check-out"
           type="datetime-local"
           value={endTime}
           onChange={(event) => setEndTime(event.target.value)}
           required
         />
         <TextField
-          id="rental-confirmation"
+          id="accommodation-confirmation"
           label="Confirmation number"
           value={confirmationNumber}
           onChange={(event) => setConfirmationNumber(event.target.value)}
         />
         <TextField
-          id="rental-cost"
+          id="accommodation-cost"
           label="Cost"
           type="number"
           min="0"
@@ -177,11 +179,11 @@ const RentalCarReservationForm = ({
         />
         <label
           className="grid gap-2 text-sm font-medium sm:col-span-2"
-          htmlFor="rental-notes"
+          htmlFor="accommodation-notes"
         >
           Notes
           <textarea
-            id="rental-notes"
+            id="accommodation-notes"
             rows={3}
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
@@ -198,4 +200,4 @@ const RentalCarReservationForm = ({
   );
 };
 
-export default RentalCarReservationForm;
+export default AccommodationReservationForm;

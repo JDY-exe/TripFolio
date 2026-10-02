@@ -7,13 +7,13 @@ import {
 } from '../../../queries/reservations';
 import type { Reservation } from '../../../queries/reservations';
 import { getApiErrorMessage } from '../../../utils/api';
-import AccommodationReservationForm from './AccommodationReservationForm';
-import AccommodationsSection from './AccommodationsSection';
-import FlightReservationForm from './FlightReservationForm';
-import FlightsSection from './FlightsSection';
+import AccommodationReservationForm from './accommodations/AccommodationReservationForm';
+import AccommodationsSection from './accommodations/AccommodationsSection';
+import FlightReservationForm from './flights/FlightReservationForm';
+import FlightsSection from './flights/FlightsSection';
 import LogisticsChapterNav from './LogisticsChapterNav';
-import RentalCarReservationForm from './RentalCarReservationForm';
-import RentalCarsSection from './RentalCarsSection';
+import RentalCarReservationForm from './rentals/RentalCarReservationForm';
+import RentalCarsSection from './rentals/RentalCarsSection';
 
 /**
  * Displays trip reservations by category and manages reservation actions.
@@ -87,7 +87,6 @@ const LogisticsView = () => {
       editing?.type === ReservationType.Flights ? (
         <FlightReservationForm
           key={editing?._id ?? 'new'}
-          tripId={tripId}
           reservation={editing ?? undefined}
           onClose={() => {
             setAddingType(null);

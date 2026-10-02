@@ -1,44 +1,35 @@
 import { useState } from 'react';
-import { Button, Modal, TextField } from '../../../components/common';
+import { Button, Modal, TextField } from '../../../../components/common';
 import {
   ReservationType,
   useSaveReservation,
-} from '../../../queries/reservations';
+} from '../../../../queries/reservations';
 import type {
   Reservation,
   ReservationInput,
-} from '../../../queries/reservations';
-import { getApiErrorMessage } from '../../../utils/api';
-import { toLocalDateTimeInput } from './reservationDateInput';
+} from '../../../../queries/reservations';
+import { getApiErrorMessage } from '../../../../utils/api';
+import { toLocalDateTimeInput } from '../reservationDateInput';
 
-interface FlightReservationFormProps {
+interface RentalCarReservationFormProps {
   tripId: string;
   reservation?: Reservation;
   onClose: () => void;
 }
 
 /**
- * Edits the flight details supported by the current reservation API.
- * @param props - Trip, optional flight reservation, and close action.
- * @returns The flight reservation modal.
+ * Edits rental car details independently of the other reservation forms.
+ * @param props - Trip, optional rental reservation, and close action.
+ * @returns The rental car reservation modal.
  */
-const FlightReservationForm = ({
+const RentalCarReservationForm = ({
   tripId,
   reservation,
   onClose,
-}: FlightReservationFormProps) => {
+}: RentalCarReservationFormProps) => {
   const saveReservation = useSaveReservation(tripId);
   const [name, setName] = useState(reservation?.name ?? '');
-  const [airline, setAirline] = useState(reservation?.flights?.airline ?? '');
-  const [flightNum, setFlightNum] = useState(
-    reservation?.flights?.flightNum ?? '',
-  );
-  const [departAirport, setDepartAirport] = useState(
-    reservation?.flights?.departAirport ?? '',
-  );
-  const [arriveAirport, setArriveAirport] = useState(
-    reservation?.flights?.arriveAirport ?? '',
-  );
+  const [company, setCompany] = useState(reservation?.rentals?.company ?? '');
   const [startTime, setStartTime] = useState(
     toLocalDateTimeInput(reservation?.startTime),
   );
@@ -53,26 +44,25 @@ const FlightReservationForm = ({
   const [error, setError] = useState('');
 
   /**
-   * Validates and saves the flight, then closes the modal after query refresh.
+   * Validates and saves a rental car reservation.
    * @returns A promise that settles after the save request.
    */
   const handleSave = async () => {
-    const departure = new Date(startTime);
-    const arrival = new Date(endTime);
+    const pickup = new Date(startTime);
+    const returnTime = new Date(endTime);
     if (
-      ![name, airline, flightNum, departAirport, arriveAirport].every((value) =>
-        value.trim(),
-      ) ||
+      !name.trim() ||
+      !company.trim() ||
       !startTime ||
       !endTime ||
-      Number.isNaN(departure.getTime()) ||
-      Number.isNaN(arrival.getTime())
+      Number.isNaN(pickup.getTime()) ||
+      Number.isNaN(returnTime.getTime())
     ) {
-      setError('Complete the flight details and both times.');
+      setError('Enter a vehicle, rental company, and both times.');
       return;
     }
-    if (arrival < departure) {
-      setError('Arrival cannot be before departure.');
+    if (returnTime < pickup) {
+      setError('Return cannot be before pick-up.');
       return;
     }
     const parsedCost = cost.trim() ? Number(cost) : null;
@@ -85,22 +75,17 @@ const FlightReservationForm = ({
     }
     const values: ReservationInput = {
       name: name.trim(),
-      startTime: departure.toISOString(),
-      endTime: arrival.toISOString(),
+      startTime: pickup.toISOString(),
+      endTime: returnTime.toISOString(),
       confirmationNumber: confirmationNumber.trim(),
       cost: parsedCost,
       notes: notes.trim(),
-      flights: {
-        airline: airline.trim(),
-        flightNum: flightNum.trim(),
-        departAirport: departAirport.trim(),
-        arriveAirport: arriveAirport.trim(),
-      },
+      rentals: { company: company.trim() },
     };
     setError('');
     try {
       await saveReservation.mutateAsync({
-        type: ReservationType.Flights,
+        type: ReservationType.Rentals,
         values,
         id: reservation?._id,
       });
@@ -109,7 +94,7 @@ const FlightReservationForm = ({
       setError(
         getApiErrorMessage(
           cause,
-          'Could not save the flight. Please try again.',
+          'Could not save the rental car. Please try again.',
         ),
       );
     }
@@ -118,11 +103,10 @@ const FlightReservationForm = ({
   return (
     <Modal
       open
-      title={reservation ? 'Edit flight' : 'Add flight'}
+      title={reservation ? 'Edit rental car' : 'Add rental car'}
       onClose={() => {
         if (!saveReservation.isPending) onClose();
       }}
-      panelClassName="sm:max-w-2xl"
       footer={
         <>
           <Button
@@ -136,7 +120,7 @@ const FlightReservationForm = ({
             disabled={saveReservation.isPending}
             onClick={() => void handleSave()}
           >
-            {saveReservation.isPending ? 'Saving...' : 'Save flight'}
+            {saveReservation.isPending ? 'Saving...' : 'Save rental car'}
           </Button>
         </>
       }
@@ -144,65 +128,46 @@ const FlightReservationForm = ({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <TextField
-            id="flight-name"
-            label="Flight name"
+            id="rental-name"
+            label="Vehicle"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
           />
         </div>
+        <div className="sm:col-span-2">
+          <TextField
+            id="rental-company"
+            label="Rental company"
+            value={company}
+            onChange={(event) => setCompany(event.target.value)}
+            required
+          />
+        </div>
         <TextField
-          id="flight-airline"
-          label="Airline"
-          value={airline}
-          onChange={(event) => setAirline(event.target.value)}
-          required
-        />
-        <TextField
-          id="flight-number"
-          label="Flight number"
-          value={flightNum}
-          onChange={(event) => setFlightNum(event.target.value)}
-          required
-        />
-        <TextField
-          id="flight-depart-airport"
-          label="Departure airport"
-          value={departAirport}
-          onChange={(event) => setDepartAirport(event.target.value)}
-          required
-        />
-        <TextField
-          id="flight-arrive-airport"
-          label="Arrival airport"
-          value={arriveAirport}
-          onChange={(event) => setArriveAirport(event.target.value)}
-          required
-        />
-        <TextField
-          id="flight-departure"
-          label="Departure time"
+          id="rental-pickup"
+          label="Pick-up"
           type="datetime-local"
           value={startTime}
           onChange={(event) => setStartTime(event.target.value)}
           required
         />
         <TextField
-          id="flight-arrival"
-          label="Arrival time"
+          id="rental-return"
+          label="Return"
           type="datetime-local"
           value={endTime}
           onChange={(event) => setEndTime(event.target.value)}
           required
         />
         <TextField
-          id="flight-confirmation"
+          id="rental-confirmation"
           label="Confirmation number"
           value={confirmationNumber}
           onChange={(event) => setConfirmationNumber(event.target.value)}
         />
         <TextField
-          id="flight-cost"
+          id="rental-cost"
           label="Cost"
           type="number"
           min="0"
@@ -212,11 +177,11 @@ const FlightReservationForm = ({
         />
         <label
           className="grid gap-2 text-sm font-medium sm:col-span-2"
-          htmlFor="flight-notes"
+          htmlFor="rental-notes"
         >
           Notes
           <textarea
-            id="flight-notes"
+            id="rental-notes"
             rows={3}
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
@@ -233,4 +198,4 @@ const FlightReservationForm = ({
   );
 };
 
-export default FlightReservationForm;
+export default RentalCarReservationForm;
