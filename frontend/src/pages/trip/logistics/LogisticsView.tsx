@@ -120,7 +120,6 @@ const LogisticsView = () => {
       editing?.type === ReservationType.Flights ? (
         <FlightReservationForm
           key={editing?._id ?? 'new'}
-          tripId={tripId}
           reservation={editing ?? undefined}
           onClose={() => {
             setAddingType(null);
