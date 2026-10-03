@@ -17,7 +17,7 @@ const denyTripAccess = (res, trip, userId) => {
 
 const createEvent = async (req, res) => {
   try {
-    const { itineraryID, title, address, startTime, endTime, notes } = req.body;
+    const { itineraryID, title, placeId, address, startTime, endTime, notes } = req.body;
     const itinerary = await Itinerary.findById(itineraryID);
     if (!itinerary) {
       return res.status(404).json({ message: 'Itinerary not found' });
@@ -33,6 +33,7 @@ const createEvent = async (req, res) => {
     const newEvent = new Event ({
       itineraryID,
       title: title || 'New Event',
+      placeId: placeId || undefined,
       address,
       startTime,
       endTime,
@@ -67,6 +68,67 @@ const getEvents = async (req, res) => {
     res.status(200).json(events);
   } catch (error) {
     res.status(500).json({ message: 'Error getting events', error: error.message });
+  }
+};
+
+const getEventPhoto = async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    const trip = await findEventTrip(event);
+    if (!trip || !canReadTrip(trip, req.user.id)) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    if (!event.placeId) {
+      return res.status(200).json({ photo: null });
+    }
+    if (!process.env.GOOGLE_API_KEY) {
+      return res.status(503).json({ message: 'Place photos are unavailable' });
+    }
+
+    const placeUrl = `https://places.googleapis.com/v1/places/${encodeURIComponent(event.placeId)}`;
+    const detailsResponse = await fetch(placeUrl, {
+      headers: {
+        'X-Goog-Api-Key': process.env.GOOGLE_API_KEY,
+        'X-Goog-FieldMask': 'photos',
+      },
+    });
+    if (!detailsResponse.ok) {
+      throw new Error(`Place details returned ${detailsResponse.status}`);
+    }
+
+    const details = await detailsResponse.json();
+    const photo = details.photos?.find((candidate) => candidate.name && candidate.googleMapsUri);
+    if (!photo) {
+      return res.status(200).json({ photo: null });
+    }
+
+    const mediaUrl = new URL(`https://places.googleapis.com/v1/${photo.name}/media`);
+    mediaUrl.searchParams.set('maxWidthPx', '360');
+    mediaUrl.searchParams.set('skipHttpRedirect', 'true');
+    mediaUrl.searchParams.set('key', process.env.GOOGLE_API_KEY);
+    const mediaResponse = await fetch(mediaUrl);
+    if (!mediaResponse.ok) {
+      throw new Error(`Place photo returned ${mediaResponse.status}`);
+    }
+    const media = await mediaResponse.json();
+    if (!media.photoUri) {
+      return res.status(200).json({ photo: null });
+    }
+
+    res.status(200).json({
+      photo: {
+        url: media.photoUri,
+        sourceUrl: photo.googleMapsUri,
+        authorAttributions: photo.authorAttributions || [],
+      },
+    });
+  } catch (error) {
+    console.error('Event photo lookup failed:', error);
+    res.status(502).json({ message: 'Could not load place photo' });
   }
 };
 
@@ -126,4 +188,4 @@ const deleteEvent = async (req, res) => {
   }
 };
 
-module.exports = { createEvent, getEvents, updateEvent, deleteEvent };
+module.exports = { createEvent, getEvents, getEventPhoto, updateEvent, deleteEvent };
