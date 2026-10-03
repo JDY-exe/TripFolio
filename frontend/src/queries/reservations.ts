@@ -21,8 +21,8 @@ export interface Reservation {
   cost?: number | null;
   notes?: string;
   flights?: {
-    airline: string;
-    flightNum: string;
+    airline?: string;
+    flightNum?: string;
     departAirport: string;
     arriveAirport: string;
   };

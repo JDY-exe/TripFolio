@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { Text, displayAlert } from '../../../components/common';
+import { Button, Modal, Text, displayAlert } from '../../../components/common';
 import {
   ReservationType,
   useDeleteReservation,
@@ -24,17 +24,19 @@ const LogisticsView = () => {
   const { id: tripId } = useParams<{ id: string }>();
   const [addingType, setAddingType] = useState<ReservationType | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
+  const [reservationToDelete, setReservationToDelete] =
+    useState<Reservation | null>(null);
   const deleteReservation = useDeleteReservation(tripId ?? '');
 
   /**
-   * Confirms deletion, removes the reservation, and reports API failures.
-   * @param reservation - Reservation selected for deletion.
+   * Removes the confirmed reservation and reports API failures.
    * @returns A promise that settles after the delete request.
    */
-  const handleDelete = async (reservation: Reservation) => {
-    if (!window.confirm(`Delete ${reservation.name}?`)) return;
+  const handleDelete = async () => {
+    if (!reservationToDelete) return;
     try {
-      await deleteReservation.mutateAsync(reservation);
+      await deleteReservation.mutateAsync(reservationToDelete);
+      setReservationToDelete(null);
       displayAlert('Reservation deleted.');
     } catch (error) {
       displayAlert({
@@ -65,28 +67,60 @@ const LogisticsView = () => {
             tripId={tripId}
             onAdd={() => setAddingType(ReservationType.Flights)}
             onEdit={setEditing}
-            onDelete={(reservation) => void handleDelete(reservation)}
+            onDelete={setReservationToDelete}
           />
 
           <RentalCarsSection
             tripId={tripId}
             onAdd={() => setAddingType(ReservationType.Rentals)}
             onEdit={setEditing}
-            onDelete={(reservation) => void handleDelete(reservation)}
+            onDelete={setReservationToDelete}
           />
 
           <AccommodationsSection
             tripId={tripId}
             onAdd={() => setAddingType(ReservationType.Accommodations)}
             onEdit={setEditing}
-            onDelete={(reservation) => void handleDelete(reservation)}
+            onDelete={setReservationToDelete}
           />
         </div>
       </div>
+      {reservationToDelete ? (
+        <Modal
+          open
+          title={`Delete ${reservationToDelete.name}?`}
+          onClose={() => {
+            if (!deleteReservation.isPending) setReservationToDelete(null);
+          }}
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                disabled={deleteReservation.isPending}
+                onClick={() => setReservationToDelete(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={deleteReservation.isPending}
+                onClick={() => void handleDelete()}
+              >
+                {deleteReservation.isPending
+                  ? 'Deleting...'
+                  : 'Delete reservation'}
+              </Button>
+            </>
+          }
+        >
+          <Text>This reservation will be removed from your trip.</Text>
+        </Modal>
+      ) : null}
       {addingType === ReservationType.Flights ||
       editing?.type === ReservationType.Flights ? (
         <FlightReservationForm
           key={editing?._id ?? 'new'}
+          tripId={tripId}
           reservation={editing ?? undefined}
           onClose={() => {
             setAddingType(null);

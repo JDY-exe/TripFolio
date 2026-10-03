@@ -1,8 +1,21 @@
 import { Plane } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Button, Modal, Text, TextField } from '../../../../components/common';
-import type { Reservation } from '../../../../queries/reservations';
-import FlightWizardStepper from './FlightWizardStepper';
+import {
+  Button,
+  Modal,
+  Stepper,
+  Text,
+  TextField,
+} from '../../../../components/common';
+import {
+  ReservationType,
+  useSaveReservation,
+} from '../../../../queries/reservations';
+import type {
+  Reservation,
+  ReservationInput,
+} from '../../../../queries/reservations';
+import { getApiErrorMessage } from '../../../../utils/api';
 import {
   FlightWizardStep,
   createFlightDraft,
@@ -13,6 +26,7 @@ import {
 import type { FlightDraft } from './flightWizard';
 
 interface FlightReservationFormProps {
+  tripId: string;
   reservation?: Reservation;
   onClose: () => void;
 }
@@ -37,14 +51,16 @@ const previewDate = (value: string): string =>
 const previewTime = (value: string): string => value.slice(11, 16);
 
 /**
- * Presents a four-step, local-only preview for a single flight leg.
- * @param props - Optional reservation to preview editing and a close action.
- * @returns An interactive flight wizard that does not submit data.
+ * Presents a four-step editor for a single flight reservation.
+ * @param props - Trip, optional reservation to edit, and close action.
+ * @returns An interactive flight form that saves through the reservation mutation.
  */
 const FlightReservationForm = ({
+  tripId,
   reservation,
   onClose,
 }: FlightReservationFormProps) => {
+  const saveReservation = useSaveReservation(tripId);
   const [draft, setDraft] = useState<FlightDraft>(() =>
     createFlightDraft(reservation),
   );
@@ -98,69 +114,124 @@ const FlightReservationForm = ({
     }
   };
 
+  /**
+   * Saves the completed flight and closes the dialog after the list refreshes.
+   * @returns A promise that settles after the save request.
+   */
+  const handleSave = async () => {
+    const values: ReservationInput = {
+      name: draft.name.trim(),
+      startTime: new Date(draft.startTime).toISOString(),
+      endTime: new Date(draft.endTime).toISOString(),
+      confirmationNumber: draft.confirmationNumber.trim(),
+      cost: draft.cost.trim() ? Number(draft.cost) : null,
+      notes: draft.notes.trim(),
+      flights: {
+        flightNum: draft.flightNum.trim(),
+        departAirport: draft.departAirport.trim(),
+        arriveAirport: draft.arriveAirport.trim(),
+      },
+    };
+    setError('');
+    try {
+      await saveReservation.mutateAsync({
+        type: ReservationType.Flights,
+        values,
+        id: reservation?._id,
+      });
+      onClose();
+    } catch (cause) {
+      setError(
+        getApiErrorMessage(
+          cause,
+          'Could not save the flight. Please try again.',
+        ),
+      );
+      stepContentRef.current?.scrollIntoView({ block: 'start' });
+    }
+  };
+
   return (
     <Modal
       open
-      title={reservation ? 'Preview flight edit' : 'Preview new flight'}
-      description="Preview only. Your changes will not be saved."
-      onClose={onClose}
-      panelClassName="sm:max-w-3xl"
+      title="Flight information"
+      description={
+        reservation
+          ? 'Edit your flight information.'
+          : 'Input your flight information.'
+      }
+      onClose={() => {
+        if (!saveReservation.isPending) onClose();
+      }}
+      panelClassName="flex h-[min(42rem,calc(76dvh_-_2rem))] flex-col sm:h-[min(42rem,calc(100dvh_-_4rem))] sm:max-w-3xl"
+      contentClassName="min-h-0 flex-1 overflow-y-auto"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
-          <Button variant="secondary" onClick={onClose}>
-            Close preview
+          <Button
+            variant="secondary"
+            disabled={saveReservation.isPending}
+            onClick={onClose}
+          >
+            Cancel
           </Button>
           <div className="flex items-center gap-2">
             {step !== FlightWizardStep.Route ? (
-              <Button variant="outline" onClick={handleBack}>
+              <Button
+                variant="outline"
+                disabled={saveReservation.isPending}
+                onClick={handleBack}
+              >
                 Back
               </Button>
             ) : null}
             {step !== FlightWizardStep.Review ? (
-              <Button onClick={handleNext}>
+              <Button disabled={saveReservation.isPending} onClick={handleNext}>
                 Next: {flightWizardSteps[step + 1].label}
               </Button>
-            ) : null}
+            ) : (
+              <Button
+                disabled={saveReservation.isPending}
+                onClick={() => void handleSave()}
+              >
+                {saveReservation.isPending ? 'Saving...' : 'Save flight'}
+              </Button>
+            )}
           </div>
         </div>
       }
     >
-      <FlightWizardStepper currentStep={step} />
+      <Stepper
+        steps={flightWizardSteps}
+        currentStep={step}
+        label="Flight form progress"
+      />
       <div ref={stepContentRef} tabIndex={-1} className="mt-7 outline-none">
         <Text as="h3" variant="title" className="mb-4">
           {flightWizardSteps[step].label}
         </Text>
+        {error ? (
+          <Text role="alert" color="error" className="mb-4">
+            {error}
+          </Text>
+        ) : null}
 
         {step === FlightWizardStep.Route ? (
-          <div className="overflow-hidden rounded-[1.75rem_0.75rem_1.75rem_0.75rem] border border-outline-variant bg-surface-container-low">
-            <div className="grid gap-4 bg-primary-container p-5 sm:grid-cols-2">
-              <TextField
-                id="flight-airline"
-                label="Airline code"
-                value={draft.airline}
-                maxLength={3}
-                autoCapitalize="characters"
-                onChange={(event) =>
-                  updateDraft({ airline: event.target.value })
-                }
-                required
-              />
+          <div className="overflow-hidden rounded-[1.75rem_1.75rem_1.75rem_1.75rem] border border-outline-variant bg-surface-container-low">
+            <div className="px-5 pt-5">
               <TextField
                 id="flight-number"
-                label="Flight number"
+                label="Airline code and flight number"
+                className="max-w-64"
                 value={draft.flightNum}
-                maxLength={5}
+                autoCapitalize="characters"
                 onChange={(event) =>
                   updateDraft({ flightNum: event.target.value })
                 }
-                required
+                placeholder="UA1234"
               />
             </div>
             <div className="grid gap-5 p-5 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
               <div className="grid gap-4">
-                <Text as="h4" variant="label" color="muted">
-                  Departure
-                </Text>
                 <TextField
                   id="flight-depart-airport"
                   label="Departure airport"
@@ -187,14 +258,11 @@ const FlightReservationForm = ({
                 className="hidden items-center gap-2 text-primary sm:flex"
                 aria-hidden="true"
               >
-                <span className="w-4 border-t border-dashed border-outline" />
+                <span className="w-4 border-t border-2 border-dashed border-outline" />
                 <Plane size={20} className="rotate-45" />
-                <span className="w-4 border-t border-dashed border-outline" />
+                <span className="w-4 border-t border-2 border-dashed border-outline" />
               </div>
               <div className="grid gap-4">
-                <Text as="h4" variant="label" color="muted">
-                  Arrival
-                </Text>
                 <TextField
                   id="flight-arrive-airport"
                   label="Arrival airport"
@@ -281,9 +349,6 @@ const FlightReservationForm = ({
                 </div>
                 <div>
                   <Text as="h4" variant="label" className="font-medium">
-                    {draft.airline}
-                  </Text>
-                  <Text color="muted" className="mt-0.5 text-sm">
                     {draft.flightNum}
                   </Text>
                 </div>
@@ -334,7 +399,7 @@ const FlightReservationForm = ({
                 </div>
               </div>
               <Text variant="caption" color="muted" className="mt-4">
-                Times shown in your device’s time zone.
+                Notes
               </Text>
               {draft.notes ? (
                 <Text
@@ -358,12 +423,6 @@ const FlightReservationForm = ({
               </span>
             </div>
           </article>
-        ) : null}
-
-        {error ? (
-          <Text role="alert" color="error" className="mt-4">
-            {error}
-          </Text>
         ) : null}
       </div>
     </Modal>

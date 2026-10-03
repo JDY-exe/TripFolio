@@ -1,10 +1,14 @@
-import { Badge, BedDouble, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
-import { Button, IconButton, Text } from '../../../../components/common';
+import { Badge, BedDouble, MapPin, Plus } from 'lucide-react';
+import { Button, Text } from '../../../../components/common';
 import {
   ReservationType,
   useReservations,
 } from '../../../../queries/reservations';
 import type { Reservation } from '../../../../queries/reservations';
+import LogisticsCardActions from '../LogisticsCardActions';
+import LogisticsEmptyState from '../LogisticsEmptyState';
+import LogisticsSkeletonCard from '../LogisticsSkeletonCard';
+import { reservationDateForDisplay } from '../reservationDateInput';
 
 interface AccommodationsSectionProps {
   tripId: string;
@@ -16,10 +20,7 @@ interface AccommodationsSectionProps {
 const stayDate = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
   month: 'short',
-});
-const stayTime = new Intl.DateTimeFormat(undefined, {
-  hour: '2-digit',
-  minute: '2-digit',
+  timeZone: 'UTC',
 });
 
 /**
@@ -58,7 +59,12 @@ const AccommodationsSection = ({
           Add accommodation
         </Button>
       </div>
-      {isPending ? <Text color="muted">Loading accommodations...</Text> : null}
+      {isPending ? (
+        <LogisticsSkeletonCard
+          label="Loading accommodations"
+          className="rounded-[2rem_0.75rem_2rem_0.75rem]"
+        />
+      ) : null}
       {isError ? (
         <div className="flex flex-wrap items-center gap-3">
           <Text color="error">Could not load accommodations.</Text>
@@ -68,15 +74,23 @@ const AccommodationsSection = ({
         </div>
       ) : null}
       {!isPending && !isError && reservations.length === 0 ? (
-        <Text color="muted">No accommodations added yet.</Text>
+        <LogisticsEmptyState
+          title="No accommodations added yet."
+          icon={<BedDouble size={30} />}
+        />
       ) : null}
 
       <div className="space-y-4">
         {reservations.map((reservation) => (
           <article
             key={reservation._id}
-            className="rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low p-5 sm:p-6"
+            className="group relative overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low p-5 sm:p-6"
           >
+            <LogisticsCardActions
+              reservation={reservation}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
             <div className="flex items-center gap-4">
               <div
                 aria-hidden="true"
@@ -93,7 +107,7 @@ const AccommodationsSection = ({
                   className="relative text-on-secondary-container"
                 />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 pr-20">
                 <Text as="h4" variant="title">
                   {reservation.name}
                 </Text>
@@ -115,10 +129,9 @@ const AccommodationsSection = ({
                 <Text as="dd" className="mt-2">
                   <time dateTime={reservation.startTime}>
                     <span className="block text-lg tabular-nums">
-                      {stayDate.format(new Date(reservation.startTime))}
-                    </span>
-                    <span className="mt-0.5 block text-sm text-on-surface-variant">
-                      {stayTime.format(new Date(reservation.startTime))}
+                      {stayDate.format(
+                        reservationDateForDisplay(reservation.startTime),
+                      )}
                     </span>
                   </time>
                 </Text>
@@ -130,10 +143,9 @@ const AccommodationsSection = ({
                 <Text as="dd" className="mt-2">
                   <time dateTime={reservation.endTime}>
                     <span className="block text-lg tabular-nums">
-                      {stayDate.format(new Date(reservation.endTime))}
-                    </span>
-                    <span className="mt-0.5 block text-sm text-on-surface-variant">
-                      {stayTime.format(new Date(reservation.endTime))}
+                      {stayDate.format(
+                        reservationDateForDisplay(reservation.endTime),
+                      )}
                     </span>
                   </time>
                 </Text>
@@ -146,28 +158,13 @@ const AccommodationsSection = ({
               </Text>
             ) : null}
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-on-surface-variant">
-                {reservation.confirmationNumber ? (
-                  <span>Confirmation: {reservation.confirmationNumber}</span>
-                ) : null}
-                {reservation.cost != null ? (
-                  <span>Cost: {reservation.cost.toFixed(2)}</span>
-                ) : null}
-              </div>
-              <div className="flex shrink-0 gap-1">
-                <IconButton
-                  label={`Edit ${reservation.name}`}
-                  icon={<Pencil aria-hidden size={18} />}
-                  onClick={() => onEdit(reservation)}
-                />
-                <IconButton
-                  label={`Delete ${reservation.name}`}
-                  variant="danger"
-                  icon={<Trash2 aria-hidden size={18} />}
-                  onClick={() => onDelete(reservation)}
-                />
-              </div>
+            <div className="mt-3">
+              <Text variant="label" color="muted">
+                Cost:{' '}
+                {reservation.cost != null
+                  ? reservation.cost.toFixed(2)
+                  : 'Not provided'}
+              </Text>
             </div>
           </article>
         ))}

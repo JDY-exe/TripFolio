@@ -39,6 +39,8 @@ export interface ModalProps extends Omit<
   footer?: ReactNode;
   /** Optional panel layout classes; defaults to the standard narrow width. */
   panelClassName?: string;
+  /** Optional layout classes for the scrollable content area. */
+  contentClassName?: string;
 }
 
 /**
@@ -68,6 +70,7 @@ function Modal({
   children,
   footer,
   panelClassName,
+  contentClassName,
   className,
   onKeyDown,
   onMouseDown,
@@ -199,7 +202,9 @@ function Modal({
           </div>
         </header>
 
-        <div className="mt-6">{children}</div>
+        <div className={['mt-6', contentClassName].filter(Boolean).join(' ')}>
+          {children}
+        </div>
 
         {footer ? (
           <footer className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

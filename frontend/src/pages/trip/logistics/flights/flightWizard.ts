@@ -20,7 +20,6 @@ export const flightWizardSteps = [
 
 export interface FlightDraft {
   name: string;
-  airline: string;
   flightNum: string;
   departAirport: string;
   arriveAirport: string;
@@ -38,7 +37,6 @@ export interface FlightDraft {
  */
 export const createFlightDraft = (reservation?: Reservation): FlightDraft => ({
   name: reservation?.name ?? '',
-  airline: reservation?.flights?.airline ?? '',
   flightNum: reservation?.flights?.flightNum ?? '',
   departAirport: reservation?.flights?.departAirport ?? '',
   arriveAirport: reservation?.flights?.arriveAirport ?? '',
@@ -50,19 +48,16 @@ export const createFlightDraft = (reservation?: Reservation): FlightDraft => ({
 });
 
 /**
- * Applies the flight code limits only to fields edited in this change.
+ * Uppercases flight numbers and limits airport codes in edited fields.
  * @param changes - Draft fields supplied by an input event.
- * @returns Fields with airline and airport codes uppercased and length-limited.
+ * @returns Updated fields with their display formatting applied.
  */
 export const normalizeFlightChanges = (
   changes: Partial<FlightDraft>,
 ): Partial<FlightDraft> => ({
   ...changes,
-  ...(changes.airline !== undefined
-    ? { airline: changes.airline.toUpperCase().slice(0, 3) }
-    : {}),
   ...(changes.flightNum !== undefined
-    ? { flightNum: changes.flightNum.slice(0, 5) }
+    ? { flightNum: changes.flightNum.toUpperCase() }
     : {}),
   ...(changes.departAirport !== undefined
     ? { departAirport: changes.departAirport.toUpperCase().slice(0, 3) }
@@ -84,24 +79,16 @@ export const validateFlightStep = (
 ): string | null => {
   if (step === FlightWizardStep.Route) {
     if (
-      ![
-        draft.airline,
-        draft.flightNum,
-        draft.departAirport,
-        draft.arriveAirport,
-      ].every((value) => value.trim()) ||
+      ![draft.departAirport, draft.arriveAirport].every((value) =>
+        value.trim(),
+      ) ||
       !draft.startTime ||
       !draft.endTime
     ) {
-      return 'Complete the airline, flight number, airports, and both times.';
+      return 'Complete the airports and both times.';
     }
-    if (
-      draft.airline.length > 3 ||
-      draft.flightNum.length > 5 ||
-      draft.departAirport.length > 3 ||
-      draft.arriveAirport.length > 3
-    ) {
-      return 'Use up to 3 characters for airline and airport codes, and 5 for the flight number.';
+    if (draft.departAirport.length > 3 || draft.arriveAirport.length > 3) {
+      return 'Use up to 3 characters for airport codes.';
     }
     const departure = new Date(draft.startTime);
     const arrival = new Date(draft.endTime);

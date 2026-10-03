@@ -30,6 +30,10 @@ export type {
 } from './MediaUpload';
 export { default as Modal } from './Modal';
 export type { ModalProps } from './Modal';
+export { default as Skeleton } from './Skeleton';
+export type { SkeletonProps } from './Skeleton';
+export { default as Stepper } from './Stepper';
+export type { StepperProps, StepperStep } from './Stepper';
 export { default as Text } from './Text';
 export type { TextColor, TextProps, TextVariant } from './Text';
 export { default as TextField } from './TextField';

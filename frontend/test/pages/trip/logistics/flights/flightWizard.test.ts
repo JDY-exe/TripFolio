@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -13,7 +14,6 @@ import type { Reservation } from '../../../../../src/queries/reservations';
 
 const validDraft = {
   name: 'Outbound flight',
-  airline: 'SIA',
   flightNum: 'SQ618',
   departAirport: 'SIN',
   arriveAirport: 'KIX',
@@ -27,6 +27,12 @@ const validDraft = {
 describe('flight wizard draft', () => {
   it('validates each step without requiring optional booking or cost fields', () => {
     expect(validateFlightStep(FlightWizardStep.Route, validDraft)).toBeNull();
+    expect(
+      validateFlightStep(FlightWizardStep.Route, {
+        ...validDraft,
+        flightNum: '',
+      }),
+    ).toBeNull();
     expect(validateFlightStep(FlightWizardStep.Booking, validDraft)).toBeNull();
     expect(validateFlightStep(FlightWizardStep.Cost, validDraft)).toBeNull();
     expect(validateFlightStep(FlightWizardStep.Review, validDraft)).toBeNull();
@@ -45,26 +51,18 @@ describe('flight wizard draft', () => {
         endTime: '2027-04-02T07:00',
       }),
     ).toMatch(/Arrival cannot/);
-    expect(
-      validateFlightStep(FlightWizardStep.Route, {
-        ...validDraft,
-        airline: 'Airline',
-      }),
-    ).toMatch(/up to 3 characters/);
   });
 
-  it('uppercases and limits edited airline and airport codes', () => {
+  it('uppercases flight numbers and limits edited airport codes', () => {
     expect(
       normalizeFlightChanges({
-        airline: 'sqab',
-        flightNum: '123456',
+        flightNum: 'sq123456',
         departAirport: 'sinfo',
         arriveAirport: 'kixx',
         name: 'Outbound flight',
       }),
     ).toEqual({
-      airline: 'SQA',
-      flightNum: '12345',
+      flightNum: 'SQ123456',
       departAirport: 'SIN',
       arriveAirport: 'KIX',
       name: 'Outbound flight',
@@ -80,7 +78,7 @@ describe('flight wizard draft', () => {
     ).toMatch(/zero or more/);
   });
 
-  it('prefills edit drafts and renders a clearly non-saving preview', () => {
+  it('prefills edit drafts and renders the flight form', () => {
     const reservation: Reservation = {
       _id: 'flight-1',
       type: ReservationType.Flights,
@@ -100,13 +98,18 @@ describe('flight wizard draft', () => {
     expect(draft.startTime).toMatch(/^2027-04-0[12]T\d{2}:25$/);
 
     const markup = renderToStaticMarkup(
-      createElement(FlightReservationForm, {
-        reservation,
-        onClose: () => undefined,
-      }),
+      createElement(
+        QueryClientProvider,
+        { client: new QueryClient() },
+        createElement(FlightReservationForm, {
+          tripId: 'trip-1',
+          reservation,
+          onClose: () => undefined,
+        }),
+      ),
     );
-    expect(markup).toContain('Your changes will not be saved');
-    expect(markup).toContain('Close preview');
-    expect(markup).not.toContain('Save flight');
+    expect(markup).toContain('Edit your flight information.');
+    expect(markup).toContain('Cancel');
+    expect(markup).toContain('Airline code and flight number');
   });
 });

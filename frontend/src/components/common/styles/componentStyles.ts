@@ -11,6 +11,8 @@ export const buttonVariants = {
   outline:
     'border border-outline bg-transparent text-primary hover:bg-primary/8',
   ghost: 'bg-transparent text-primary hover:bg-primary/8',
+  dangerGhost:
+    'bg-transparent text-on-surface-variant hover:bg-error-container hover:text-on-error-container',
   danger: 'bg-error text-on-error hover:bg-error/90',
 } as const;
 

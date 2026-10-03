@@ -9,7 +9,11 @@ const router = express.Router();
 router.use(authenticateToken);
 
 const categories = {
-    flights: { type: "flights", fields: ["airline", "flightNum", "departAirport", "arriveAirport"] },
+    flights: {
+        type: "flights",
+        fields: ["airline", "flightNum", "departAirport", "arriveAirport"],
+        requiredFields: ["departAirport", "arriveAirport"],
+    },
     rental_cars: { type: "rentals", fields: ["company"] },
     hotels: { type: "accommodations", fields: ["address"] },
 };
@@ -48,7 +52,7 @@ const sendServerError = (res, error) => {
     return res.status(500).json({ message: "Server error" });
 };
 
-for (const [path, { type, fields }] of Object.entries(categories)) {
+for (const [path, { type, fields, requiredFields = fields }] of Object.entries(categories)) {
     router.get(`/${path}`, async (req, res) => {
         try {
             const { tripId } = req.query;
@@ -67,7 +71,7 @@ for (const [path, { type, fields }] of Object.entries(categories)) {
             const { tripId, name, startTime, endTime, confirmationNumber, cost, notes } = req.body;
             const details = req.body[type];
             if (!tripId || typeof name !== "string" || !name.trim() || !startTime || !endTime ||
-                !fields.every(field => typeof details?.[field] === "string" && details[field].trim())) {
+                !requiredFields.every(field => typeof details?.[field] === "string" && details[field].trim())) {
                 return res.status(400).json({ message: "Complete all required reservation fields" });
             }
             if (cost !== undefined && cost !== null && (!Number.isFinite(Number(cost)) || Number(cost) < 0)) {
@@ -103,7 +107,7 @@ for (const [path, { type, fields }] of Object.entries(categories)) {
                 (!Number.isFinite(Number(reservation.cost)) || Number(reservation.cost) < 0)) {
                 return res.status(400).json({ message: "Cost must be zero or more" });
             }
-            if (!reservation.name?.trim() || !fields.every(field => reservation[type]?.[field]?.trim()) ||
+            if (!reservation.name?.trim() || !requiredFields.every(field => reservation[type]?.[field]?.trim()) ||
                 !hasValidDates(reservation.startTime, reservation.endTime)) {
                 return res.status(400).json({ message: "Complete all required fields and enter valid dates" });
             }

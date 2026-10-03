@@ -1,10 +1,13 @@
-import { Pencil, Plane, Plus, Trash2 } from 'lucide-react';
-import { Button, IconButton, Text } from '../../../../components/common';
+import { Plane, Plus } from 'lucide-react';
+import { Button, Text } from '../../../../components/common';
 import {
   ReservationType,
   useReservations,
 } from '../../../../queries/reservations';
 import type { Reservation } from '../../../../queries/reservations';
+import LogisticsCardActions from '../LogisticsCardActions';
+import LogisticsEmptyState from '../LogisticsEmptyState';
+import LogisticsSkeletonCard from '../LogisticsSkeletonCard';
 
 interface FlightsSectionProps {
   tripId: string;
@@ -59,7 +62,12 @@ const FlightsSection = ({
           Add flight
         </Button>
       </div>
-      {isPending ? <Text color="muted">Loading flights...</Text> : null}
+      {isPending ? (
+        <LogisticsSkeletonCard
+          label="Loading flights"
+          className="rounded-[1.75rem_0.75rem_1.75rem_0.75rem]"
+        />
+      ) : null}
       {isError ? (
         <div className="flex flex-wrap items-center gap-3">
           <Text color="error">Could not load flights.</Text>
@@ -69,21 +77,29 @@ const FlightsSection = ({
         </div>
       ) : null}
       {!isPending && !isError && reservations.length === 0 ? (
-        <Text color="muted">No flights added yet.</Text>
+        <LogisticsEmptyState
+          title="No flights added yet."
+          icon={<Plane size={30} />}
+        />
       ) : null}
 
       <div className="space-y-4">
         {reservations.map((reservation) => (
           <article
             key={reservation._id}
-            className="overflow-hidden rounded-[1.75rem_0.75rem_1.75rem_0.75rem] bg-surface-container-low"
+            className="group relative overflow-hidden rounded-[1.75rem_0.75rem_1.75rem_0.75rem] bg-surface-container-low"
           >
+            <LogisticsCardActions
+              reservation={reservation}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
             <div className="p-5 sm:p-6">
               <div className="flex items-center gap-3">
                 <div className="grid size-12 shrink-0 place-items-center rounded-[1rem_0.5rem_1rem_0.5rem] bg-primary-container text-on-primary-container">
                   <Plane aria-hidden size={22} />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 pr-20">
                   <Text as="h4" variant="label" className="font-medium">
                     {reservation.flights?.airline || reservation.name}
                   </Text>
@@ -115,9 +131,9 @@ const FlightsSection = ({
                   className="flex items-center gap-2 text-primary"
                   aria-hidden="true"
                 >
-                  <span className="hidden w-8 border-t border-dashed border-outline-variant sm:block" />
+                  <span className="hidden w-8 border-t border-2 border-dashed border-outline-variant sm:block" />
                   <Plane size={18} className="rotate-45" />
-                  <span className="hidden w-8 border-t border-dashed border-outline-variant sm:block" />
+                  <span className="hidden w-8 border-t border-2 border-dashed border-outline-variant sm:block" />
                 </div>
                 <div className="min-w-0 text-right">
                   <Text className="truncate text-3xl tracking-tight">
@@ -137,9 +153,6 @@ const FlightsSection = ({
                   </time>
                 </div>
               </div>
-              <Text variant="caption" color="muted" className="mt-4">
-                Times shown in your device’s time zone.
-              </Text>
               {reservation.notes ? (
                 <Text
                   color="muted"
@@ -150,36 +163,44 @@ const FlightsSection = ({
               ) : null}
             </div>
 
-            <div className="relative flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-outline-variant px-5 py-2 before:absolute before:-left-2 before:-top-2 before:size-4 before:rounded-full before:bg-surface after:absolute after:-right-2 after:-top-2 after:size-4 after:rounded-full after:bg-surface sm:px-6">
-              <div className="min-w-0 text-sm text-on-surface-variant">
-                <span className="font-medium text-on-surface">
-                  {reservation.name}
-                </span>
-                {reservation.confirmationNumber ? (
-                  <span className="ml-3">
-                    Confirmation: {reservation.confirmationNumber}
-                  </span>
-                ) : null}
-                {reservation.cost != null ? (
-                  <span className="ml-3">
-                    Cost: {reservation.cost.toFixed(2)}
-                  </span>
-                ) : null}
+            <dl className="relative flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-outline-variant px-5 py-4 before:absolute before:-left-2 before:-top-2 before:size-4 before:rounded-full before:bg-surface after:absolute after:-right-2 after:-top-2 after:size-4 after:rounded-full after:bg-surface sm:px-6">
+              <div className="min-w-0">
+                <Text
+                  as="dt"
+                  variant="caption"
+                  color="muted"
+                  className="uppercase tracking-wide"
+                >
+                  Confirmation
+                </Text>
+                <Text
+                  as="dd"
+                  variant="label"
+                  className="mt-1 break-all font-medium"
+                >
+                  {reservation.confirmationNumber || 'Not provided'}
+                </Text>
               </div>
-              <div className="flex shrink-0 gap-1">
-                <IconButton
-                  label={`Edit ${reservation.name}`}
-                  icon={<Pencil aria-hidden size={18} />}
-                  onClick={() => onEdit(reservation)}
-                />
-                <IconButton
-                  label={`Delete ${reservation.name}`}
-                  variant="danger"
-                  icon={<Trash2 aria-hidden size={18} />}
-                  onClick={() => onDelete(reservation)}
-                />
+              <div className="ml-auto text-right">
+                <Text
+                  as="dt"
+                  variant="caption"
+                  color="muted"
+                  className="uppercase tracking-wide"
+                >
+                  Cost
+                </Text>
+                <Text
+                  as="dd"
+                  variant="label"
+                  className="mt-1 font-medium tabular-nums"
+                >
+                  {reservation.cost != null
+                    ? reservation.cost.toFixed(2)
+                    : 'Not provided'}
+                </Text>
               </div>
-            </div>
+            </dl>
           </article>
         ))}
       </div>
