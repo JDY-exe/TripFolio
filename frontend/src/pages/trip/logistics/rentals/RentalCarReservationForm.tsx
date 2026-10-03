@@ -27,7 +27,30 @@ interface RentalCarReservationFormProps {
   onClose: () => void;
 }
 
+interface RentalCarDraft {
+  name: string;
+  company: string;
+  startDate: string;
+  endDate: string;
+  cost: string;
+  notes: string;
+}
+
 const rentalSteps = [{ label: 'Rental details' }, { label: 'Cost' }] as const;
+
+/**
+ * Creates editable rental values from a reservation or empty fields.
+ * @param reservation - The rental reservation being edited, when present.
+ * @returns Values suitable for the rental form inputs.
+ */
+const createRentalCarDraft = (reservation?: Reservation): RentalCarDraft => ({
+  name: reservation?.name ?? '',
+  company: reservation?.rentals?.company ?? '',
+  startDate: toReservationDateInput(reservation?.startTime),
+  endDate: toReservationDateInput(reservation?.endTime),
+  cost: reservation?.cost?.toString() ?? '',
+  notes: reservation?.notes ?? '',
+});
 
 /**
  * Edits rental details and cost in a two-step reservation dialog.
@@ -41,16 +64,9 @@ const RentalCarReservationForm = ({
 }: RentalCarReservationFormProps) => {
   const saveReservation = useSaveReservation(tripId);
   const [step, setStep] = useState<0 | 1>(0);
-  const [name, setName] = useState(reservation?.name ?? '');
-  const [company, setCompany] = useState(reservation?.rentals?.company ?? '');
-  const [startDate, setStartDate] = useState(
-    toReservationDateInput(reservation?.startTime),
+  const [draft, setDraft] = useState<RentalCarDraft>(() =>
+    createRentalCarDraft(reservation),
   );
-  const [endDate, setEndDate] = useState(
-    toReservationDateInput(reservation?.endTime),
-  );
-  const [cost, setCost] = useState(reservation?.cost?.toString() ?? '');
-  const [notes, setNotes] = useState(reservation?.notes ?? '');
   const [error, setError] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
   const previousStep = useRef(step);
@@ -62,17 +78,27 @@ const RentalCarReservationForm = ({
   }, [step]);
 
   /**
+   * Merges changed rental fields into the current draft and clears errors.
+   * @param changes - Fields changed by the form input.
+   * @returns Nothing.
+   */
+  const updateDraft = (changes: Partial<RentalCarDraft>) => {
+    setDraft((current) => ({ ...current, ...changes }));
+    setError('');
+  };
+
+  /**
    * Checks the rental identity and calendar range before showing cost.
    * @returns Nothing; the dialog advances or shows an error.
    */
   const handleNext = () => {
-    const pickup = new Date(reservationDateToTimestamp(startDate));
-    const returnDate = new Date(reservationDateToTimestamp(endDate));
+    const pickup = new Date(reservationDateToTimestamp(draft.startDate));
+    const returnDate = new Date(reservationDateToTimestamp(draft.endDate));
     if (
-      !name.trim() ||
-      !company.trim() ||
-      !startDate ||
-      !endDate ||
+      !draft.name.trim() ||
+      !draft.company.trim() ||
+      !draft.startDate ||
+      !draft.endDate ||
       Number.isNaN(pickup.getTime()) ||
       Number.isNaN(returnDate.getTime())
     ) {
@@ -92,7 +118,7 @@ const RentalCarReservationForm = ({
    * @returns A promise that settles after the save request.
    */
   const handleSave = async () => {
-    const parsedCost = cost.trim() ? Number(cost) : null;
+    const parsedCost = draft.cost.trim() ? Number(draft.cost) : null;
     if (
       parsedCost !== null &&
       (!Number.isFinite(parsedCost) || parsedCost < 0)
@@ -101,12 +127,12 @@ const RentalCarReservationForm = ({
       return;
     }
     const values: ReservationInput = {
-      name: name.trim(),
-      startTime: reservationDateToTimestamp(startDate),
-      endTime: reservationDateToTimestamp(endDate),
+      name: draft.name.trim(),
+      startTime: reservationDateToTimestamp(draft.startDate),
+      endTime: reservationDateToTimestamp(draft.endDate),
       cost: parsedCost,
-      notes: notes.trim(),
-      rentals: { company: company.trim() },
+      notes: draft.notes.trim(),
+      rentals: { company: draft.company.trim() },
     };
     setError('');
     try {
@@ -204,15 +230,19 @@ const RentalCarReservationForm = ({
                 <TextField
                   id="rental-name"
                   label="Vehicle"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  value={draft.name}
+                  onChange={(event) =>
+                    updateDraft({ name: event.target.value })
+                  }
                   required
                 />
                 <TextField
                   id="rental-company"
                   label="Rental company"
-                  value={company}
-                  onChange={(event) => setCompany(event.target.value)}
+                  value={draft.company}
+                  onChange={(event) =>
+                    updateDraft({ company: event.target.value })
+                  }
                   required
                 />
               </div>
@@ -234,16 +264,20 @@ const RentalCarReservationForm = ({
                     id="rental-pickup"
                     label="Pick-up date"
                     type="date"
-                    value={startDate}
-                    onChange={(event) => setStartDate(event.target.value)}
+                    value={draft.startDate}
+                    onChange={(event) =>
+                      updateDraft({ startDate: event.target.value })
+                    }
                     required
                   />
                   <TextField
                     id="rental-return"
                     label="Return date"
                     type="date"
-                    value={endDate}
-                    onChange={(event) => setEndDate(event.target.value)}
+                    value={draft.endDate}
+                    onChange={(event) =>
+                      updateDraft({ endDate: event.target.value })
+                    }
                     required
                   />
                 </div>
@@ -261,8 +295,10 @@ const RentalCarReservationForm = ({
                 <textarea
                   id="rental-notes"
                   rows={3}
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
+                  value={draft.notes}
+                  onChange={(event) =>
+                    updateDraft({ notes: event.target.value })
+                  }
                   className="mt-2 w-full rounded-xl border border-outline bg-surface-container-low p-3 text-on-surface"
                 />
               </div>
@@ -290,8 +326,8 @@ const RentalCarReservationForm = ({
               min="0"
               step="0.01"
               className="max-w-64"
-              value={cost}
-              onChange={(event) => setCost(event.target.value)}
+              value={draft.cost}
+              onChange={(event) => updateDraft({ cost: event.target.value })}
             />
           </div>
         )}

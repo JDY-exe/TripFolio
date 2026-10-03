@@ -13,6 +13,27 @@ interface AddNewEventCardProps {
   onClose?: () => void;
 }
 
+interface EventDraft {
+  title: string;
+  address: string;
+  startTime: string;
+  finishTime: string;
+  notes: string;
+}
+
+/**
+ * Creates editable event values from an existing event or empty fields.
+ * @param event - The event being edited, when present.
+ * @returns Values suitable for the event form inputs.
+ */
+const createEventDraft = (event?: EventData): EventDraft => ({
+  title: event?.title ?? '',
+  address: event?.address ?? '',
+  startTime: event ? new Date(event.startTime).toISOString().slice(0, 16) : '',
+  finishTime: event ? new Date(event.endTime).toISOString().slice(0, 16) : '',
+  notes: event?.notes ?? '',
+});
+
 /** Opens a modal for entering an event and reports its saved record to the itinerary.
  * @param props - Trip dates, itinerary identifier, and save callback.
  * @returns The add-event card and its controlled creation modal.
@@ -26,28 +47,29 @@ const AddNewEventCard = ({
   onClose,
 }: AddNewEventCardProps) => {
   const [isOpen, setIsOpen] = useState(Boolean(event));
-  const [title, setTitle] = useState(event?.title ?? '');
-  const [address, setAddress] = useState(event?.address ?? '');
-  const [startTime, setStartTime] = useState(
-    event ? new Date(event.startTime).toISOString().slice(0, 16) : '',
-  );
-  const [finishTime, setFinishTime] = useState(
-    event ? new Date(event.endTime).toISOString().slice(0, 16) : '',
-  );
-  const [notes, setNotes] = useState(event?.notes ?? '');
+  const [draft, setDraft] = useState<EventDraft>(() => createEventDraft(event));
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  /**
+   * Merges changed event fields into the current draft.
+   * @param changes - Fields changed by the form input.
+   * @returns Nothing.
+   */
+  const updateDraft = (changes: Partial<EventDraft>) => {
+    setDraft((current) => ({ ...current, ...changes }));
+  };
 
   /** Validates the event dates and creates the event through the API.
    * @returns A promise that settles after saving.
    */
   const saveEvent = async () => {
-    const start = new Date(`${startTime}Z`);
-    const end = new Date(`${finishTime}Z`);
+    const start = new Date(`${draft.startTime}Z`);
+    const end = new Date(`${draft.finishTime}Z`);
     const tripStart = new Date(startDate);
     const tripEnd = new Date(endDate);
     tripEnd.setUTCHours(23, 59, 59, 999);
-    if (!title.trim() || !startTime || !finishTime) {
+    if (!draft.title.trim() || !draft.startTime || !draft.finishTime) {
       setError('Add a title and both event times.');
       return;
     }
@@ -63,11 +85,11 @@ const AddNewEventCard = ({
     setError('');
     try {
       const payload = {
-        title,
-        address,
+        title: draft.title,
+        address: draft.address,
         startTime: start.toISOString(),
         endTime: end.toISOString(),
-        notes,
+        notes: draft.notes,
       };
       const savedEvent = event
         ? await patchToApi<EventData>(`/event/${event._id}`, payload)
@@ -78,11 +100,7 @@ const AddNewEventCard = ({
       onCreated(savedEvent);
       setIsOpen(false);
       onClose?.();
-      setTitle('');
-      setAddress('');
-      setStartTime('');
-      setFinishTime('');
-      setNotes('');
+      setDraft(createEventDraft());
     } catch {
       setError('Failed to save event. Please try again.');
     } finally {
@@ -133,31 +151,35 @@ const AddNewEventCard = ({
           <TextField
             id="event-title"
             label="Event title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            value={draft.title}
+            onChange={(event) => updateDraft({ title: event.target.value })}
             required
           />
           <TextField
             id="event-address"
             label="Location"
-            value={address}
-            onChange={(event) => setAddress(event.target.value)}
+            value={draft.address}
+            onChange={(event) => updateDraft({ address: event.target.value })}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               id="event-start"
               label="Start time"
               type="datetime-local"
-              value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
+              value={draft.startTime}
+              onChange={(event) =>
+                updateDraft({ startTime: event.target.value })
+              }
               required
             />
             <TextField
               id="event-end"
               label="End time"
               type="datetime-local"
-              value={finishTime}
-              onChange={(event) => setFinishTime(event.target.value)}
+              value={draft.finishTime}
+              onChange={(event) =>
+                updateDraft({ finishTime: event.target.value })
+              }
               required
             />
           </div>
@@ -168,8 +190,8 @@ const AddNewEventCard = ({
             Notes
             <textarea
               id="event-notes"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
+              value={draft.notes}
+              onChange={(event) => updateDraft({ notes: event.target.value })}
               rows={3}
               className="resize-none rounded bg-surface-container p-3 text-on-surface"
             />
