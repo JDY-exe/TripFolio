@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { useLoading } from '../contexts/LoadingContext';
 import { getFromApi } from '../utils/api';
 
 export interface EventData {
@@ -20,7 +19,6 @@ export const eventsQueryKey = (itineraryId?: string) =>
  * @returns Events, loading and error state, and a retry function.
  */
 export const useEvents = (itineraryId?: string) => {
-  const { setLoading } = useLoading();
   const {
     data: events = [],
     isPending,
@@ -28,16 +26,8 @@ export const useEvents = (itineraryId?: string) => {
     refetch,
   } = useQuery({
     queryKey: eventsQueryKey(itineraryId),
-    queryFn: async () => {
-      setLoading(true);
-      try {
-        return await getFromApi<EventData[]>(
-          `/event?itinerary_id=${itineraryId}`,
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
+    queryFn: () =>
+      getFromApi<EventData[]>(`/event?itinerary_id=${itineraryId}`),
     staleTime: 30_000,
     enabled: Boolean(itineraryId),
   });
