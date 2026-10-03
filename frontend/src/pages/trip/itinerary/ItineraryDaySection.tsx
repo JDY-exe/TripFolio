@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Text } from '../../../components/common';
+import { Skeleton, Text } from '../../../components/common';
 import type { EventData } from '../../../queries/events';
 import AddNewEventCard from './AddNewEventCard';
 import EventCard from './EventCard';
+import EventSkeletonCard from './EventSkeletonCard';
 
 interface ItineraryDaySectionProps {
   date: string;
@@ -10,6 +11,7 @@ interface ItineraryDaySectionProps {
   showDayNumber: boolean;
   onToggleDayDisplay: () => void;
   events: EventData[];
+  eventsLoading: boolean;
   itineraryId: string;
   startDate: string;
   endDate: string;
@@ -27,6 +29,7 @@ const ItineraryDaySection = ({
   showDayNumber,
   onToggleDayDisplay,
   events,
+  eventsLoading,
   itineraryId,
   startDate,
   endDate,
@@ -76,12 +79,20 @@ const ItineraryDaySection = ({
           <Text as="h3" variant="title">
             {weekday}
           </Text>
-          <Text color="muted" variant="caption" className="mt-1">
-            {events.length} {events.length === 1 ? 'event' : 'events'}
-          </Text>
+          {eventsLoading ? (
+            <Skeleton className="mt-2 h-3 w-16" />
+          ) : (
+            <Text color="muted" variant="caption" className="mt-1">
+              {events.length} {events.length === 1 ? 'event' : 'events'}
+            </Text>
+          )}
         </div>
       </div>
-      {events.length > 0 ? (
+      {eventsLoading ? (
+        <div className="mt-6">
+          <EventSkeletonCard />
+        </div>
+      ) : events.length > 0 ? (
         <div className="mt-6 flex flex-col gap-4">
           {events.map((event) => (
             <EventCard
@@ -105,13 +116,15 @@ const ItineraryDaySection = ({
           onCreated={onEventSaved}
         />
       ) : null}
-      <AddNewEventCard
-        itineraryId={itineraryId}
-        startDate={startDate}
-        endDate={endDate}
-        date={date}
-        onCreated={onEventSaved}
-      />
+      {!eventsLoading ? (
+        <AddNewEventCard
+          itineraryId={itineraryId}
+          startDate={startDate}
+          endDate={endDate}
+          date={date}
+          onCreated={onEventSaved}
+        />
+      ) : null}
     </section>
   );
 };

@@ -1,7 +1,6 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useLoading } from '../contexts/LoadingContext';
 import { getFromApi } from '../utils/api';
-import { eventsQueryKey, type EventData } from './events';
 
 export interface Itinerary {
   _id: string;
@@ -20,7 +19,6 @@ export const itineraryQueryKey = (tripId?: string) =>
  * @returns Itinerary data, loading and error state, and a retry function.
  */
 export const useItinerary = (tripId?: string) => {
-  const queryClient = useQueryClient();
   const { setLoading } = useLoading();
   const {
     data: itinerary,
@@ -32,14 +30,7 @@ export const useItinerary = (tripId?: string) => {
     queryFn: async () => {
       setLoading(true);
       try {
-        const itinerary = await getFromApi<Itinerary>(
-          `/itinerary?id=${tripId}`,
-        );
-        const events = await getFromApi<EventData[]>(
-          `/event?itinerary_id=${itinerary._id}`,
-        );
-        queryClient.setQueryData(eventsQueryKey(itinerary._id), events ?? []);
-        return itinerary;
+        return await getFromApi<Itinerary>(`/itinerary?id=${tripId}`);
       } finally {
         setLoading(false);
       }

@@ -22,7 +22,12 @@ const ItineraryView = () => {
   const queryClient = useQueryClient();
   const { trips } = useTrips(user?.id);
   const { itinerary, isError, refetch } = useItinerary(id);
-  const { events = [] } = useEvents(itinerary?._id);
+  const {
+    events = [],
+    isPending: eventsLoading,
+    isError: eventsError,
+    refetch: refetchEvents,
+  } = useEvents(itinerary?._id);
   const [showDayNumbers, setShowDayNumbers] = useState(false);
 
   /** Removes an event from the API and the current itinerary list.
@@ -87,25 +92,37 @@ const ItineraryView = () => {
             </Text>
           ) : null}
         </header>
-        {days.map((date, index) => (
-          <ItineraryDaySection
-            key={date}
-            date={date}
-            dayNumber={index + 1}
-            showDayNumber={showDayNumbers}
-            onToggleDayDisplay={() => setShowDayNumbers((current) => !current)}
-            events={eventsByDay.get(date) ?? []}
-            itineraryId={itinerary._id}
-            startDate={itinerary.startDate}
-            endDate={itinerary.endDate}
-            onDeleteEvent={handleDeleteEvent}
-            onEventSaved={() =>
-              void queryClient.invalidateQueries({
-                queryKey: eventsQueryKey(itinerary._id),
-              })
-            }
-          />
-        ))}
+        {eventsError && events.length === 0 ? (
+          <div className="flex flex-col items-center gap-4 rounded-panel bg-surface-container-low p-8 text-center">
+            <ErrorDisplay message="Could not load itinerary events." />
+            <Button size="sm" onClick={() => void refetchEvents()}>
+              Retry
+            </Button>
+          </div>
+        ) : (
+          days.map((date, index) => (
+            <ItineraryDaySection
+              key={date}
+              date={date}
+              dayNumber={index + 1}
+              showDayNumber={showDayNumbers}
+              onToggleDayDisplay={() =>
+                setShowDayNumbers((current) => !current)
+              }
+              events={eventsByDay.get(date) ?? []}
+              eventsLoading={eventsLoading}
+              itineraryId={itinerary._id}
+              startDate={itinerary.startDate}
+              endDate={itinerary.endDate}
+              onDeleteEvent={handleDeleteEvent}
+              onEventSaved={() =>
+                void queryClient.invalidateQueries({
+                  queryKey: eventsQueryKey(itinerary._id),
+                })
+              }
+            />
+          ))
+        )}
       </section>
       <aside className="flex min-w-0 flex-col gap-5">
         <ItineraryDescription itinerary={itinerary} tripId={id} />
