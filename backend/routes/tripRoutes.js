@@ -4,6 +4,8 @@ const router = express.Router();
 const {
 	createTrip,
 	getTrips,
+	getTrip,
+	updateTripVisibility,
 	deleteTrip,
   addUserToTrip,
   getTripFromUser,
@@ -31,12 +33,17 @@ const parseTripPicture = (req, res, next) => {
 	});
 };
 
+router.use(authenticateToken);
+
 router.post('/', createTrip);
 router.get('/', getTrips);
+router.get('/userId=:userId', getTripFromUser);
+router.get('/user', getTripFromUser);
+router.get('/:id', getTrip);
+router.patch('/:id/visibility', updateTripVisibility);
 router.patch('/:id/profile_picture', parseTripPicture, updateTripProfilePicture);
 router.get('/:id/profile_picture', getTripProfilePicture);
 router.delete('/:id', deleteTrip);
-router.get('/user', authenticateToken, getTripFromUser);
 router.patch('/user', addUserToTrip);
 
 module.exports = router;

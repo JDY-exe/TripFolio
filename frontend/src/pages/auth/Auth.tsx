@@ -1,8 +1,11 @@
 import { ArrowRight } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type SubmitEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { Navigate, useLocation, useNavigate } from 'react-router';
 import { Button, displayAlert, Text, TextField } from '../../components/common';
+import { useAuth } from '../../contexts/AuthContext';
 import { useLoading } from '../../contexts/LoadingContext';
+import { AuthStatus } from '../../types/auth';
+import { getApiErrorMessage } from '../../utils/api';
 import AuthArtwork from './AuthArtwork';
 import Onboard from './Onboard';
 
@@ -18,53 +21,64 @@ const modeClasses =
  *
  * @returns A responsive, presentation-only authentication page.
  */
-function Auth() {
+const Auth = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { status, login, register, updateProfilePicture } = useAuth();
   const { setLoading } = useLoading();
   const [mode, setMode] = useState<AuthMode>('login');
   const [isOnboarding, setIsOnboarding] = useState(false);
   const { height: formHeight, loginRef, signupRef } = useAuthFormHeight(mode);
 
   /**
-   * Submits the temporary login fixture and reports the result globally.
-   * Native FormData reads the uncontrolled fields before successful credentials
-   * move the visitor into their trip collection.
+   * Authenticates the entered credentials and resumes the route that originally
+   * sent the visitor to the auth page.
    *
    * @param event - Native login form submission event.
    * @returns Nothing.
    */
-  async function handleLogin(event: SubmitEvent<HTMLFormElement>) {
+  const handleLogin = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get('email') ?? '');
     const password = String(formData.get('password') ?? '');
 
-    // TODO: Replace mock credential checks with the authentication API.
-    if (email !== 'email' || password !== 'pass') {
+    if (!email || !password) {
       displayAlert({
         title: 'Unable to log in',
-        message: 'Use “email” and “pass” for the mock account.',
+        message: 'Enter your email and password.',
         tone: 'error',
       });
       return;
     }
+
     setLoading(true);
-    // TODO: Remove the delay and replace with actual login API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    displayAlert({ message: 'Welcome back.', tone: 'success' });
-    setLoading(false);
-    navigate('/my-trips');
-  }
+    try {
+      await login(email, password);
+      displayAlert({ message: 'Welcome back.', tone: 'success' });
+      navigate(getReturnPath(location.state), { replace: true });
+    } catch (error) {
+      displayAlert({
+        title: 'Unable to log in',
+        message: getApiErrorMessage(
+          error,
+          'Check your credentials and try again.',
+        ),
+        tone: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /**
-   * Submits the temporary signup fixture and reports validation failures.
-   * It checks password confirmation before accepting the fixed mock values and
-   * moving the new visitor into profile-picture onboarding.
+   * Creates an authenticated account after validating password confirmation,
+   * then moves the new user into profile-picture onboarding.
    *
    * @param event - Native signup form submission event.
    * @returns Nothing.
    */
-  async function handleSignup(event: SubmitEvent<HTMLFormElement>) {
+  const handleSignup = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const user = String(formData.get('user') ?? '');
@@ -72,7 +86,6 @@ function Auth() {
     const password = String(formData.get('password') ?? '');
     const passwordAgain = String(formData.get('passwordAgain') ?? '');
 
-    // TODO: Replace mock account creation with the authentication API.
     if (password !== passwordAgain) {
       displayAlert({
         title: 'Passwords do not match',
@@ -82,41 +95,71 @@ function Auth() {
       return;
     }
 
-    if (user !== 'user' || email !== 'email' || password !== 'pass') {
+    if (!user || !email || !password) {
       displayAlert({
         title: 'Unable to sign up',
-        message: 'Use “user”, “email”, and “pass” for the mock account.',
+        message: 'Enter a username, email, and password.',
         tone: 'error',
       });
       return;
     }
+
     setLoading(true);
-    // TODO: Remove the delay and replace with actual login API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    displayAlert({ message: 'Your account is ready.', tone: 'success' });
-    setLoading(false);
-    setIsOnboarding(true);
-  }
+    try {
+      await register(user, email, password);
+      displayAlert({ message: 'Your account is ready.', tone: 'success' });
+      setIsOnboarding(true);
+    } catch (error) {
+      displayAlert({
+        title: 'Unable to sign up',
+        message: getApiErrorMessage(
+          error,
+          'Your account could not be created. Try again.',
+        ),
+        tone: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /**
-   * Finishes the in-memory onboarding step and enters the trip collection. A
-   * toast confirms whether the selected or default profile picture was chosen.
+   * Persists the prepared onboarding picture, when supplied, then enters the
+   * trip collection and confirms the completed account setup.
    *
-   * @param useDefaultPicture - Whether the user skipped image selection.
-   * @returns Nothing; the current route is replaced with the trips screen.
+   * @param picture - Center-cropped image data, or undefined when skipped.
+   * @returns A promise resolving after persistence and navigation complete.
    */
-  function handleOnboardingComplete(useDefaultPicture: boolean) {
-    displayAlert({
-      message: useDefaultPicture
-        ? 'Using the default profile picture.'
-        : 'Profile picture selected.',
-      tone: 'success',
-    });
-    navigate('/my-trips');
-  }
+  const handleOnboardingComplete = async (picture?: string) => {
+    try {
+      if (picture) await updateProfilePicture(picture);
+      displayAlert({
+        message: picture
+          ? 'Profile picture saved.'
+          : 'Using the default profile picture.',
+        tone: 'success',
+      });
+      navigate('/my-trips');
+    } catch (error) {
+      const message = getApiErrorMessage(
+        error,
+        'Your profile picture could not be saved. Try again.',
+      );
+      displayAlert({
+        title: 'Unable to finish setup',
+        message,
+        tone: 'error',
+      });
+      throw new Error(message, { cause: error });
+    }
+  };
 
   if (isOnboarding) {
     return <Onboard onComplete={handleOnboardingComplete} />;
+  }
+
+  if (status === AuthStatus.Authenticated) {
+    return <Navigate to={getReturnPath(location.state)} replace />;
   }
 
   return (
@@ -124,8 +167,8 @@ function Auth() {
       <AuthArtwork />
 
       <div className="group mx-auto w-full max-w-sm py-4 sm:py-8">
-        <Text as="h1" variant="headline">
-          Your account
+        <Text as="h1" variant="display">
+          Your <span className="text-primary">account</span>
         </Text>
 
         <fieldset className="mb-8 mt-6 flex gap-1 rounded-full bg-surface-container p-1">
@@ -158,7 +201,6 @@ function Auth() {
           </label>
         </fieldset>
 
-        {/* TODO: Connect authentication and validation before enabling submission. */}
         <div
           className="relative overflow-hidden motion-safe:transition-[height] motion-safe:duration-500 motion-safe:ease-standard"
           style={{ height: formHeight }}
@@ -166,7 +208,6 @@ function Auth() {
           <form
             ref={loginRef}
             id="login-form"
-            aria-label="Log in"
             onSubmit={handleLogin}
             noValidate
             aria-hidden={mode !== 'login'}
@@ -201,7 +242,6 @@ function Auth() {
           <form
             ref={signupRef}
             id="signup-form"
-            aria-label="Sign up"
             onSubmit={handleSignup}
             noValidate
             aria-hidden={mode !== 'signup'}
@@ -250,7 +290,27 @@ function Auth() {
       </div>
     </section>
   );
-}
+};
+
+/**
+ * Resolves a safe internal route from React Router state. Only root-relative
+ * paths are accepted so authentication cannot become an open redirect.
+ *
+ * @param state - Unknown navigation state supplied to the auth route.
+ * @returns The preserved internal destination or the default trips route.
+ */
+const getReturnPath = (state: unknown): string => {
+  if (!state || typeof state !== 'object' || !('from' in state)) {
+    return '/my-trips';
+  }
+
+  const from = state.from;
+  return typeof from === 'string' &&
+    from.startsWith('/') &&
+    !from.startsWith('//')
+    ? from
+    : '/my-trips';
+};
 
 /**
  * Measures the active auth form so its shared viewport can animate to fit it.
@@ -260,7 +320,7 @@ function Auth() {
  * @param mode - Authentication form currently selected by the visitor.
  * @returns Form refs and the measured height of the active form.
  */
-function useAuthFormHeight(mode: AuthMode) {
+const useAuthFormHeight = (mode: AuthMode) => {
   const loginRef = useRef<HTMLFormElement>(null);
   const signupRef = useRef<HTMLFormElement>(null);
   const [height, setHeight] = useState<number>();
@@ -278,6 +338,6 @@ function useAuthFormHeight(mode: AuthMode) {
   }, [mode]);
 
   return { height, loginRef, signupRef };
-}
+};
 
 export default Auth;

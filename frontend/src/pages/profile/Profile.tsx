@@ -1,30 +1,52 @@
-import PageIntro from '../../components/PageIntro';
+import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import Friends from './Friends';
+import ProfileInfo from './ProfileInfo';
+import ProfilePictureEditor from './ProfilePictureEditor';
 import { Text } from '../../components/common';
 
 /**
- * Presents placeholder account details and preferences for the signed-in user.
- * It pairs the shared page introduction with a settings preview panel.
+ * Shows the authenticated identity with inline logout and a picture editor.
+ * Account state supplies the saved avatar and persists editor changes.
  *
- * @returns The profile page.
+ * @returns The current user's profile page.
  */
-function Profile() {
-  return (
-    <section>
-      <PageIntro
-        eyebrow="Your account"
-        title="Profile"
-        description="Manage the details other travelers see and personalize your TripFolio experience."
-      />
+const Profile = () => {
+  const { user, logout, updateProfilePicture } = useAuth();
+  const [isPictureModalOpen, setIsPictureModalOpen] = useState(false);
 
-      <div className="mt-10 rounded-panel border border-dashed border-outline bg-surface-container-low p-8 text-on-surface">
-        <Text variant="title">Profile settings coming soon</Text>
-        <Text color="muted" className="mt-2">
-          Your photo, display name, home base, and travel preferences will
-          appear here.
-        </Text>
-      </div>
-    </section>
+  /** Opens a fresh editor by setting its visibility. @returns Nothing. */
+  const openPictureModal = () => setIsPictureModalOpen(true);
+
+  /** Discards the editor by resetting its visibility. @returns Nothing. */
+  const closePictureModal = () => setIsPictureModalOpen(false);
+
+  if (!user) return null;
+
+  return (
+    <>
+      <Text as="h1" variant="display">My Profile</Text>
+      <section className="mx-auto max-w-2xl text-on-surface">
+        <ProfileInfo
+          email={user.email}
+          onLogout={logout}
+          onPictureClick={openPictureModal}
+          pictureUrl={user.profile_picture}
+          username={user.username}
+        />
+        <div className="my-10 h-px bg-outline-variant" />
+        <Friends />
+      </section>
+
+      {isPictureModalOpen ? (
+        <ProfilePictureEditor
+          onClose={closePictureModal}
+          onSave={updateProfilePicture}
+          username={user.username}
+        />
+      ) : null}
+    </>
   );
-}
+};
 
 export default Profile;

@@ -2,8 +2,44 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
+const authenticateToken = require("../middleware/authenticateToken");
 
 const router = express.Router();
+
+/* One day; 60sec x 60min x 24h */
+const JWT_EXPIRES_IN = 60 * 60 * 24;
+
+/**
+ * Creates the public user payload returned by authentication endpoints.
+ * Selecting fields explicitly prevents password hashes from leaving the server.
+ *
+ * @param {import("mongoose").Document} user - User document to serialize.
+ * @returns {{id: unknown, username: string, email: string, profile_picture: string | undefined, friends: unknown[]}} Safe user data.
+ */
+function serializeUser(user) {
+    return {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        profile_picture: user.profile_picture,
+        friends: user.friends
+    };
+}
+
+/**
+ * Signs a one-day access token for a user. The subject identifier is stored in
+ * the existing `id` claim consumed by authentication middleware and routes.
+ *
+ * @param {import("mongoose").Document} user - User receiving the token.
+ * @returns {string} Signed JSON Web Token.
+ */
+function createAccessToken(user) {
+    return jwt.sign(
+        { id: user._id },
+        process.env.JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+    );
+}
 
 router.post("/register", async (req, res) => {
     try {
@@ -41,15 +77,12 @@ router.post("/register", async (req, res) => {
             friends: []
         });
 
+        const token = createAccessToken(user);
+
         res.status(201).json({
             message: "Account created successfully",
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                profile_picture: user.profile_picture,
-                friends: user.friends
-            }
+            token,
+            user: serializeUser(user)
         });
 
     } catch (error) {
@@ -92,27 +125,36 @@ router.post("/login", async (req, res) => {
         }
 
         // Login successful
-        const token = jwt.sign(
-            { id: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: "1d" }
-        );
+        const token = createAccessToken(user);
         res.status(200).json({
             message: "Login successful",
             token,
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                profile_picture: user.profile_picture,
-                friends: user.friends
-            }
+            user: serializeUser(user)
         });
 
     } catch (error) {
         console.error(error);
 
         res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
+
+router.get("/me", authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+
+        if (!user) {
+            return res.status(401).json({
+                message: "Authenticated user no longer exists"
+            });
+        }
+
+        return res.status(200).json({ user: serializeUser(user) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -135,13 +177,7 @@ router.get("/", async (req, res) => {
         }
         if (user) {
             res.status(200).json({
-                user: {
-                    id: user._id,
-                    username: user.username,
-                    email: user.email,
-                    profile_picture: user.profile_picture,
-                    friends: user.friends
-                }
+                user: serializeUser(user)
             });
         }
         else {
@@ -158,16 +194,16 @@ router.get("/", async (req, res) => {
     }
 })
 
-router.patch("/profile_picture", async (req, res) => {
+router.patch("/profile_picture", authenticateToken, async (req, res) => {
     try {
-        const { username, profile_picture } = req.body;
+        const { profile_picture } = req.body;
 
-        if (!(username && profile_picture)) {
+        if (typeof profile_picture !== 'string' || !profile_picture || profile_picture.length > 90000) {
             return res.status(400).json({
-                message: "Username and profile picture are required"
+                message: "A profile picture under 90 KB is required"
             });
         }
-        const user = await User.findOne({ username })
+        const user = await User.findById(req.user.id)
         if (!user) {
             return res.status(400).json({
                 message: "User not found"
@@ -177,13 +213,7 @@ router.patch("/profile_picture", async (req, res) => {
         await user.save();
         res.status(200).json({
             message: "Profile picture updated successfully",
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                profile_picture: user.profile_picture,
-                friends: user.friends
-            }
+            user: serializeUser(user)
         });
     }
     catch (error) {

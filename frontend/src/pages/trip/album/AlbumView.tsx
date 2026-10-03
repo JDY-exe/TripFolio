@@ -1,4 +1,4 @@
-import { MediaUpload, Text } from '../../components/common';
+import { MediaUpload, Text } from '../../../components/common';
 
 /**
  * Presents the trip album's shared photo-selection surface. The common uploader

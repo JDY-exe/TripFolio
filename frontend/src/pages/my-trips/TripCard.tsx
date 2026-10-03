@@ -1,44 +1,43 @@
-import { ArrowUpRight, CalendarDays, MapPin, UsersRound, Trash2 } from 'lucide-react';
-import { Button, Text } from '../../components/common';
-import { useNavigate } from 'react-router';
+import { CalendarDays, UsersRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
+import { Text } from '../../components/common';
+import { getBlobFromApi } from '../../utils/api';
 
 export interface TripCardProps {
   id: string;
   title: string;
-  destination: string;
   dates: string;
   travelers: string;
   status: string;
-  image: string;
-  onDelete: (id: string) => void;
+  image?: string;
+  imagePath?: string;
 }
 
 /**
- * Displays a sample trip as a photo, destination, and compact planning summary.
- * All fields are display copy and the action is inactive in this UI mockup.
+ * Displays a trip photo and compact planning summary that opens the trip.
  *
- * @param props - Static trip copy and cover image URL.
- * @returns A themed, presentation-only trip card.
+ * @param props - Trip copy and optional protected cover-image API path.
+ * @returns A themed trip card with trip navigation.
  */
-function TripCard({
+const TripCard = ({
   id,
   title,
-  destination,
   dates,
   travelers,
   status,
-  image,
-  onDelete,
-}: TripCardProps) {
-  const navigate = useNavigate();
-  const handleDeleteClick = () => {
-    if (window.confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) {
-      onDelete(id);
-    }
-  };
+  image: publicImage,
+  imagePath,
+}: TripCardProps) => {
+  const image = useProtectedImage(imagePath, publicImage);
 
   return (
-    <article className="overflow-hidden rounded-panel border border-outline-variant bg-surface-container-low">
+    <article className="relative overflow-hidden rounded-panel border border-outline-variant bg-surface-container-low hover:-translate-y-0.5 transition-transform">
+      <Link
+        to={`/trip/${id}`}
+        aria-label={`View ${title}`}
+        className="absolute inset-0 z-10 cursor-pointer rounded-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+      />
       <div className="relative">
         <img
           src={image}
@@ -53,21 +52,8 @@ function TripCard({
         </span>
       </div>
 
-      <div className="relative p-5 sm:p-6">
-
-        <button
-          onClick={handleDeleteClick}
-          className="absolute right-4 top-4 rounded-full bg-surface p-1.5 text-error hover:bg-error/10 motion-safe:transition-colors"
-          aria-label={`Delete ${title}`}
-        >
-          <Trash2 size={16} />
-        </button>
-
-        <Text color="muted" className="flex items-center gap-1.5 text-sm pr-8">
-          <MapPin aria-hidden size={15} className="shrink-0" />
-          {destination}
-        </Text>
-        <Text as="h2" variant="title" className="mt-2 pr-8">
+      <div className="p-5 sm:p-6">
+        <Text as="h2" variant="title">
           {title}
         </Text>
 
@@ -81,22 +67,60 @@ function TripCard({
             {travelers}
           </p>
         </div>
-
-        <div className="mt-5 border-t border-outline-variant pt-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(`/trip/${id}`)}
-            aria-label={`Open ${title}`}
-            fullWidth
-            className="justify-between px-0"
-            trailingIcon={<ArrowUpRight aria-hidden size={18} />}
-          >
-            View Trip
-          </Button>
-        </div>
       </div>
     </article>
   );
-}
+};
+
+const fallbackImage = 'https://placehold.co/600x400';
+
+/**
+ * Loads a protected image through Axios and exposes a temporary object URL.
+ * Revoking the URL during cleanup releases the browser-held Blob allocation.
+ *
+ * @param imagePath - Authenticated API path for the image, when one exists.
+ * @param publicImage - Public fallback supplied by static fixtures.
+ * @returns An object URL for the image or the shared placeholder URL.
+ */
+const useProtectedImage = (
+  imagePath?: string,
+  publicImage = fallbackImage,
+): string => {
+  const [protectedImage, setProtectedImage] = useState<{
+    path: string;
+    url: string;
+  }>();
+
+  useEffect(() => {
+    if (!imagePath) return;
+
+    let active = true;
+    let objectUrl: string | undefined;
+
+    /** Fetches the image with the active bearer token and creates a renderable URL. */
+    const loadImage = async () => {
+      try {
+        const imageBlob = await getBlobFromApi(imagePath);
+        if (!active) return;
+
+        objectUrl = URL.createObjectURL(imageBlob);
+        setProtectedImage({ path: imagePath, url: objectUrl });
+      } catch {
+        if (active) setProtectedImage({ path: imagePath, url: publicImage });
+      }
+    };
+
+    void loadImage();
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [imagePath, publicImage]);
+
+  return imagePath && protectedImage?.path === imagePath
+    ? protectedImage.url
+    : publicImage;
+};
 
 export default TripCard;

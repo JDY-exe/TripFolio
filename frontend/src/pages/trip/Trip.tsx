@@ -1,16 +1,16 @@
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Text } from '../../components/common';
 import BottomNav from '../../components/navigation/BottomNav';
 import {
   tripNavItems,
   type TripSection,
 } from '../../components/navigation/navigationConfig';
-import AlbumView from './AlbumView';
-import ItineraryView from './ItineraryView';
-import LedgerView from './LedgerView';
-import LogisticsView from './LogisticsView';
+import AlbumView from './album/AlbumView';
+import ItineraryView from './itinerary/ItineraryView';
+import LedgerView from './ledger/LedgerView';
+import LogisticsView from './logistics/LogisticsView';
+import TripSettings from './TripSettings';
 
 /**
  * Presents the placeholder detail view for an individual trip.
@@ -24,25 +24,18 @@ function Trip() {
 
   return (
     <section>
-      <div className="mt-10 grid gap-5 lg:grid-cols-[2fr_1fr]">
+      <div
+        className={`mt-10 grid gap-5 ${section === 'settings' ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
+      >
         {section === 'itinerary' ? <ItineraryView /> : null}
         {section === 'ledger' ? <LedgerView /> : null}
         {section === 'logistics' ? <LogisticsView /> : null}
         {section === 'album' ? <AlbumView /> : null}
-        {section === 'itinerary' || section === 'ledger' ? (
-          <aside className="rounded-panel bg-surface-container p-8 text-on-surface">
-            <Text as="h2" variant="title">
-              Trip overview
-            </Text>
-            <Text color="muted" className="mt-2">
-              Dates, travelers, and key details coming soon.
-            </Text>
-          </aside>
-        ) : null}
+        {section === 'settings' ? <TripSettings /> : null}
       </div>
 
       <BottomNav
-        aria-label="Trip navigation"
+        label="Trip navigation"
         items={tripNavItems}
         value={section}
         onChange={(value) => setSection(value as TripSection)}

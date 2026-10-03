@@ -1,11 +1,20 @@
 import { FileUp, Film, ImagePlus, Music, Upload } from 'lucide-react';
-import { useRef, type CSSProperties, type HTMLAttributes } from 'react';
+import {
+  useRef,
+  useState,
+  type CSSProperties,
+  type DragEvent,
+  type HTMLAttributes,
+} from 'react';
 import Button from '../Button';
 import CircularProgressIndicator from '../CircularProgressIndicator';
 import LoadingIndicator from '../LoadingIndicator';
+import Text from '../Text';
 import {
   getMediaUploadAccept,
+  getMediaUploadDropLabel,
   getMediaUploadLabel,
+  isMediaUploadFileAccepted,
   type MediaUploadMediaType,
 } from './mediaUploadConfig';
 import { announceMediaUploadFiles } from './mediaUploadSelection';
@@ -36,6 +45,8 @@ export interface MediaUploadProps extends Omit<
   name?: string;
   /** Whether file selection is unavailable. */
   disabled?: boolean;
+  /** Shows only the picker button, for replacing an existing selection. */
+  buttonOnly?: boolean;
   /** Receives selected filenames after selection is processed. */
   onFilesSelected?: (fileNames: readonly string[]) => void;
   /** Receives selected file objects when their contents need to be processed. */
@@ -87,18 +98,26 @@ function MediaUpload({
   loadingLabel = 'Uploading media',
   name = 'media',
   disabled = false,
+  buttonOnly = false,
   onFilesSelected,
   onFilesPicked,
   className,
   style,
+  onDragEnter,
+  onDragLeave,
+  onDragOver,
+  onDrop,
   ...containerProps
 }: MediaUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const dragDepthRef = useRef(0);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const pickerLabel = label ?? getMediaUploadLabel(mediaType, multiple);
+  const dropLabel = getMediaUploadDropLabel(mediaType, multiple);
   const mergedStyle: CSSProperties = {
     boxSizing: 'border-box',
-    width,
-    height,
+    width: buttonOnly ? 'fit-content' : width,
+    height: buttonOnly ? undefined : height,
     ...style,
   };
 
@@ -120,24 +139,119 @@ function MediaUpload({
     const input = inputRef.current;
     if (!input?.files) return;
 
-    const files = Array.from(input.files);
-    const fileNames = files.map((file) => file.name);
-    if (!onFilesPicked) announceMediaUploadFiles(files);
-    onFilesSelected?.(fileNames);
-    onFilesPicked?.(files);
+    reportFiles(input.files);
     input.value = '';
   };
+
+  /**
+   * Reports an eligible selection through the component's existing toast and
+   * callback contract. Drop filtering mirrors the native input's accept value.
+   *
+   * @param files - Files supplied by either the picker or a drop operation.
+   * @returns Nothing; accepted filenames are announced and reported.
+   */
+  const reportFiles = (files: Iterable<File>) => {
+    const acceptedFiles = Array.from(files).filter((file) =>
+      isMediaUploadFileAccepted(file, mediaType),
+    );
+    const selectedFiles = multiple ? acceptedFiles : acceptedFiles.slice(0, 1);
+    if (selectedFiles.length === 0) return;
+
+    if (!onFilesPicked) announceMediaUploadFiles(selectedFiles);
+    onFilesSelected?.(selectedFiles.map((file) => file.name));
+    onFilesPicked?.(selectedFiles);
+  };
+
+  /**
+   * Activates the drop treatment when files enter the surface. A depth counter
+   * prevents nested artwork elements from making the highlight flicker.
+   *
+   * @param event - React drag event dispatched by the upload container.
+   * @returns Nothing; only local drag presentation state is changed.
+   */
+  const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    onDragEnter?.(event);
+    if (loading || disabled || !event.dataTransfer.types.includes('Files'))
+      return;
+
+    dragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  };
+
+  /**
+   * Keeps the browser from navigating to a dragged file and communicates that
+   * the enabled surface performs a copy-style drop operation.
+   *
+   * @param event - React drag event dispatched while a file is over the surface.
+   * @returns Nothing; browser drag behavior is adjusted in place.
+   */
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    onDragOver?.(event);
+    if (!loading && !disabled) event.dataTransfer.dropEffect = 'copy';
+  };
+
+  /**
+   * Removes the drop treatment after the pointer leaves the complete surface.
+   *
+   * @param event - React drag event dispatched by the upload container.
+   * @returns Nothing; the nested-entry counter and visual state are updated.
+   */
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    onDragLeave?.(event);
+    if (dragDepthRef.current > 0) dragDepthRef.current -= 1;
+    if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+  };
+
+  /**
+   * Selects files dropped on the surface through the same reporting path as the
+   * native picker, then clears all transient drag presentation state.
+   *
+   * @param event - React drop event containing the browser's transferred files.
+   * @returns Nothing; accepted filenames are announced and reported.
+   */
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    onDrop?.(event);
+    dragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+    if (loading || disabled) return;
+
+    reportFiles(event.dataTransfer.files);
+  };
+
+  const pickerButton = (
+    <Button
+      disabled={disabled}
+      leadingIcon={<Upload aria-hidden size={18} />}
+      onClick={openFilePicker}
+    >
+      {pickerLabel}
+    </Button>
+  );
 
   return (
     <div
       {...containerProps}
       aria-busy={loading || undefined}
       className={[
-        'flex flex-col items-center justify-center gap-8 rounded-[2rem_0.75rem_2rem_0.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-12',
+        buttonOnly
+          ? 'inline-flex'
+          : 'flex flex-col items-center justify-center gap-8 rounded-[2rem_0.75rem_2rem_0.75rem] px-6 py-12 transition-colors motion-reduce:transition-none',
+        !buttonOnly &&
+          (isDraggingFiles
+            ? 'bg-primary-container'
+            : 'bg-surface-container-low'),
         className,
       ]
         .filter(Boolean)
         .join(' ')}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
       style={mergedStyle}
     >
       {loading ? (
@@ -146,6 +260,8 @@ function MediaUpload({
         ) : (
           <LoadingIndicator label={loadingLabel} />
         )
+      ) : buttonOnly ? (
+        pickerButton
       ) : (
         <>
           <div
@@ -158,25 +274,24 @@ function MediaUpload({
             </div>
           </div>
 
-          <Button
-            disabled={disabled}
-            leadingIcon={<Upload aria-hidden size={18} />}
-            onClick={openFilePicker}
-          >
-            {pickerLabel}
-          </Button>
-          <input
-            ref={inputRef}
-            accept={getMediaUploadAccept(mediaType)}
-            disabled={disabled}
-            hidden
-            multiple={multiple}
-            name={name}
-            onChange={handleFileSelection}
-            type="file"
-          />
+          {pickerButton}
+          <Text aria-live="polite" color="muted" variant="label">
+            {isDraggingFiles
+              ? `${dropLabel} here`
+              : `or ${dropLabel.toLowerCase()} here`}
+          </Text>
         </>
       )}
+      <input
+        ref={inputRef}
+        accept={getMediaUploadAccept(mediaType)}
+        disabled={disabled}
+        hidden
+        multiple={multiple}
+        name={name}
+        onChange={handleFileSelection}
+        type="file"
+      />
     </div>
   );
 }

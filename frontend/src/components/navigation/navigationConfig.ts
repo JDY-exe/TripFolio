@@ -4,13 +4,15 @@ import {
   Images,
   Luggage,
   Search,
+  Settings,
   Truck,
   UserRound,
 } from 'lucide-react';
 import type { BottomNavItem } from './BottomNav';
 
 /** Sections displayed within a selected trip without changing the route. */
-export type TripSection = 'itinerary' | 'ledger' | 'logistics' | 'album';
+export type TripSection =
+  'itinerary' | 'ledger' | 'logistics' | 'album' | 'settings';
 
 /** Top-level application destinations displayed in the default bottom nav. */
 export const topLevelNavItems = [
@@ -25,6 +27,7 @@ export const tripNavItems = [
   { value: 'ledger', label: 'Ledger', icon: CircleDollarSign },
   { value: 'logistics', label: 'Logistics', icon: Truck },
   { value: 'album', label: 'Album', icon: Images },
+  { value: 'settings', label: 'Settings', icon: Settings },
 ] as const satisfies readonly BottomNavItem[];
 
 /**

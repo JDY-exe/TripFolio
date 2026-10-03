@@ -2,8 +2,24 @@ export { default as Button } from './Button';
 export type { ButtonProps } from './Button';
 export { default as CircularProgressIndicator } from './CircularProgressIndicator';
 export type { CircularProgressIndicatorProps } from './CircularProgressIndicator';
+export { default as DropdownMenu } from './DropdownMenu';
+export type { DropdownMenuItem, DropdownMenuProps } from './DropdownMenu';
 export { default as IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
+export { default as ImageUploadField } from './ImageUpload';
+export {
+  cropAndCompressImage,
+  imageFileToDataUrl,
+  MAX_IMAGE_SOURCE_SIZE_BYTES,
+  profileImagePreset,
+  tripCoverImagePreset,
+  validateImageUpload,
+} from './ImageUpload';
+export type {
+  ImageCropArea,
+  ImageCropStatus,
+  ImageUploadPreset,
+} from './ImageUpload';
 export { default as LoadingIndicator } from './LoadingIndicator';
 export type { LoadingIndicatorProps } from './LoadingIndicator';
 export { default as MediaUpload } from './MediaUpload';
@@ -12,6 +28,12 @@ export type {
   MediaUploadMediaType,
   MediaUploadProps,
 } from './MediaUpload';
+export { default as Modal } from './Modal';
+export type { ModalProps } from './Modal';
+export { default as Skeleton } from './Skeleton';
+export type { SkeletonProps } from './Skeleton';
+export { default as Stepper } from './Stepper';
+export type { StepperProps, StepperStep } from './Stepper';
 export { default as Text } from './Text';
 export type { TextColor, TextProps, TextVariant } from './Text';
 export { default as TextField } from './TextField';

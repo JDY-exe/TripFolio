@@ -1,8 +1,26 @@
 const Itinerary = require ('../models/itinerary');
+const Trip = require('../models/trip');
+const mongoose = require('mongoose');
+const { canEditTrip, canReadTrip, getTripRole } = require('../utils/tripAccess');
+
+const denyTripAccess = (res, trip, userId) => {
+  const role = getTripRole(trip, userId);
+  return res.status(role ? 403 : 404).json({
+    message: role ? 'You do not have permission to edit this trip' : 'Trip not found'
+  });
+};
 
 const createItinerary = async (req, res) => {
   try {
     const { tripId, title, description, startDate, endDate} = req.body;
+    const trip = await Trip.findById(tripId);
+
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+    if (!canEditTrip(trip, req.user.id)) {
+      return denyTripAccess(res, trip, req.user.id);
+    }
 
     const newItinerary = new Itinerary({
       tripId,
@@ -27,10 +45,29 @@ const getItinerary = async (req, res) => {
       return res.status(400).json({ message: 'Missing ID parameter in query string' });
     }
 
-    const itinerary = await Itinerary.findOne({ tripId: tripId });
+    if (!mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ message: 'Invalid trip ID' });
+    }
+
+    const trip = await Trip.findById(tripId);
+    if (!trip || !canReadTrip(trip, req.user.id)) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    let itinerary = await Itinerary.findOne({ tripId });
 
     if (!itinerary) {
-      return res.status(404).json({ message: 'Itinerary not found for this trip' });
+      if (!canEditTrip(trip, req.user.id)) {
+        return res.status(404).json({ message: 'Itinerary not found' });
+      }
+
+      itinerary = await Itinerary.create({
+        tripId: trip._id,
+        title: 'Blank Itinerary',
+        description: '',
+        startDate: trip.startDate,
+        endDate: trip.endDate
+      });
     }
 
     res.status(200).json(itinerary);
@@ -43,6 +80,18 @@ const updateItinerary = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description } = req.body;
+    const itinerary = await Itinerary.findById(id);
+
+    if (!itinerary) {
+      return res.status(404).json({ message: 'Itinerary not found' });
+    }
+    const trip = await Trip.findById(itinerary.tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+    if (!canEditTrip(trip, req.user.id)) {
+      return denyTripAccess(res, trip, req.user.id);
+    }
     
     const updatedItinerary = await Itinerary.findByIdAndUpdate(
       id,
