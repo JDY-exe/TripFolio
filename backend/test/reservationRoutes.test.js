@@ -7,9 +7,9 @@ const Reservation = require("../models/Reservation");
 const reservationRoutes = require("../routes/reservationRoutes");
 const tripRoutes = require("../routes/tripRoutes");
 
-test("reservation routes scope reads and writes to trip members", async (t) => {
+test("reservation routes scope reads and writes to trip editors", async (t) => {
     const original = {
-        findOne: Trip.findOne,
+        findByIdTrip: Trip.findById,
         findTrips: Trip.find,
         updateOne: Trip.updateOne,
         find: Reservation.find,
@@ -18,7 +18,7 @@ test("reservation routes scope reads and writes to trip members", async (t) => {
         saveTrip: Trip.prototype.save,
     };
     t.after(() => {
-        Trip.findOne = original.findOne;
+        Trip.findById = original.findByIdTrip;
         Trip.find = original.findTrips;
         Trip.updateOne = original.updateOne;
         Reservation.find = original.find;
@@ -49,10 +49,9 @@ test("reservation routes scope reads and writes to trip members", async (t) => {
         headers: { Authorization: authorization, "Content-Type": "application/json" },
     });
 
-    Trip.findOne = async query => {
-        assert.equal(query._id, tripId);
-        assert.deepEqual(query.$or, [{ users: userId }, { users: { $size: 0 } }]);
-        return { _id: tripId, users: [] };
+    Trip.findById = async id => {
+        assert.equal(String(id), tripId);
+        return { _id: tripId, ownerId: userId, users: [userId] };
     };
     Reservation.find = () => ({ sort: async () => [{ _id: reservationId, type: "flights", name: "Flight" }] });
     let response = await request(`/logistics/flights?tripId=${tripId}`);
@@ -68,14 +67,14 @@ test("reservation routes scope reads and writes to trip members", async (t) => {
     assert.equal((await response.json()).savedTrip.users[0], userId);
 
     Trip.find = query => {
-        assert.deepEqual(query.$or, [{ users: userId }, { users: { $size: 0 } }]);
-        return { sort: async () => [{ _id: tripId, users: [] }] };
+        assert.deepEqual(query.$or, [{ ownerId: userId }, { users: userId }]);
+        return { sort: async () => [{ _id: tripId, ownerId: userId, users: [userId] }] };
     };
     response = await request("/trip");
     assert.equal(response.status, 200);
     assert.equal((await response.json())[0]._id, tripId);
 
-    Trip.findOne = async () => null;
+    Trip.findById = async () => null;
     response = await request(`/logistics/flights?tripId=${tripId}`);
     assert.equal(response.status, 404);
 
@@ -89,7 +88,7 @@ test("reservation routes scope reads and writes to trip members", async (t) => {
     response = await request("/logistics/flights", { method: "POST", body: JSON.stringify(payload) });
     assert.equal(response.status, 404);
 
-    Trip.findOne = async () => ({ _id: tripId });
+    Trip.findById = async () => ({ _id: tripId, ownerId: userId, users: [userId] });
     Reservation.create = async values => ({ ...values, _id: reservationId });
     let linked = false;
     Trip.updateOne = async () => { linked = true; };
@@ -99,7 +98,7 @@ test("reservation routes scope reads and writes to trip members", async (t) => {
     assert.equal(linked, true);
 
     Reservation.findById = async () => ({ _id: reservationId, trip: tripId, type: "flights" });
-    Trip.findOne = async () => null;
+    Trip.findById = async () => null;
     response = await request(`/logistics/flights/${reservationId}`, { method: "DELETE" });
     assert.equal(response.status, 404);
 
@@ -119,7 +118,7 @@ test("reservation routes scope reads and writes to trip members", async (t) => {
         async deleteOne() { this.deleted = true; },
     };
     Reservation.findById = async () => stored;
-    Trip.findOne = async () => ({ _id: tripId });
+    Trip.findById = async () => ({ _id: tripId, ownerId: userId, users: [userId] });
     response = await request(`/logistics/flights/${reservationId}`, {
         method: "PATCH",
         body: JSON.stringify({ name: "Updated flight", flights: { flightNum: "AB456" } }),
