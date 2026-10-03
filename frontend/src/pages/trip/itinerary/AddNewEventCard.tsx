@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { Button, Modal, TextArea, TextField } from '../../../components/common';
 import { patchToApi, postToApi } from '../../../utils/api';
 import type { EventData } from '../../../queries/events';
+import EventPlaceField from './EventPlaceField';
 
 interface AddNewEventCardProps {
   itineraryId: string;
@@ -17,6 +18,7 @@ interface AddNewEventCardProps {
 interface EventDraft {
   title: string;
   address: string;
+  placeId: string | null;
   startTime: string;
   finishTime: string;
   notes: string;
@@ -31,6 +33,7 @@ interface EventDraft {
 const createEventDraft = (date: string, event?: EventData): EventDraft => ({
   title: event?.title ?? '',
   address: event?.address ?? '',
+  placeId: event?.placeId ?? null,
   startTime: event
     ? new Date(event.startTime).toISOString().slice(0, 16)
     : `${date}T09:00`,
@@ -104,6 +107,7 @@ const AddNewEventCard = ({
       const payload = {
         title: draft.title,
         address: draft.address,
+        placeId: draft.placeId,
         startTime: start.toISOString(),
         endTime: end.toISOString(),
         notes: draft.notes,
@@ -172,11 +176,10 @@ const AddNewEventCard = ({
             onChange={(event) => updateDraft({ title: event.target.value })}
             required
           />
-          <TextField
-            id="event-address"
-            label="Location"
+          <EventPlaceField
             value={draft.address}
-            onChange={(event) => updateDraft({ address: event.target.value })}
+            placeId={draft.placeId}
+            onChange={(address, placeId) => updateDraft({ address, placeId })}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField

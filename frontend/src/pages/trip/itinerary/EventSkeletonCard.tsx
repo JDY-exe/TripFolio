@@ -8,17 +8,17 @@ const EventSkeletonCard = () => (
   <div
     role="status"
     aria-label="Loading events for this day"
-    className="rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low p-5 sm:p-6"
+    className="grid grid-cols-[minmax(7rem,34%)_minmax(0,1fr)] overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low"
   >
-    <div className="flex items-center gap-4">
-      <Skeleton className="h-14 w-12 shrink-0 rounded-t-full rounded-b-2xl" />
-      <div className="min-w-0 flex-1">
-        <Skeleton className="h-5 w-2/5 max-w-48" />
-        <Skeleton className="mt-2 h-3 w-3/5 max-w-64" />
+    <Skeleton className="col-start-1 row-start-1 h-full min-h-40 w-full rounded-none" />
+    <div className="col-start-2 row-start-1 flex min-h-40 min-w-0 flex-col">
+      <div className="px-4 pb-5 pt-14 sm:px-6">
+        <Skeleton className="h-5 w-3/4 max-w-48" />
+        <Skeleton className="mt-3 h-4 w-4/5 max-w-64" />
       </div>
-    </div>
-    <div className="mt-5 rounded-panel bg-surface-container p-4">
-      <Skeleton className="h-4 w-1/3 max-w-36" />
+      <div className="mt-auto flex justify-center border-t border-outline-variant/40 py-4">
+        <Skeleton className="h-4 w-20" />
+      </div>
     </div>
   </div>
 );
