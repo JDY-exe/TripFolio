@@ -209,12 +209,7 @@ const getTripProfilePicture = async (req, res) => {
 };
 const getTripFromUser = async (req, res) => {
   try {
-    const { userId } = req.params;
-    if (!userId) {
-      return res.status(400).json({
-        message: "UserId is required"
-      });
-    }
+    const userId = req.params.userId || req.user.id;
     if (String(userId) !== String(req.user.id)) {
       return res.status(403).json({ message: "You can only view your own trips" });
     }
@@ -224,20 +219,15 @@ const getTripFromUser = async (req, res) => {
     return res.status(200).json({ trips });
   } catch (error) {
     console.error(error);
-
-    res.status(500).json({
-      message: "Server error"
-    });
+    return res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 const addUserToTrip = async (req, res) => {
   try {
     const { tripId, userId, role = "editor" } = req.body;
     if (!tripId || !userId) {
-      return res.status(400).json({
-        message: "tripId and userId are required"
-      });
+      return res.status(400).json({ message: "tripId and userId are required" });
     }
     if (role !== "editor" && role !== "viewer") {
       return res.status(400).json({ message: "Role must be editor or viewer" });
@@ -251,20 +241,15 @@ const addUserToTrip = async (req, res) => {
     }
 
     const update = {
-      $addToSet: { users: userId },
-      ...(role === "viewer"
-        ? { $addToSet: { users: userId, viewerIds: userId } }
-        : { $pull: { viewerIds: userId } })
+      $addToSet: {
+        users: userId,
+        ...(role === "viewer" ? { viewerIds: userId } : {})
+      },
+      ...(role === "editor" ? { $pull: { viewerIds: userId } } : {})
     };
-    const trip = await Trip.findByIdAndUpdate(
-      tripId,
-      update,
-      { new: true }
-    );
+    const trip = await Trip.findByIdAndUpdate(tripId, update, { new: true });
     if (!trip) {
-      return res.status(404).json({
-        message: "Trip no found"
-      });
+      return res.status(404).json({ message: "Trip not found" });
     }
     return res.status(200).json({
       message: "User added to trip successfully",
@@ -272,11 +257,9 @@ const addUserToTrip = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      message: "Server error"
-    });
+    return res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 module.exports = {
   createTrip,

@@ -12,10 +12,22 @@ const categories = {
     flights: {
         type: "flights",
         fields: ["airline", "flightNum", "departAirport", "arriveAirport"],
-        requiredFields: ["departAirport", "arriveAirport"],
+        requiredFields: ["airline", "flightNum", "departAirport", "arriveAirport"],
+        label: "Flight",
+        missingMessage: "Name, start time, end time, and flight information are required",
     },
-    rental_cars: { type: "rentals", fields: ["company"] },
-    hotels: { type: "accommodations", fields: ["address"] },
+    rental_cars: {
+        type: "rentals",
+        fields: ["company"],
+        label: "Rental",
+        missingMessage: "Name, start time, end time, and rental company are required",
+    },
+    hotels: {
+        type: "accommodations",
+        fields: ["address"],
+        label: "Hotel",
+        missingMessage: "Name, start time, end time, and hotel address are required",
+    },
 };
 
 const hasValidDates = (startTime, endTime) => {
@@ -52,7 +64,7 @@ const sendServerError = (res, error) => {
     return res.status(500).json({ message: "Server error" });
 };
 
-for (const [path, { type, fields, requiredFields = fields }] of Object.entries(categories)) {
+for (const [path, { type, fields, requiredFields = fields, label, missingMessage }] of Object.entries(categories)) {
     router.get(`/${path}`, async (req, res) => {
         try {
             const { tripId } = req.query;
@@ -72,19 +84,22 @@ for (const [path, { type, fields, requiredFields = fields }] of Object.entries(c
             const details = req.body[type];
             if (!tripId || typeof name !== "string" || !name.trim() || !startTime || !endTime ||
                 !requiredFields.every(field => typeof details?.[field] === "string" && details[field].trim())) {
-                return res.status(400).json({ message: "Complete all required reservation fields" });
+                return res.status(400).json({ message: missingMessage });
             }
             if (cost !== undefined && cost !== null && (!Number.isFinite(Number(cost)) || Number(cost) < 0)) {
                 return res.status(400).json({ message: "Cost must be zero or more" });
             }
             if (!hasValidDates(startTime, endTime)) {
-                return res.status(400).json({ message: "Enter valid dates with the end after the start" });
+                return res.status(400).json({ message: "End time cannot be before start time" });
             }
             const trip = await findTripWithAccess(req, res, tripId, true);
             if (!trip) return;
             const reservation = await Reservation.create({ type, trip: tripId, name: name.trim(), startTime, endTime, confirmationNumber, cost, notes, [type]: details });
             await Trip.updateOne({ _id: tripId }, { $addToSet: { reservations: reservation._id } });
-            return res.status(201).json({ reservation });
+            return res.status(201).json({
+                message: `${label} reservation created successfully`,
+                reservation,
+            });
         } catch (error) {
             return sendServerError(res, error);
         }
@@ -112,7 +127,10 @@ for (const [path, { type, fields, requiredFields = fields }] of Object.entries(c
                 return res.status(400).json({ message: "Complete all required fields and enter valid dates" });
             }
             await reservation.save();
-            return res.json({ reservation });
+            return res.json({
+                message: `${label} reservation updated successfully`,
+                reservation,
+            });
         } catch (error) {
             return sendServerError(res, error);
         }

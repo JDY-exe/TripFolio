@@ -20,6 +20,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     find: Trip.find,
     findById: Trip.findById,
     findByIdAndUpdate: Trip.findByIdAndUpdate,
+    updateOne: Trip.updateOne,
     findByIdAndDelete: Trip.findByIdAndDelete,
     save: Trip.prototype.save,
     itineraryFindById: Itinerary.findById,
@@ -33,6 +34,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     eventSave: Event.prototype.save,
     reservationFind: Reservation.find,
     reservationFindById: Reservation.findById,
+    reservationCreate: Reservation.create,
     reservationSave: Reservation.prototype.save,
   };
   const trips = new Map();
@@ -61,6 +63,19 @@ test('trip visibility routes protect private data and retain trip planning flows
       trip[field] = trip[field].filter((memberId) => String(memberId) !== String(value));
     }
     return trip;
+  };
+  Trip.updateOne = async ({ _id }, update) => {
+    const trip = trips.get(String(_id));
+    if (!trip) return { matchedCount: 0 };
+    for (const [field, value] of Object.entries(update.$addToSet || {})) {
+      if (!trip[field].some((entry) => String(entry) === String(value))) {
+        trip[field].push(value);
+      }
+    }
+    for (const [field, value] of Object.entries(update.$pull || {})) {
+      trip[field] = trip[field].filter((entry) => String(entry) !== String(value));
+    }
+    return { matchedCount: 1 };
   };
   Trip.findByIdAndDelete = async (id) => {
     const trip = trips.get(String(id)) || null;
@@ -105,12 +120,15 @@ test('trip visibility routes protect private data and retain trip planning flows
     events.set(String(this._id), this);
     return this;
   };
-  Reservation.find = async (filter = {}) => [...reservations.values()].filter(
-    (reservation) =>
-      String(reservation.trip) === String(filter.trip) &&
-      reservation.type === filter.type,
-  );
+  Reservation.find = (filter = {}) => ({
+    sort: async () => [...reservations.values()].filter(
+      (reservation) =>
+        String(reservation.trip) === String(filter.trip) &&
+        reservation.type === filter.type,
+    ),
+  });
   Reservation.findById = async (id) => reservations.get(String(id)) || null;
+  Reservation.create = async (data) => new Reservation(data).save();
   Reservation.prototype.save = async function saveReservation() {
     reservations.set(String(this._id), this);
     return this;
@@ -152,6 +170,7 @@ test('trip visibility routes protect private data and retain trip planning flows
       find: originalTripMethods.find,
       findById: originalTripMethods.findById,
       findByIdAndUpdate: originalTripMethods.findByIdAndUpdate,
+      updateOne: originalTripMethods.updateOne,
       findByIdAndDelete: originalTripMethods.findByIdAndDelete,
     });
     Trip.prototype.save = originalTripMethods.save;
@@ -170,6 +189,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     Event.prototype.save = originalTripMethods.eventSave;
     Reservation.find = originalTripMethods.reservationFind;
     Reservation.findById = originalTripMethods.reservationFindById;
+    Reservation.create = originalTripMethods.reservationCreate;
     Reservation.prototype.save = originalTripMethods.reservationSave;
     if (previousSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = previousSecret;
