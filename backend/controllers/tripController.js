@@ -134,22 +134,17 @@ const getTripProfilePicture = async (req, res) => {
 };
 const getTripFromUser = async (req, res) => {
   try {
-    const { userId } = req.params;
-    if (!userId) {
-      return res.status(400).json({
-        message: "UserId is required"
-      });
-    }
-    const trips = await Trip.find({ users: userId });
+    const trips = await Trip.find({ users: req.user.id });
+
     return res.status(200).json({ trips });
   } catch (error) {
     console.error(error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error"
     });
   }
-}
+};
 
 const addUserToTrip = async (req, res) => {
   try {
