@@ -27,7 +27,7 @@ defaults to `type="button"`, and forwards native button attributes.
 
 | Prop | Type | Default | Purpose |
 | --- | --- | --- | --- |
-| `variant` | `primary \| secondary \| outline \| ghost \| danger` | `primary` | Selects the semantic color treatment. |
+| `variant` | `primary \| secondary \| outline \| ghost \| dangerGhost \| danger` | `primary` | Selects the semantic color treatment. |
 | `size` | `sm \| md \| lg` | `md` | Controls minimum height, padding, and spacing. |
 | `fullWidth` | `boolean` | `false` | Makes the button fill its container. |
 | `leadingIcon` | `ReactNode` | — | Places an icon before the label. |
@@ -50,7 +50,7 @@ button text, keeping feature code free of ARIA-label plumbing.
 | --- | --- | --- | --- |
 | `label` | `string` | Required | Names the action through hidden text. |
 | `icon` | `ReactNode` | Required | Supplies the visible icon. |
-| `variant` | `primary \| secondary \| outline \| ghost \| danger` | `ghost` | Selects the semantic color treatment. |
+| `variant` | `primary \| secondary \| outline \| ghost \| dangerGhost \| danger` | `ghost` | Selects the semantic color treatment. |
 | `size` | `sm \| md \| lg` | `md` | Produces a 36, 44, or 48 pixel square control. |
 
 Use this only when the icon communicates the action visually. Use `Button`
@@ -294,6 +294,7 @@ has four equally rounded corners, and opening and closing fade over 200 ms.
 | `children` | `ReactNode` | Required | Supplies the main modal content. |
 | `footer` | `ReactNode` | — | Supplies the responsive action row. |
 | `panelClassName` | `string` | — | Sets panel layout classes, including a wider maximum width when a form needs columns. |
+| `contentClassName` | `string` | — | Sets layout classes on the content wrapper, such as scrolling inside a fixed-height panel. |
 
 The modal traps Tab focus, locks background scrolling, restores the previously
 focused element, and keeps itself mounted during the fade-out. Its overlay can
@@ -357,6 +358,43 @@ toast ID.
 `dismissAlert(id)` starts one toast's exit transition. `clearAlerts()` removes
 every toast immediately and is primarily useful for session teardown and tests.
 
+## 14. Stepper
+
+A read-only indicator for an ordered flow. On small screens it shows the current
+step and a progress bar; on wider screens it shows every numbered step. The
+consumer owns navigation and passes a zero-based `currentStep` within `steps`.
+
+```tsx
+<Stepper
+  steps={[{ label: "Details" }, { label: "Review" }]}
+  currentStep={0}
+  label="Form progress"
+/>
+```
+
+| Prop          | Type                           | Purpose                                                 |
+| ------------- | ------------------------------ | ------------------------------------------------------- |
+| `steps`       | `readonly { label: string }[]` | Supplies ordered step labels.                           |
+| `currentStep` | `number`                       | Selects the active step by zero-based index.            |
+| `label`       | `string`                       | Names the progress navigation for assistive technology. |
+| `className`   | `string`                       | Adds layout classes to the navigation wrapper.          |
+
+## 15. Skeleton
+
+A small decorative loading placeholder. Set its dimensions and shape through
+`className`, and place a screen-reader loading label on its containing card.
+The pulse stops automatically for reduced-motion preferences.
+
+```tsx
+<div role="status" aria-label="Loading flights">
+  <Skeleton className="h-5 w-32" />
+</div>
+```
+
+| Prop        | Type     | Purpose                                |
+| ----------- | -------- | -------------------------------------- |
+| `className` | `string` | Sets the placeholder's size and shape. |
+
 ## Shared control tokens
 
 The barrel also exports `buttonVariants`, `controlSizes`, `ButtonVariant`, and
@@ -366,5 +404,5 @@ components instead of composing raw controls from these class maps.
 
 | Token | Values |
 | --- | --- |
-| `buttonVariants` | `primary`, `secondary`, `outline`, `ghost`, `danger` |
+| `buttonVariants` | `primary`, `secondary`, `outline`, `ghost`, `dangerGhost`, `danger` |
 | `controlSizes` | `sm`, `md`, `lg` |

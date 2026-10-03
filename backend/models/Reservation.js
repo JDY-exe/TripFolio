@@ -22,7 +22,7 @@ const reservationSchema = new mongoose.Schema(
             type: Date,
             required: [true, "End date is required"]
         },
-        confrimationNumber: {
+        confirmationNumber: {
             type: String,
             required: false,
             unique: false,
@@ -41,12 +41,12 @@ const reservationSchema = new mongoose.Schema(
         flights: {
             airline: {
                 type: String,
-                required: function () { return this.type === "flights"; },
+                required: false,
                 unique: false
             },
             flightNum: {
                 type: String,
-                required: function () { return this.type === "flights"; },
+                required: false,
                 unique: false
             },
             departAirport: {

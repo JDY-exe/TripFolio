@@ -1,47 +1,23 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Text } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
-import { getFromApi } from '../../utils/api';
+import { tripsQueryKey, useTrips } from '../../queries/trips';
 import CreateTrip from './CreateTrip';
 import TripCard from './TripCard';
-
-interface Trip {
-  _id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  profilePictureId?: string;
-}
-
-/** Fetches and validates the trip collection for the active account. @returns Trips returned by the API. */
-const getTrips = async (): Promise<Trip[]> => {
-  const trips = await getFromApi<Trip[]>('/trip');
-  if (!Array.isArray(trips)) throw new Error('Expected an array of trips.');
-  return trips;
-};
 
 /** Fetches and displays trips, with creation available from an in-page modal. @returns The My Trips page. */
 const MyTrips = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const tripsQueryKey = ['trips', user?.id] as const;
-  const {
-    data: trips = [],
-    isPending,
-    isError,
-  } = useQuery({
-    queryKey: tripsQueryKey,
-    queryFn: getTrips,
-    enabled: Boolean(user?.id),
-  });
+  const { trips, isPending, isError } = useTrips(user?.id);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   /** Closes creation and invalidates trips so the new cover appears. @returns Nothing. */
   const handleTripCreated = () => {
     setIsCreateOpen(false);
-    void queryClient.invalidateQueries({ queryKey: tripsQueryKey });
+    void queryClient.invalidateQueries({ queryKey: tripsQueryKey(user?.id) });
   };
 
   return (
