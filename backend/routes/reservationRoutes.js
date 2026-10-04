@@ -11,8 +11,8 @@ router.use(authenticateToken);
 const categories = {
     flights: {
         type: "flights",
-        fields: ["airline", "flightNum", "departAirport", "arriveAirport"],
-        requiredFields: ["airline", "flightNum", "departAirport", "arriveAirport"],
+        fields: ["flightNum", "departAirport", "arriveAirport"],
+        requiredFields: ["flightNum", "departAirport", "arriveAirport"],
         label: "Flight",
         missingMessage: "Name, start time, end time, and flight information are required",
     },
