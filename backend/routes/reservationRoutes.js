@@ -96,6 +96,9 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
             if (!trip) return;
             const reservation = await Reservation.create({ type, trip: tripId, name: name.trim(), startTime, endTime, confirmationNumber, cost, notes, [type]: details });
             await Trip.updateOne({ _id: tripId }, { $addToSet: { reservations: reservation._id } });
+            if (type === "flights") {
+                await updateFlightLinks(tripId);
+            }
             return res.status(201).json({
                 message: `${label} reservation created successfully`,
                 reservation,
@@ -127,6 +130,9 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
                 return res.status(400).json({ message: "Complete all required fields and enter valid dates" });
             }
             await reservation.save();
+            if (type === "flights") {
+                await updateFlightLinks(reservation.trip);
+            }
             return res.json({
                 message: `${label} reservation updated successfully`,
                 reservation,
@@ -153,3 +159,31 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
 }
 
 module.exports = router;
+
+async function updateFlightLinks(tripId) {
+    const flights = await Reservation.find({
+        trip: tripId,
+        type: "flights"
+    });
+    for (const flight of flights) {
+        flight.flights.nextFlightId = null;
+    }
+    for (const flight of flights) {
+        const arrivalDate = new Date(flight.endTime);
+
+        const nextFlight = flights.find(other => {
+            const departureDate = new Date(other.startTime);
+
+            return (
+                other._id.toString() !== flight._id.toString() &&
+                flight.flights.arriveAirport === other.flights.departAirport &&
+                arrivalDate.toDateString() === departureDate.toDateString()
+            );
+        });
+
+        if (nextFlight) {
+            flight.flights.nextFlightId = nextFlight._id;
+        }
+    }
+    await Promise.all(flights.map(flight => flight.save()));
+}
