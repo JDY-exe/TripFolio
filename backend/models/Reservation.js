@@ -53,6 +53,12 @@ const reservationSchema = new mongoose.Schema(
                 type: String,
                 required: function () { return this.type === "flights"; },
                 unique: false
+            },
+            nextFlightId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Reservation",
+                default: null,
+                unique: false
             }
         },
         accommodations: {
