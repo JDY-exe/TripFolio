@@ -5,6 +5,11 @@ export interface PlaceSuggestion {
   placePrediction?: {
     placeId: string;
     text: { text: string };
+    structuredFormat?: {
+      mainText?: { text: string };
+      secondaryText?: { text: string };
+    };
+    types?: string[];
   };
 }
 
