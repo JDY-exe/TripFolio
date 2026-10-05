@@ -9,6 +9,7 @@ const reservationRoutes = require("./routes/reservationRoutes");
 const itineraryRoutes = require("./routes/itineraryRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const destinationRoutes = require("./routes/destinationRoutes");
+const publicItineraryRoutes = require("./routes/publicItineraryRoutes");
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use("/trip", tripRoutes);
 app.use("/users", userRoutes);
 app.use("/logistics", reservationRoutes);
 app.use("/itinerary", itineraryRoutes);
+app.use("/api/itineraries", publicItineraryRoutes);
 app.use("/event", eventRoutes);
 app.use("/destination", destinationRoutes);
 

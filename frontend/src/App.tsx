@@ -21,6 +21,8 @@ import Auth from './pages/auth/Auth';
 import MyTrips from './pages/my-trips/MyTrips';
 import Profile from './pages/profile/Profile';
 import Search from './pages/search/Search';
+import PublicItinerary from './pages/social/PublicItinerary';
+import SocialFeed from './pages/social/SocialFeed';
 import Trip from './pages/trip/Trip';
 import { AuthStatus } from './types/auth';
 
@@ -48,7 +50,8 @@ const AppContent = () => {
   const showPrimaryNav =
     status === AuthStatus.Authenticated &&
     location.pathname !== '/auth' &&
-    !location.pathname.startsWith('/trip');
+    !location.pathname.startsWith('/trip') &&
+    !location.pathname.startsWith('/public-itinerary');
 
   return (
     <div
@@ -62,6 +65,11 @@ const AppContent = () => {
           <Route element={<RequireAuth />}>
             <Route index element={<Navigate to="/my-trips" replace />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="social" element={<SocialFeed />} />
+            <Route
+              path="public-itinerary/:tripId"
+              element={<PublicItinerary />}
+            />
             <Route path="search" element={<Search />} />
             <Route path="my-trips" element={<MyTrips />} />
             <Route path="trip" element={<Trip />} />

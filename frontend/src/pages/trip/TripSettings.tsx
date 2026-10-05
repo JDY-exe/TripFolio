@@ -73,8 +73,8 @@ const TripSettings = () => {
             Public trip
           </Text>
           <Text color="muted" className="mt-1">
-            The public flag does not grant data access; only trip owners and
-            members can view trip data.
+            Only trip owners and members can access confidential information
+            such as flights and hotels.
           </Text>
         </span>
         <input

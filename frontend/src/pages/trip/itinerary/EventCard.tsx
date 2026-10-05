@@ -8,8 +8,9 @@ import EventPhoto from './EventPhoto';
 
 interface EventCardProps {
   event: EventData;
-  onEdit: (event: EventData) => void;
-  onDelete: (event: EventData) => void;
+  onEdit?: (event: EventData) => void;
+  onDelete?: (event: EventData) => void;
+  readOnly?: boolean;
 }
 
 const eventTime = new Intl.DateTimeFormat(undefined, {
@@ -34,7 +35,12 @@ const getGoogleMapsPlaceUrl = (event: EventData): string => {
  * @param props - Event data and callbacks for its actions.
  * @returns A single event card.
  */
-const EventCard = ({ event, onEdit, onDelete }: EventCardProps): ReactNode => {
+const EventCard = ({
+  event,
+  onEdit,
+  onDelete,
+  readOnly = false,
+}: EventCardProps): ReactNode => {
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
   const photoRef = useRef<HTMLDivElement>(null);
@@ -71,21 +77,23 @@ const EventCard = ({ event, onEdit, onDelete }: EventCardProps): ReactNode => {
 
   return (
     <article className="group relative grid min-h-42 grid-cols-[minmax(7rem,34%)_minmax(0,1fr)] overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low">
-      <div className="absolute right-4 top-4 z-10 flex gap-1 rounded-full bg-surface-container-low/90 p-1 opacity-0 pointer-events-none shadow-sm transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 motion-reduce:transition-none sm:right-5 sm:top-5">
-        <IconButton
-          label={`Edit ${event.title}`}
-          size="sm"
-          icon={<Pencil aria-hidden size={18} />}
-          onClick={() => onEdit(event)}
-        />
-        <IconButton
-          label={`Delete ${event.title}`}
-          size="sm"
-          variant="dangerGhost"
-          icon={<Trash2 aria-hidden size={18} />}
-          onClick={() => onDelete(event)}
-        />
-      </div>
+      {!readOnly && onEdit && onDelete ? (
+        <div className="absolute right-4 top-4 z-10 flex gap-1 rounded-full bg-surface-container-low/90 p-1 opacity-0 pointer-events-none shadow-sm transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 motion-reduce:transition-none sm:right-5 sm:top-5">
+          <IconButton
+            label={`Edit ${event.title}`}
+            size="sm"
+            icon={<Pencil aria-hidden size={18} />}
+            onClick={() => onEdit(event)}
+          />
+          <IconButton
+            label={`Delete ${event.title}`}
+            size="sm"
+            variant="dangerGhost"
+            icon={<Trash2 aria-hidden size={18} />}
+            onClick={() => onDelete(event)}
+          />
+        </div>
+      ) : null}
 
       <div
         ref={photoRef}
