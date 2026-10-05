@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+let authToken;
 
 const BASE_URL = "http://localhost:5000";
 
@@ -104,6 +105,7 @@ test("POST /users/login successfully logs in a user", async () => {
   assert.equal(response.status, 200);
   assert.equal(data.message, "Login successful");
   assert.ok(data.token);
+  authToken = data.token;
   assert.equal(data.user.username, testUsername);
   assert.equal(data.user.email, testEmail);
 });
@@ -196,44 +198,39 @@ test("GET /users returns 404 when the user does not exist", async () => {
   assert.equal(data.message, "User not found");
 });
 
-test("PATCH /users/profile_picture updates a user's profile picture", async () => {
+test("PATCH /users/profile_picture rejects a missing profile picture", async () => {
   const response = await fetch(
     `${BASE_URL}/users/profile_picture`,
     {
       method: "PATCH",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`
       },
-      body: JSON.stringify({
-        username: testUsername,
-        profile_picture: "https://example.com/profile.jpg"
-      })
+      body: JSON.stringify({})
     }
   );
 
   const data = await response.json();
 
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 400);
   assert.equal(
     data.message,
-    "Profile picture updated successfully"
-  );
-  assert.equal(
-    data.user.profile_picture,
-    "https://example.com/profile.jpg"
+    "A profile picture under 90 KB is required"
   );
 });
 
-test("PATCH /users/profile_picture rejects missing username or profile picture", async () => {
+test("PATCH /users/profile_picture rejects an empty profile picture", async () => {
   const response = await fetch(
     `${BASE_URL}/users/profile_picture`,
     {
       method: "PATCH",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`
       },
       body: JSON.stringify({
-        username: testUsername
+        profile_picture: ""
       })
     }
   );
@@ -243,20 +240,20 @@ test("PATCH /users/profile_picture rejects missing username or profile picture",
   assert.equal(response.status, 400);
   assert.equal(
     data.message,
-    "Username and profile picture are required"
+    "A profile picture under 90 KB is required"
   );
 });
 
-test("PATCH /users/profile_picture returns 400 when the user does not exist", async () => {
+test("PATCH /users/profile_picture rejects an invalid token", async () => {
   const response = await fetch(
     `${BASE_URL}/users/profile_picture`,
     {
       method: "PATCH",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        Authorization: "Bearer invalid-token"
       },
       body: JSON.stringify({
-        username: "doesnotexist",
         profile_picture: "https://example.com/profile.jpg"
       })
     }
@@ -264,6 +261,9 @@ test("PATCH /users/profile_picture returns 400 when the user does not exist", as
 
   const data = await response.json();
 
-  assert.equal(response.status, 400);
-  assert.equal(data.message, "User not found");
+  assert.equal(response.status, 401);
+  assert.equal(
+    data.message,
+    "Invalid or expired token"
+  );
 });
