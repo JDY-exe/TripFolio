@@ -26,7 +26,7 @@ const openTripSettings = (role: TripRole) => {
     currentUserRole: role,
   };
 
-  cy.intercept('GET', '**/users/me', { body: { user } });
+  cy.intercept('GET', '**/users/me', { body: { user } }).as('restoreSession');
   cy.intercept('GET', '**/itinerary*', {
     body: {
       _id: tripFixture.itineraryId,
@@ -38,7 +38,7 @@ const openTripSettings = (role: TripRole) => {
     },
   });
   cy.intercept('GET', '**/event*', { body: [] });
-  cy.intercept('GET', '**/trip', { body: [trip] });
+  cy.intercept('GET', '**/trip', { body: [trip] }).as('tripList');
   cy.intercept('GET', `**/trip/${tripFixture.tripId}`, { body: trip });
   cy.visit('/my-trips', {
     onBeforeLoad(window) {
@@ -48,6 +48,13 @@ const openTripSettings = (role: TripRole) => {
       );
     },
   });
+  cy.wait('@restoreSession')
+    .its('response.body.user.id')
+    .should('eq', userId);
+  cy.contains('h1', 'My Upcoming Trips').should('be.visible');
+  cy.wait('@tripList')
+    .its('response.body')
+    .should('deep.include', { _id: tripFixture.tripId });
   cy.get(`a[href="/trip/${tripFixture.tripId}"]`).click();
   cy.contains('nav button', 'Settings').click();
   cy.contains('h2', 'Trip settings').should('be.visible');
@@ -117,9 +124,9 @@ describe('trip visibility settings', () => {
       .its('request.body')
       .should('deep.equal', { isPublic: true });
     cy.get('[role="switch"][aria-label="Public trip"]').should('be.checked');
-    cy.contains('Visible to any signed-in TripFolio user.').should(
-      'be.visible',
-    );
+    cy.contains(
+      'The public flag does not grant data access; only trip owners and members can view trip data.',
+    ).should('be.visible');
   });
 
   it('keeps the visibility switch disabled for viewers', () => {
