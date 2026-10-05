@@ -17,16 +17,6 @@ interface FlightsSectionProps {
   onDelete: (reservation: Reservation) => void;
 }
 
-const flightTime = new Intl.DateTimeFormat(undefined, {
-  hour: '2-digit',
-  minute: '2-digit',
-});
-const flightDate = new Intl.DateTimeFormat(undefined, {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-});
-
 /**
  * Loads flight reservations and presents each as a ticket-shaped card.
  * @param props - Trip identifier and reservation actions.
@@ -105,64 +95,23 @@ const FlightsSection = ({
                     {reservation.name}
                   </Text>
                   <Text color="muted" className="mt-0.5 text-sm">
-                    {reservation.flights?.segments?.length
+                    {reservation.flights?.segments.length
                       ? reservation.flights.segments.length === 1
                         ? 'Nonstop flight'
                         : `${reservation.flights.segments.length - 1} ${reservation.flights.segments.length === 2 ? 'layover' : 'layovers'}`
-                      : reservation.flights?.flightNum || 'Flight'}
+                      : 'Flight details unavailable'}
                   </Text>
                 </div>
               </div>
 
-              {reservation.flights?.segments?.length ? (
+              {reservation.flights?.segments.length ? (
                 <FlightJourneyTimeline
                   segments={reservation.flights.segments}
                 />
               ) : (
-                <div className="mt-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
-                  <div className="min-w-0">
-                    <Text className="truncate text-3xl tracking-tight">
-                      {reservation.flights?.departAirport || '—'}
-                    </Text>
-                    <time
-                      dateTime={reservation.startTime}
-                      className="mt-3 block text-lg font-medium tabular-nums"
-                    >
-                      {flightTime.format(new Date(reservation.startTime))}
-                    </time>
-                    <time
-                      dateTime={reservation.startTime}
-                      className="block text-xs text-on-surface-variant"
-                    >
-                      {flightDate.format(new Date(reservation.startTime))}
-                    </time>
-                  </div>
-                  <div
-                    className="flex items-center gap-2 text-primary"
-                    aria-hidden="true"
-                  >
-                    <span className="hidden w-8 border-t border-2 border-dashed border-outline-variant sm:block" />
-                    <Plane size={18} className="rotate-45" />
-                    <span className="hidden w-8 border-t border-2 border-dashed border-outline-variant sm:block" />
-                  </div>
-                  <div className="min-w-0 text-right">
-                    <Text className="truncate text-3xl tracking-tight">
-                      {reservation.flights?.arriveAirport || '—'}
-                    </Text>
-                    <time
-                      dateTime={reservation.endTime}
-                      className="mt-3 block text-lg font-medium tabular-nums"
-                    >
-                      {flightTime.format(new Date(reservation.endTime))}
-                    </time>
-                    <time
-                      dateTime={reservation.endTime}
-                      className="block text-xs text-on-surface-variant"
-                    >
-                      {flightDate.format(new Date(reservation.endTime))}
-                    </time>
-                  </div>
-                </div>
+                <Text color="error" className="mt-6">
+                  Flight details unavailable.
+                </Text>
               )}
               {reservation.notes ? (
                 <Text

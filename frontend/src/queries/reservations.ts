@@ -33,7 +33,7 @@ export interface Reservation {
     flightNum?: string;
     departAirport: string;
     arriveAirport: string;
-    segments?: FlightSegment[];
+    segments: FlightSegment[];
   };
   rentals?: { company: string };
   accommodations?: { address: string };

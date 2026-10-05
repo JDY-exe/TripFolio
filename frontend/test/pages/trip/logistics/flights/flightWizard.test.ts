@@ -67,6 +67,12 @@ describe('flight journey wizard', () => {
     expect(
       validateFlightStep(FlightWizardStep.Route, {
         ...validDraft,
+        segments: [],
+      }),
+    ).toMatch(/at least one flight leg/);
+    expect(
+      validateFlightStep(FlightWizardStep.Route, {
+        ...validDraft,
         segments: [{ ...validDraft.segments[0], flightNum: '' }],
       }),
     ).toMatch(/leg 1/);
@@ -96,7 +102,7 @@ describe('flight journey wizard', () => {
     expect(removeFlightSegment(changed, 1)).toHaveLength(1);
   });
 
-  it('prefills existing journeys and legacy flights', () => {
+  it('prefills existing journeys', () => {
     const reservation: Reservation = {
       _id: 'flight-1',
       type: ReservationType.Flights,
@@ -107,15 +113,12 @@ describe('flight journey wizard', () => {
         flightNum: 'SQ 618',
         departAirport: 'SIN',
         arriveAirport: 'KIX',
+        segments: connectedDraft.segments,
       },
     };
-    expect(createFlightDraft(reservation).segments[0].flightNum).toBe('SQ 618');
-    expect(
-      createFlightDraft({
-        ...reservation,
-        flights: { ...reservation.flights!, segments: connectedDraft.segments },
-      }).segments,
-    ).toEqual(connectedDraft.segments);
+    expect(createFlightDraft(reservation).segments).toEqual(
+      connectedDraft.segments,
+    );
 
     const markup = renderToStaticMarkup(
       createElement(
@@ -144,29 +147,30 @@ describe('flight journey wizard', () => {
     expect(markup).toContain('3h');
   });
 
-  it('shows saved journeys and older flights as separate cards', () => {
-    const legacy: Reservation = {
-      _id: 'legacy',
+  it('shows single-leg and connecting journeys as separate cards', () => {
+    const singleLeg: Reservation = {
+      _id: 'single-leg',
       type: ReservationType.Flights,
-      name: 'Older flight',
+      name: 'Nonstop flight',
       startTime: '2027-04-01T08:00:00Z',
       endTime: '2027-04-01T10:00:00Z',
       flights: {
         flightNum: 'AB123',
         departAirport: 'SIN',
         arriveAirport: 'KIX',
+        segments: [validDraft.segments[0]],
       },
     };
     const journey: Reservation = {
-      ...legacy,
+      ...singleLeg,
       _id: 'journey',
       name: 'Connecting journey',
-      flights: { ...legacy.flights!, segments: connectedDraft.segments },
+      flights: { ...singleLeg.flights!, segments: connectedDraft.segments },
     };
     const client = new QueryClient();
     client.setQueryData(
       reservationsQueryKey('trip-1', ReservationType.Flights),
-      [legacy, journey],
+      [singleLeg, journey],
     );
     const markup = renderToStaticMarkup(
       createElement(
@@ -180,7 +184,7 @@ describe('flight journey wizard', () => {
         }),
       ),
     );
-    expect(markup).toContain('Older flight');
+    expect(markup).toContain('Nonstop flight');
     expect(markup).toContain('Connecting journey');
     expect(markup).toContain('Layover in KIX');
   });

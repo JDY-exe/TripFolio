@@ -136,24 +136,24 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
         try {
             const { tripId, name, startTime, endTime, confirmationNumber, cost, notes } = req.body;
             const details = req.body[type];
-            const isJourney = type === "flights" && details?.segments !== undefined;
-            if (isJourney) {
-                const message = validateFlightSegments(details.segments);
+            const isFlight = type === "flights";
+            if (isFlight) {
+                const message = validateFlightSegments(details?.segments);
                 if (message) return res.status(400).json({ message });
             }
-            if (!tripId || typeof name !== "string" || !name.trim() || (!isJourney && (!startTime || !endTime ||
+            if (!tripId || typeof name !== "string" || !name.trim() || (!isFlight && (!startTime || !endTime ||
                 !requiredFields.every(field => typeof details?.[field] === "string" && details[field].trim())))) {
                 return res.status(400).json({ message: missingMessage });
             }
             if (cost !== undefined && cost !== null && (!Number.isFinite(Number(cost)) || Number(cost) < 0)) {
                 return res.status(400).json({ message: "Cost must be zero or more" });
             }
-            if (!isJourney && !hasValidDates(startTime, endTime)) {
+            if (!isFlight && !hasValidDates(startTime, endTime)) {
                 return res.status(400).json({ message: "End time cannot be before start time" });
             }
             const trip = await findTripWithAccess(req, res, tripId, true);
             if (!trip) return;
-            const journey = isJourney ? flightJourneyFields(details.segments) : null;
+            const journey = isFlight ? flightJourneyFields(details.segments) : null;
             const reservation = await Reservation.create({ type, trip: tripId, name: name.trim(), startTime, endTime, confirmationNumber, cost, notes, [type]: details, ...journey });
             await Trip.updateOne({ _id: tripId }, { $addToSet: { reservations: reservation._id } });
             return res.status(201).json({
@@ -173,6 +173,10 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
             const trip = await findTripWithAccess(req, res, reservation.trip, true);
             if (!trip) return;
             const isJourneyUpdate = type === "flights" && req.body.flights?.segments !== undefined;
+            if (type === "flights" && !isJourneyUpdate &&
+                (req.body.flights || req.body.startTime !== undefined || req.body.endTime !== undefined)) {
+                return res.status(400).json({ message: "Flight segments are required when changing flight information" });
+            }
             if (isJourneyUpdate) {
                 const message = validateFlightSegments(req.body.flights.segments);
                 if (message) return res.status(400).json({ message });
@@ -196,9 +200,9 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
                 (!Number.isFinite(Number(reservation.cost)) || Number(reservation.cost) < 0)) {
                 return res.status(400).json({ message: "Cost must be zero or more" });
             }
-            const hasJourneySegments = type === "flights" && Boolean(reservation.flights?.segments?.length);
+            const hasJourneySegments = type !== "flights" || Boolean(reservation.flights?.segments?.length);
             if (!reservation.name?.trim() || !requiredFields.every(field => reservation[type]?.[field]?.trim()) ||
-                (!hasJourneySegments && !hasValidDates(reservation.startTime, reservation.endTime))) {
+                !hasJourneySegments || (type !== "flights" && !hasValidDates(reservation.startTime, reservation.endTime))) {
                 return res.status(400).json({ message: "Complete all required fields and enter valid dates" });
             }
             await reservation.save();

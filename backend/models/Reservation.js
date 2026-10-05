@@ -54,14 +54,22 @@ const reservationSchema = new mongoose.Schema(
                 required: function () { return this.type === "flights"; },
                 unique: false
             },
-            segments: [{
-                _id: false,
-                flightNum: { type: String, required: true },
-                departAirport: { type: String, required: true },
-                departTime: { type: String, required: true },
-                arriveAirport: { type: String, required: true },
-                arriveTime: { type: String, required: true }
-            }]
+            segments: {
+                type: [{
+                    _id: false,
+                    flightNum: { type: String, required: true },
+                    departAirport: { type: String, required: true },
+                    departTime: { type: String, required: true },
+                    arriveAirport: { type: String, required: true },
+                    arriveTime: { type: String, required: true }
+                }],
+                validate: {
+                    validator: function (segments) {
+                        return this.type !== "flights" || (Array.isArray(segments) && segments.length > 0);
+                    },
+                    message: "Flight segments are required"
+                }
+            }
         },
         accommodations: {
             address: {

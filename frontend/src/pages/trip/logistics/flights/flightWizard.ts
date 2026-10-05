@@ -2,7 +2,6 @@ import type {
   FlightSegment,
   Reservation,
 } from '../../../../queries/reservations';
-import { toLocalDateTimeInput } from '../reservationDateInput';
 
 export const FlightWizardStep = {
   Route: 0,
@@ -39,23 +38,15 @@ export const createFlightSegment = (departAirport = ''): FlightSegment => ({
 });
 
 /**
- * Creates a journey draft from a saved journey, legacy flight, or blanks.
+ * Creates a journey draft from a saved journey or blanks.
  * @param reservation - Existing flight reservation, if editing.
  * @returns The initial draft for all wizard steps.
  */
 export const createFlightDraft = (reservation?: Reservation): FlightDraft => ({
   name: reservation?.name ?? '',
-  segments: reservation?.flights?.segments?.length
+  segments: reservation?.flights?.segments.length
     ? reservation.flights.segments.map((segment) => ({ ...segment }))
-    : [
-        {
-          flightNum: reservation?.flights?.flightNum ?? '',
-          departAirport: reservation?.flights?.departAirport ?? '',
-          departTime: toLocalDateTimeInput(reservation?.startTime),
-          arriveAirport: reservation?.flights?.arriveAirport ?? '',
-          arriveTime: toLocalDateTimeInput(reservation?.endTime),
-        },
-      ],
+    : [createFlightSegment()],
   confirmationNumber: reservation?.confirmationNumber ?? '',
   notes: reservation?.notes ?? '',
   cost: reservation?.cost?.toString() ?? '',
@@ -135,6 +126,7 @@ export const validateFlightStep = (
   draft: FlightDraft,
 ): string | null => {
   if (step === FlightWizardStep.Route) {
+    if (draft.segments.length === 0) return 'Add at least one flight leg.';
     for (const [index, segment] of draft.segments.entries()) {
       if (
         !segment.flightNum.trim() ||
