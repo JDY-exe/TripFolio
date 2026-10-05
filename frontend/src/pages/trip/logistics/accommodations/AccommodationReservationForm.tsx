@@ -5,6 +5,7 @@ import {
   Modal,
   Stepper,
   Text,
+  TextArea,
   TextField,
 } from '../../../../components/common';
 import {
@@ -57,6 +58,7 @@ const AccommodationReservationForm = ({
   const [cost, setCost] = useState(reservation?.cost?.toString() ?? '');
   const [notes, setNotes] = useState(reservation?.notes ?? '');
   const [error, setError] = useState('');
+  const [isOpen, setIsOpen] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const previousStep = useRef(step);
 
@@ -120,7 +122,7 @@ const AccommodationReservationForm = ({
         values,
         id: reservation?._id,
       });
-      onClose();
+      setIsOpen(false);
     } catch (cause) {
       setError(
         getApiErrorMessage(
@@ -134,19 +136,21 @@ const AccommodationReservationForm = ({
 
   return (
     <Modal
-      open
+      open={isOpen}
       title={reservation ? 'Edit accommodation' : 'Add accommodation'}
       onClose={() => {
         if (!saveReservation.isPending) onClose();
       }}
+      onExited={onClose}
+      dismissDisabled={saveReservation.isPending}
       panelClassName="flex h-[min(48rem,calc(100dvh_-_2rem))] flex-col sm:h-[min(48rem,calc(100dvh_-_4rem))] sm:max-w-2xl"
       contentClassName="min-h-0 flex-1 overflow-y-auto"
-      footer={
+      footer={(requestClose) => (
         <div className="flex w-full items-center justify-between gap-3">
           <Button
             variant="secondary"
             disabled={saveReservation.isPending}
-            onClick={onClose}
+            onClick={requestClose}
           >
             Cancel
           </Button>
@@ -175,7 +179,7 @@ const AccommodationReservationForm = ({
             )}
           </div>
         </div>
-      }
+      )}
     >
       <Stepper
         steps={accommodationSteps}
@@ -242,13 +246,21 @@ const AccommodationReservationForm = ({
                 </div>
               </div>
               <div className="border-t border-outline-variant p-5">
-                <NotebookPen aria-hidden size={18} className="text-primary" />
-                <textarea
+                <Text
+                  as="label"
+                  htmlFor="accommodation-notes"
+                  variant="label"
+                  className="flex items-center gap-2"
+                >
+                  <NotebookPen aria-hidden size={18} className="text-primary" />
+                  Notes
+                </Text>
+                <TextArea
                   id="accommodation-notes"
                   rows={3}
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-outline bg-surface-container-low p-3 text-on-surface"
+                  className="mt-2"
                 />
               </div>
             </div>

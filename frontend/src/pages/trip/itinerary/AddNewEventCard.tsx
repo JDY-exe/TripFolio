@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Button, Modal, TextField } from '../../../components/common';
+import { Button, Modal, TextArea, TextField } from '../../../components/common';
 import { patchToApi, postToApi } from '../../../utils/api';
 import type { EventData } from '../../../queries/events';
+import EventPlaceField from './EventPlaceField';
 
 interface AddNewEventCardProps {
   itineraryId: string;
   startDate: string;
   endDate: string;
+  date: string;
   onCreated: (event: EventData) => void;
   event?: EventData;
   onClose?: () => void;
@@ -16,6 +18,7 @@ interface AddNewEventCardProps {
 interface EventDraft {
   title: string;
   address: string;
+  placeId: string | null;
   startTime: string;
   finishTime: string;
   notes: string;
@@ -29,19 +32,25 @@ interface EventDraft {
 const createEventDraft = (event?: EventData): EventDraft => ({
   title: event?.title ?? '',
   address: event?.address ?? '',
-  startTime: event ? new Date(event.startTime).toISOString().slice(0, 16) : '',
-  finishTime: event ? new Date(event.endTime).toISOString().slice(0, 16) : '',
+  placeId: event?.placeId ?? null,
+  startTime: event
+    ? new Date(event.startTime).toISOString().slice(11, 16)
+    : '09:00',
+  finishTime: event
+    ? new Date(event.endTime).toISOString().slice(11, 16)
+    : '10:00',
   notes: event?.notes ?? '',
 });
 
 /** Opens a modal for entering an event and reports its saved record to the itinerary.
- * @param props - Trip dates, itinerary identifier, and save callback.
+ * @param props - Selected day, trip dates, itinerary identifier, and save callback.
  * @returns The add-event card and its controlled creation modal.
  */
 const AddNewEventCard = ({
   itineraryId,
   startDate,
   endDate,
+  date,
   onCreated,
   event,
   onClose,
@@ -60,12 +69,12 @@ const AddNewEventCard = ({
     setDraft((current) => ({ ...current, ...changes }));
   };
 
-  /** Validates the event dates and creates the event through the API.
+  /** Combines the selected day with the entered times and saves the event.
    * @returns A promise that settles after saving.
    */
   const saveEvent = async () => {
-    const start = new Date(`${draft.startTime}Z`);
-    const end = new Date(`${draft.finishTime}Z`);
+    const start = new Date(`${date}T${draft.startTime}:00.000Z`);
+    const end = new Date(`${date}T${draft.finishTime}:00.000Z`);
     const tripStart = new Date(startDate);
     const tripEnd = new Date(endDate);
     tripEnd.setUTCHours(23, 59, 59, 999);
@@ -87,6 +96,7 @@ const AddNewEventCard = ({
       const payload = {
         title: draft.title,
         address: draft.address,
+        placeId: draft.placeId,
         startTime: start.toISOString(),
         endTime: end.toISOString(),
         notes: draft.notes,
@@ -99,7 +109,6 @@ const AddNewEventCard = ({
           });
       onCreated(savedEvent);
       setIsOpen(false);
-      onClose?.();
       setDraft(createEventDraft());
     } catch {
       setError('Failed to save event. Please try again.');
@@ -114,7 +123,7 @@ const AddNewEventCard = ({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-dashed border-outline-variant bg-transparent py-4 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
+          className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-transparent py-4 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
         >
           <Plus size={20} />
           <span className="font-medium">Add Event</span>
@@ -123,19 +132,17 @@ const AddNewEventCard = ({
       <Modal
         open={isOpen}
         title={event ? 'Edit Event' : 'Add an Event'}
+        dismissDisabled={isSaving}
         onClose={() => {
-          if (!isSaving) {
-            setIsOpen(false);
-            onClose?.();
-          }
+          if (!isSaving) setIsOpen(false);
         }}
+        onExited={onClose}
         footer={
           <>
             <Button
               variant="secondary"
               onClick={() => {
                 setIsOpen(false);
-                onClose?.();
               }}
               disabled={isSaving}
             >
@@ -155,17 +162,16 @@ const AddNewEventCard = ({
             onChange={(event) => updateDraft({ title: event.target.value })}
             required
           />
-          <TextField
-            id="event-address"
-            label="Location"
+          <EventPlaceField
             value={draft.address}
-            onChange={(event) => updateDraft({ address: event.target.value })}
+            placeId={draft.placeId}
+            onChange={(address, placeId) => updateDraft({ address, placeId })}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               id="event-start"
               label="Start time"
-              type="datetime-local"
+              type="time"
               value={draft.startTime}
               onChange={(event) =>
                 updateDraft({ startTime: event.target.value })
@@ -175,7 +181,7 @@ const AddNewEventCard = ({
             <TextField
               id="event-end"
               label="End time"
-              type="datetime-local"
+              type="time"
               value={draft.finishTime}
               onChange={(event) =>
                 updateDraft({ finishTime: event.target.value })
@@ -188,12 +194,11 @@ const AddNewEventCard = ({
             htmlFor="event-notes"
           >
             Notes
-            <textarea
+            <TextArea
               id="event-notes"
               value={draft.notes}
               onChange={(event) => updateDraft({ notes: event.target.value })}
               rows={3}
-              className="resize-none rounded bg-surface-container p-3 text-on-surface"
             />
           </label>
           {error ? (

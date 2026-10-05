@@ -26,6 +26,7 @@ const LogisticsView = () => {
   const [editing, setEditing] = useState<Reservation | null>(null);
   const [reservationToDelete, setReservationToDelete] =
     useState<Reservation | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const deleteReservation = useDeleteReservation(tripId ?? '');
 
   /**
@@ -36,7 +37,7 @@ const LogisticsView = () => {
     if (!reservationToDelete) return;
     try {
       await deleteReservation.mutateAsync(reservationToDelete);
-      setReservationToDelete(null);
+      setDeleteModalOpen(false);
       displayAlert('Reservation deleted.');
     } catch (error) {
       displayAlert({
@@ -67,37 +68,48 @@ const LogisticsView = () => {
             tripId={tripId}
             onAdd={() => setAddingType(ReservationType.Flights)}
             onEdit={setEditing}
-            onDelete={setReservationToDelete}
+            onDelete={(reservation) => {
+              setReservationToDelete(reservation);
+              setDeleteModalOpen(true);
+            }}
           />
 
           <RentalCarsSection
             tripId={tripId}
             onAdd={() => setAddingType(ReservationType.Rentals)}
             onEdit={setEditing}
-            onDelete={setReservationToDelete}
+            onDelete={(reservation) => {
+              setReservationToDelete(reservation);
+              setDeleteModalOpen(true);
+            }}
           />
 
           <AccommodationsSection
             tripId={tripId}
             onAdd={() => setAddingType(ReservationType.Accommodations)}
             onEdit={setEditing}
-            onDelete={setReservationToDelete}
+            onDelete={(reservation) => {
+              setReservationToDelete(reservation);
+              setDeleteModalOpen(true);
+            }}
           />
         </div>
       </div>
       {reservationToDelete ? (
         <Modal
-          open
+          open={deleteModalOpen}
           title={`Delete ${reservationToDelete.name}?`}
           onClose={() => {
             if (!deleteReservation.isPending) setReservationToDelete(null);
           }}
-          footer={
+          onExited={() => setReservationToDelete(null)}
+          dismissDisabled={deleteReservation.isPending}
+          footer={(requestClose) => (
             <>
               <Button
                 variant="secondary"
                 disabled={deleteReservation.isPending}
-                onClick={() => setReservationToDelete(null)}
+                onClick={requestClose}
               >
                 Cancel
               </Button>
@@ -111,7 +123,7 @@ const LogisticsView = () => {
                   : 'Delete reservation'}
               </Button>
             </>
-          }
+          )}
         >
           <Text>This reservation will be removed from your trip.</Text>
         </Modal>

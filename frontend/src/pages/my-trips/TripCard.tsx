@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Text } from '../../components/common';
 import { getBlobFromApi } from '../../utils/api';
+import TripPlaceholderArt from './TripPlaceholderArt';
 
 export interface TripCardProps {
   id: string;
@@ -39,14 +40,18 @@ const TripCard = ({
         className="absolute inset-0 z-10 cursor-pointer rounded-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
       />
       <div className="relative">
-        <img
-          src={image}
-          alt=""
-          width={1000}
-          height={563}
-          loading="lazy"
-          className="aspect-video w-full bg-surface-container object-cover"
-        />
+        {image ? (
+          <img
+            src={image}
+            alt=""
+            width={1000}
+            height={563}
+            loading="lazy"
+            className="aspect-video w-full bg-surface-container object-cover"
+          />
+        ) : (
+          <TripPlaceholderArt />
+        )}
         <span className="absolute left-4 top-4 rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-on-surface">
           {status}
         </span>
@@ -72,23 +77,21 @@ const TripCard = ({
   );
 };
 
-const fallbackImage = 'https://placehold.co/600x400';
-
 /**
  * Loads a protected image through Axios and exposes a temporary object URL.
  * Revoking the URL during cleanup releases the browser-held Blob allocation.
  *
  * @param imagePath - Authenticated API path for the image, when one exists.
- * @param publicImage - Public fallback supplied by static fixtures.
- * @returns An object URL for the image or the shared placeholder URL.
+ * @param publicImage - Optional public image supplied by static fixtures.
+ * @returns An image URL when available, or undefined for the SVG placeholder.
  */
 const useProtectedImage = (
   imagePath?: string,
-  publicImage = fallbackImage,
-): string => {
+  publicImage?: string,
+): string | undefined => {
   const [protectedImage, setProtectedImage] = useState<{
     path: string;
-    url: string;
+    url?: string;
   }>();
 
   useEffect(() => {

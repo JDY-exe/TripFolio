@@ -7,6 +7,7 @@ router.use(authenticateToken);
 
 router.post('/', eventController.createEvent);
 router.get('/', eventController.getEvents);
+router.get('/:id/photo', eventController.getEventPhoto);
 router.patch('/:id', eventController.updateEvent);
 router.delete('/:id', eventController.deleteEvent);
 

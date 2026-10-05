@@ -33,10 +33,14 @@ export interface ModalProps extends Omit<
   description?: ReactNode;
   /** Requests that the parent close the controlled modal. */
   onClose: () => void;
+  /** Runs after a controlled close has finished fading out. */
+  onExited?: () => void;
+  /** Prevents backdrop, Escape, and footer dismissal while work is pending. */
+  dismissDisabled?: boolean;
   /** Main modal content. */
   children: ReactNode;
   /** Optional action row displayed beneath the content. */
-  footer?: ReactNode;
+  footer?: ReactNode | ((requestClose: () => void) => ReactNode);
   /** Optional panel layout classes; defaults to the standard narrow width. */
   panelClassName?: string;
   /** Optional layout classes for the scrollable content area. */
@@ -67,6 +71,8 @@ function Modal({
   title,
   description,
   onClose,
+  onExited,
+  dismissDisabled = false,
   children,
   footer,
   panelClassName,
@@ -79,7 +85,30 @@ function Modal({
   const titleId = useId();
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const onExitedRef = useRef(onExited);
   const [shouldRender, setShouldRender] = useState(open);
+  const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    onExitedRef.current = onExited;
+  }, [onClose, onExited]);
+
+  /** Fades out before asking a conditionally rendered parent to unmount. */
+  const requestClose = () => {
+    if (isClosing || !open || dismissDisabled) return;
+    setIsClosing(true);
+  };
+
+  useEffect(() => {
+    if (!isClosing) return;
+    const timeout = window.setTimeout(() => {
+      setIsClosing(false);
+      onCloseRef.current();
+    }, fadeDuration);
+    return () => window.clearTimeout(timeout);
+  }, [isClosing]);
 
   useEffect(() => {
     if (open) {
@@ -89,10 +118,10 @@ function Modal({
     }
 
     if (!shouldRender) return;
-    const timeout = window.setTimeout(
-      () => setShouldRender(false),
-      fadeDuration,
-    );
+    const timeout = window.setTimeout(() => {
+      setShouldRender(false);
+      onExitedRef.current?.();
+    }, fadeDuration);
     return () => window.clearTimeout(timeout);
   }, [open, shouldRender]);
 
@@ -125,7 +154,7 @@ function Modal({
   const handleBackdropMouseDown = (event: MouseEvent<HTMLDivElement>) => {
     onMouseDown?.(event);
     if (event.defaultPrevented) return;
-    if (event.target === event.currentTarget) onClose();
+    if (event.target === event.currentTarget) requestClose();
   };
 
   /**
@@ -141,7 +170,7 @@ function Modal({
 
     if (event.key === 'Escape') {
       event.preventDefault();
-      onClose();
+      requestClose();
       return;
     }
 
@@ -172,7 +201,9 @@ function Modal({
       aria-modal="true"
       className={[
         'fixed inset-0 z-[100] grid place-items-center overflow-y-auto overscroll-contain bg-on-surface/45 p-4 backdrop-blur-sm transition-opacity duration-200 ease-standard motion-reduce:transition-none sm:p-8',
-        open ? 'modal-enter opacity-100' : 'pointer-events-none opacity-0',
+        open && !isClosing
+          ? 'modal-enter opacity-100'
+          : 'pointer-events-none opacity-0',
         className,
       ]
         .filter(Boolean)
@@ -208,7 +239,7 @@ function Modal({
 
         {footer ? (
           <footer className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            {footer}
+            {typeof footer === 'function' ? footer(requestClose) : footer}
           </footer>
         ) : null}
       </div>
