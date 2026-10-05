@@ -113,6 +113,13 @@ const deleteTrip = async (req, res) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
+    if (deletedTrip.profilePictureId) {
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+        bucketName: "tripProfilePictures"
+      });
+      await bucket.delete(deletedTrip.profilePictureId).catch(() => undefined);
+    }
+
     return res.status(200).json({ message: 'Trip successfully deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting trip', error: error.message });

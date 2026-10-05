@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Reservation = require("./Reservation");
 
 const tripSchema = new mongoose.Schema({
   ownerId: {
@@ -70,6 +71,9 @@ tripSchema.pre('findOneAndDelete', async function() {
 
   // Delete the itinerary(ies) related to this trip
   await Itinerary.deleteMany({ tripId });
+
+  // Delete reservations linked to this trip.
+  await Reservation.deleteMany({ trip: tripId });
 })
 
 module.exports = mongoose.model("Trip", tripSchema);

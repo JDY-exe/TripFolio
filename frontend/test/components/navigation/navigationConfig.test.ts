@@ -6,8 +6,6 @@ import {
 
 describe('getTopLevelNavValue', () => {
   it.each([
-    ['/search', '/search'],
-    ['/search/results', '/search'],
     ['/my-trips', '/my-trips'],
     ['/my-trips/archive', '/my-trips'],
     ['/profile', '/profile'],
@@ -17,18 +15,19 @@ describe('getTopLevelNavValue', () => {
 
   it('falls back to My Trips for contextual and unknown pages', () => {
     expect(getTopLevelNavValue('/trip')).toBe('/my-trips');
+    expect(getTopLevelNavValue('/search')).toBe('/my-trips');
     expect(getTopLevelNavValue('/unknown')).toBe('/my-trips');
   });
 });
 
 describe('trip navigation', () => {
-  it('retains existing sections and includes trip settings', () => {
+  it('places settings before the itinerary', () => {
     expect(tripNavItems.map((item) => item.value)).toEqual([
+      'settings',
       'itinerary',
       'ledger',
       'logistics',
       'album',
-      'settings',
     ]);
   });
 });
