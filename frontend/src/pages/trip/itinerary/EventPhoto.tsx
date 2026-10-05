@@ -31,7 +31,7 @@ const EventPhoto = ({
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`View ${title} on Google Maps`}
-        className="relative block h-full min-h-40 w-full overflow-hidden bg-primary-container focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary"
+        className="absolute inset-0 block overflow-hidden bg-primary-container focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary"
       >
         {!imageLoaded ? (
           <Skeleton className="absolute inset-0 rounded-none" />
@@ -43,7 +43,7 @@ const EventPhoto = ({
           decoding="async"
           onLoad={() => setImageLoaded(true)}
           onError={onError}
-          className={`h-full w-full object-cover ${imageLoaded ? '' : 'opacity-0'}`}
+          className={`absolute inset-0 block h-full w-full object-cover ${imageLoaded ? '' : 'opacity-0'}`}
         />
       </a>
     );
@@ -54,9 +54,9 @@ const EventPhoto = ({
       <div
         role="status"
         aria-label={`Loading photo for ${title}`}
-        className="h-full min-h-40 w-full"
+        className="absolute inset-0"
       >
-        <Skeleton className="h-full min-h-40 w-full rounded-none" />
+        <Skeleton className="h-full w-full rounded-none" />
       </div>
     );
   }
@@ -64,7 +64,7 @@ const EventPhoto = ({
   return (
     <div
       aria-hidden="true"
-      className="grid h-full min-h-40 w-full place-items-center bg-primary-container text-on-primary-container"
+      className="absolute inset-0 grid place-items-center bg-primary-container text-on-primary-container"
     >
       <div className="grid h-20 w-16 place-items-center rounded-t-full rounded-b-2xl bg-secondary-container text-on-secondary-container">
         <CalendarDays size={32} />

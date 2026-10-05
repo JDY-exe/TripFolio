@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { Button, Text } from '../../../components/common';
+import { Button, Modal, Text, displayAlert } from '../../../components/common';
 import { useAuth } from '../../../contexts/AuthContext';
-import { deleteFromApi } from '../../../utils/api';
+import { deleteFromApi, getApiErrorMessage } from '../../../utils/api';
 import { eventsQueryKey, useEvents } from '../../../queries/events';
 import { useTrips } from '../../../queries/trips';
 import { useItinerary } from '../../../queries/itineraries';
@@ -29,19 +29,29 @@ const ItineraryView = () => {
     refetch: refetchEvents,
   } = useEvents(itinerary?._id);
   const [showDayNumbers, setShowDayNumbers] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<EventData | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
 
-  /** Removes an event from the API and the current itinerary list.
-   * @param eventId - Identifier of the event to remove.
+  /** Removes the confirmed event and refreshes the itinerary list.
    * @returns A promise that settles when deletion completes.
    */
-  const handleDeleteEvent = async (eventId: string) => {
+  const handleDeleteEvent = async () => {
+    if (!eventToDelete || isDeletingEvent) return;
+    setIsDeletingEvent(true);
     try {
-      await deleteFromApi(`/event/${eventId}`);
+      await deleteFromApi(`/event/${eventToDelete._id}`);
       await queryClient.invalidateQueries({
         queryKey: eventsQueryKey(itinerary?._id ?? ''),
       });
+      setDeleteModalOpen(false);
     } catch (error) {
-      console.error('Failed to delete event:', error);
+      displayAlert({
+        message: getApiErrorMessage(error, 'Could not delete the event.'),
+        tone: 'error',
+      });
+    } finally {
+      setIsDeletingEvent(false);
     }
   };
 
@@ -114,7 +124,10 @@ const ItineraryView = () => {
               itineraryId={itinerary._id}
               startDate={itinerary.startDate}
               endDate={itinerary.endDate}
-              onDeleteEvent={handleDeleteEvent}
+              onDeleteEvent={(event) => {
+                setEventToDelete(event);
+                setDeleteModalOpen(true);
+              }}
               onEventSaved={() =>
                 void queryClient.invalidateQueries({
                   queryKey: eventsQueryKey(itinerary._id),
@@ -135,6 +148,37 @@ const ItineraryView = () => {
           </Text>
         </section>
       </aside>
+      {eventToDelete ? (
+        <Modal
+          open={deleteModalOpen}
+          title={`Delete ${eventToDelete.title}?`}
+          onClose={() => {
+            if (!isDeletingEvent) setEventToDelete(null);
+          }}
+          onExited={() => setEventToDelete(null)}
+          dismissDisabled={isDeletingEvent}
+          footer={(requestClose) => (
+            <>
+              <Button
+                variant="secondary"
+                disabled={isDeletingEvent}
+                onClick={requestClose}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={isDeletingEvent}
+                onClick={() => void handleDeleteEvent()}
+              >
+                {isDeletingEvent ? 'Deleting...' : 'Delete event'}
+              </Button>
+            </>
+          )}
+        >
+          <Text>This event will be removed from your itinerary.</Text>
+        </Modal>
+      ) : null}
     </>
   );
 };

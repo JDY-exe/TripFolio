@@ -15,7 +15,7 @@ interface ItineraryDaySectionProps {
   itineraryId: string;
   startDate: string;
   endDate: string;
-  onDeleteEvent: (eventId: string) => void;
+  onDeleteEvent: (event: EventData) => void;
   onEventSaved: () => void;
 }
 

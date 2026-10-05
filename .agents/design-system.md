@@ -291,8 +291,10 @@ has four equally rounded corners, and opening and closing fade over 200 ms.
 | `title` | `ReactNode` | Required | Supplies the visible modal heading. |
 | `description` | `ReactNode` | — | Adds supporting copy beneath the heading. |
 | `onClose` | `() => void` | Required | Handles Close, Escape, and backdrop dismissal. |
+| `onExited` | `() => void` | — | Runs after a controlled close finishes fading out. |
+| `dismissDisabled` | `boolean` | `false` | Blocks dismissal while a save or delete is pending. |
 | `children` | `ReactNode` | Required | Supplies the main modal content. |
-| `footer` | `ReactNode` | — | Supplies the responsive action row. |
+| `footer` | `ReactNode \| ((requestClose: () => void) => ReactNode)` | — | Supplies the responsive action row; use the callback to animate footer dismissal before an owning parent unmounts. |
 | `panelClassName` | `string` | — | Sets panel layout classes, including a wider maximum width when a form needs columns. |
 | `contentClassName` | `string` | — | Sets layout classes on the content wrapper, such as scrolling inside a fixed-height panel. |
 

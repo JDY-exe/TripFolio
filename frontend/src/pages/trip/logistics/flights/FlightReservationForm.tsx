@@ -5,6 +5,7 @@ import {
   Modal,
   Stepper,
   Text,
+  TextArea,
   TextField,
 } from '../../../../components/common';
 import {
@@ -66,6 +67,7 @@ const FlightReservationForm = ({
   );
   const [step, setStep] = useState<FlightWizardStep>(FlightWizardStep.Route);
   const [error, setError] = useState('');
+  const [isOpen, setIsOpen] = useState(true);
   const stepContentRef = useRef<HTMLDivElement>(null);
   const previousStep = useRef(step);
 
@@ -139,7 +141,7 @@ const FlightReservationForm = ({
         values,
         id: reservation?._id,
       });
-      onClose();
+      setIsOpen(false);
     } catch (cause) {
       setError(
         getApiErrorMessage(
@@ -153,7 +155,7 @@ const FlightReservationForm = ({
 
   return (
     <Modal
-      open
+      open={isOpen}
       title="Flight information"
       description={
         reservation
@@ -163,14 +165,16 @@ const FlightReservationForm = ({
       onClose={() => {
         if (!saveReservation.isPending) onClose();
       }}
+      onExited={onClose}
+      dismissDisabled={saveReservation.isPending}
       panelClassName="flex h-[min(42rem,calc(76dvh_-_2rem))] flex-col sm:h-[min(42rem,calc(100dvh_-_4rem))] sm:max-w-3xl"
       contentClassName="min-h-0 flex-1 overflow-y-auto"
-      footer={
+      footer={(requestClose) => (
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
           <Button
             variant="secondary"
             disabled={saveReservation.isPending}
-            onClick={onClose}
+            onClick={requestClose}
           >
             Cancel
           </Button>
@@ -198,7 +202,7 @@ const FlightReservationForm = ({
             )}
           </div>
         </div>
-      }
+      )}
     >
       <Stepper
         steps={flightWizardSteps}
@@ -315,12 +319,11 @@ const FlightReservationForm = ({
               htmlFor="flight-notes"
             >
               Notes
-              <textarea
+              <TextArea
                 id="flight-notes"
                 rows={3}
                 value={draft.notes}
                 onChange={(event) => updateDraft({ notes: event.target.value })}
-                className="rounded-xl border border-outline bg-surface-container-low p-3 text-on-surface"
               />
             </label>
           </div>

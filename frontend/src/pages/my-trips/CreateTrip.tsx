@@ -47,6 +47,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
     processing: false,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   /**
    * Validates trip details, creates the itinerary, and uploads the optional cover.
@@ -104,7 +105,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
         }
       }
 
-      onCreated();
+      setIsOpen(false);
     } catch {
       setError('Failed to create trip. Please try again.');
     } finally {
@@ -113,21 +114,18 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
     }
   };
 
-  /** Dismisses the modal when no save request is active. @returns Nothing. */
-  const closeModal = () => {
-    if (!isSaving && !cropStatus.processing) onClose();
-  };
-
   return (
     <Modal
-      open
+      open={isOpen}
       title="Create a New Trip"
-      onClose={closeModal}
+      onClose={onClose}
+      onExited={onCreated}
+      dismissDisabled={isSaving || cropStatus.processing}
       className="[align-items:safe_center]"
       panelClassName="max-w-5xl"
-      footer={
+      footer={(requestClose) => (
         <>
-          <Button onClick={closeModal} variant="secondary">
+          <Button onClick={requestClose} variant="secondary">
             Cancel
           </Button>
           <Button
@@ -138,7 +136,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
             Create Trip
           </Button>
         </>
-      }
+      )}
     >
       {error ? (
         <Text color="error" role="alert" className="mb-4">

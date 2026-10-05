@@ -26,20 +26,19 @@ interface EventDraft {
 
 /**
  * Creates editable event values from an existing event or empty fields.
- * @param date - The selected itinerary day for a new event.
  * @param event - The event being edited, when present.
  * @returns Values suitable for the event form inputs.
  */
-const createEventDraft = (date: string, event?: EventData): EventDraft => ({
+const createEventDraft = (event?: EventData): EventDraft => ({
   title: event?.title ?? '',
   address: event?.address ?? '',
   placeId: event?.placeId ?? null,
   startTime: event
-    ? new Date(event.startTime).toISOString().slice(0, 16)
-    : `${date}T09:00`,
+    ? new Date(event.startTime).toISOString().slice(11, 16)
+    : '09:00',
   finishTime: event
-    ? new Date(event.endTime).toISOString().slice(0, 16)
-    : `${date}T10:00`,
+    ? new Date(event.endTime).toISOString().slice(11, 16)
+    : '10:00',
   notes: event?.notes ?? '',
 });
 
@@ -57,9 +56,7 @@ const AddNewEventCard = ({
   onClose,
 }: AddNewEventCardProps) => {
   const [isOpen, setIsOpen] = useState(Boolean(event));
-  const [draft, setDraft] = useState<EventDraft>(() =>
-    createEventDraft(date, event),
-  );
+  const [draft, setDraft] = useState<EventDraft>(() => createEventDraft(event));
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -72,12 +69,12 @@ const AddNewEventCard = ({
     setDraft((current) => ({ ...current, ...changes }));
   };
 
-  /** Validates the event dates and creates the event through the API.
+  /** Combines the selected day with the entered times and saves the event.
    * @returns A promise that settles after saving.
    */
   const saveEvent = async () => {
-    const start = new Date(`${draft.startTime}Z`);
-    const end = new Date(`${draft.finishTime}Z`);
+    const start = new Date(`${date}T${draft.startTime}:00.000Z`);
+    const end = new Date(`${date}T${draft.finishTime}:00.000Z`);
     const tripStart = new Date(startDate);
     const tripEnd = new Date(endDate);
     tripEnd.setUTCHours(23, 59, 59, 999);
@@ -87,14 +84,6 @@ const AddNewEventCard = ({
     }
     if (end < start) {
       setError('End time cannot be before start time.');
-      return;
-    }
-    if (
-      !event &&
-      (draft.startTime.slice(0, 10) !== date ||
-        draft.finishTime.slice(0, 10) !== date)
-    ) {
-      setError('Choose times on the selected day.');
       return;
     }
     if (start < tripStart || end > tripEnd) {
@@ -120,8 +109,7 @@ const AddNewEventCard = ({
           });
       onCreated(savedEvent);
       setIsOpen(false);
-      onClose?.();
-      setDraft(createEventDraft(date));
+      setDraft(createEventDraft());
     } catch {
       setError('Failed to save event. Please try again.');
     } finally {
@@ -144,19 +132,17 @@ const AddNewEventCard = ({
       <Modal
         open={isOpen}
         title={event ? 'Edit Event' : 'Add an Event'}
+        dismissDisabled={isSaving}
         onClose={() => {
-          if (!isSaving) {
-            setIsOpen(false);
-            onClose?.();
-          }
+          if (!isSaving) setIsOpen(false);
         }}
+        onExited={onClose}
         footer={
           <>
             <Button
               variant="secondary"
               onClick={() => {
                 setIsOpen(false);
-                onClose?.();
               }}
               disabled={isSaving}
             >
@@ -185,10 +171,8 @@ const AddNewEventCard = ({
             <TextField
               id="event-start"
               label="Start time"
-              type="datetime-local"
+              type="time"
               value={draft.startTime}
-              min={event ? undefined : `${date}T00:00`}
-              max={event ? undefined : `${date}T23:59`}
               onChange={(event) =>
                 updateDraft({ startTime: event.target.value })
               }
@@ -197,10 +181,8 @@ const AddNewEventCard = ({
             <TextField
               id="event-end"
               label="End time"
-              type="datetime-local"
+              type="time"
               value={draft.finishTime}
-              min={event ? undefined : `${date}T00:00`}
-              max={event ? undefined : `${date}T23:59`}
               onChange={(event) =>
                 updateDraft({ finishTime: event.target.value })
               }
@@ -217,7 +199,6 @@ const AddNewEventCard = ({
               value={draft.notes}
               onChange={(event) => updateDraft({ notes: event.target.value })}
               rows={3}
-              className="p-3"
             />
           </label>
           {error ? (

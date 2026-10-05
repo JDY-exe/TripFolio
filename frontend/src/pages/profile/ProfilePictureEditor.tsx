@@ -31,6 +31,7 @@ const ProfilePictureEditor = ({
   onClose,
 }: ProfilePictureEditorProps) => {
   const [isSaving, setIsSaving] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [cropStatus, setCropStatus] = useState<ImageCropStatus>({
     active: false,
     processing: false,
@@ -47,7 +48,7 @@ const ProfilePictureEditor = ({
     try {
       await onSave(await imageFileToDataUrl(picture));
       displayAlert({ message: 'Profile picture updated.', tone: 'success' });
-      onClose();
+      setIsOpen(false);
     } catch (caught) {
       const message = getApiErrorMessage(
         caught,
@@ -63,11 +64,17 @@ const ProfilePictureEditor = ({
 
   /** Prevents dismissal while the save request is active. @returns Nothing. */
   const closeEditor = () => {
-    if (!isSaving && !cropStatus.processing) onClose();
+    if (!isSaving && !cropStatus.processing) setIsOpen(false);
   };
 
   return (
-    <Modal onClose={closeEditor} open title="Set profile picture">
+    <Modal
+      onClose={onClose}
+      onExited={onClose}
+      open={isOpen}
+      title="Set profile picture"
+      dismissDisabled={isSaving || cropStatus.processing}
+    >
       <ImageUploadField
         acceptLabel="Save picture"
         cancelLabel="Cancel"
