@@ -9,8 +9,6 @@ import {
   Trees,
   UtensilsCrossed,
 } from 'lucide-react';
-import googleMapsLogoDarkGray from '../../../assets/google-maps-logo-dark-gray.svg';
-import googleMapsLogoWhite from '../../../assets/google-maps-logo-white.svg';
 import { Text, TextField } from '../../../components/common';
 import { usePlaceSuggestions } from '../../../queries/places';
 import type { PlaceSuggestion } from '../../../queries/places';
