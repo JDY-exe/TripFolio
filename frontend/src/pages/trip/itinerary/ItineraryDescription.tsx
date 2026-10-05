@@ -11,6 +11,7 @@ import { patchToApi } from '../../../utils/api';
 interface ItineraryDescriptionProps {
   itinerary: Itinerary;
   tripId: string;
+  readOnly?: boolean;
 }
 
 /** Displays and edits an itinerary's description in the trip sidebar.
@@ -20,6 +21,7 @@ interface ItineraryDescriptionProps {
 const ItineraryDescription = ({
   itinerary,
   tripId,
+  readOnly = false,
 }: ItineraryDescriptionProps) => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -53,7 +55,7 @@ const ItineraryDescription = ({
         <Text as="h3" variant="title">
           Description
         </Text>
-        {!isEditing ? (
+        {!readOnly && !isEditing ? (
           <IconButton
             label="Edit description"
             icon={<Pencil size={16} />}

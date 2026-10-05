@@ -15,8 +15,9 @@ interface ItineraryDaySectionProps {
   itineraryId: string;
   startDate: string;
   endDate: string;
-  onDeleteEvent: (event: EventData) => void;
-  onEventSaved: () => void;
+  onDeleteEvent?: (event: EventData) => void;
+  onEventSaved?: () => void;
+  readOnly?: boolean;
 }
 
 /** Displays one trip day, its events, and controls for adding or editing them.
@@ -35,6 +36,7 @@ const ItineraryDaySection = ({
   endDate,
   onDeleteEvent,
   onEventSaved,
+  readOnly = false,
 }: ItineraryDaySectionProps) => {
   const [eventBeingEdited, setEventBeingEdited] = useState<EventData | null>(
     null,
@@ -98,13 +100,14 @@ const ItineraryDaySection = ({
             <EventCard
               key={event._id}
               event={event}
-              onEdit={setEventBeingEdited}
+              onEdit={readOnly ? undefined : setEventBeingEdited}
               onDelete={onDeleteEvent}
+              readOnly={readOnly}
             />
           ))}
         </div>
       ) : null}
-      {eventBeingEdited ? (
+      {!readOnly && eventBeingEdited ? (
         <AddNewEventCard
           key={eventBeingEdited._id}
           itineraryId={itineraryId}
@@ -113,16 +116,16 @@ const ItineraryDaySection = ({
           date={date}
           event={eventBeingEdited}
           onClose={() => setEventBeingEdited(null)}
-          onCreated={onEventSaved}
+          onCreated={() => onEventSaved?.()}
         />
       ) : null}
-      {!eventsLoading ? (
+      {!readOnly && !eventsLoading ? (
         <AddNewEventCard
           itineraryId={itineraryId}
           startDate={startDate}
           endDate={endDate}
           date={date}
-          onCreated={onEventSaved}
+          onCreated={() => onEventSaved?.()}
         />
       ) : null}
     </section>

@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   CircleDollarSign,
+  Globe2,
   Images,
   Luggage,
   Search,
@@ -16,6 +17,7 @@ export type TripSection =
 
 /** Top-level application destinations displayed in the default bottom nav. */
 export const topLevelNavItems = [
+  { value: '/social', label: 'Social', icon: Globe2 },
   { value: '/search', label: 'Search', icon: Search },
   { value: '/my-trips', label: 'My Trips', icon: Luggage },
   { value: '/profile', label: 'Profile', icon: UserRound },
