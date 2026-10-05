@@ -73,9 +73,8 @@ const TripSettings = () => {
             Public trip
           </Text>
           <Text color="muted" className="mt-1">
-            {trip.isPublic
-              ? 'Visible to any signed-in TripFolio user.'
-              : 'Visible to trip members only.'}
+            The public flag does not grant data access; only trip owners and
+            members can view trip data.
           </Text>
         </span>
         <input

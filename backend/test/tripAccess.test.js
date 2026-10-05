@@ -18,9 +18,16 @@ test('owners and editors can modify trips while viewers are read-only', () => {
   assert.equal(canEditTrip(trip, 'viewer-id'), false);
 });
 
-test('private trips are hidden from non-members and public trips are readable', () => {
+test('only owners and members can read trips regardless of public visibility', () => {
   assert.equal(canReadTrip({ isPublic: false, users: [] }, 'stranger-id'), false);
-  assert.equal(canReadTrip({ isPublic: true, users: [] }, 'stranger-id'), true);
+  assert.equal(canReadTrip({ isPublic: true, users: [] }, 'stranger-id'), false);
+  assert.equal(
+    canReadTrip(
+      { isPublic: true, ownerId: 'owner-id', users: ['owner-id'] },
+      'owner-id',
+    ),
+    true,
+  );
 });
 
 test('legacy trip membership keeps its first user as owner', () => {

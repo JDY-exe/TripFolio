@@ -34,14 +34,14 @@ const getTripRole = (trip, userId) => {
 };
 
 /**
- * Allows trip members and authenticated users to read public trips.
+ * Allows only users with a trip role to read the trip, even if it is marked public.
  *
  * @param {object} trip - Trip document or plain trip record.
  * @param {string|object} userId - Authenticated user's ID.
- * @returns {boolean} Whether the user can read the trip.
+ * @returns {boolean} Whether the user owns or belongs to the trip.
  */
 const canReadTrip = (trip, userId) =>
-  Boolean(trip && (trip.isPublic === true || getTripRole(trip, userId)));
+  Boolean(trip && getTripRole(trip, userId));
 
 /**
  * Restricts trip mutations to owners and editors, never read-only viewers.

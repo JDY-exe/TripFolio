@@ -332,21 +332,23 @@ test('trip visibility routes protect private data and retain trip planning flows
   });
   assert.equal(ownerVisibilityUpdate.response.status, 200);
   assert.equal(ownerVisibilityUpdate.data.isPublic, true);
+  const publicTripListAsStranger = await send('/trip', {
+    userId: userIds.stranger,
+  });
+  assert.deepEqual(publicTripListAsStranger.data, []);
   const publicHotelsAsStranger = await send(`/logistics/hotels?tripId=${tripId}`, {
     userId: userIds.stranger,
   });
-  assert.equal(publicHotelsAsStranger.response.status, 200);
-  assert.equal(publicHotelsAsStranger.data.reservations.length, 1);
+  assert.equal(publicHotelsAsStranger.response.status, 404);
   const publicItineraryAsStranger = await send(`/itinerary?id=${tripId}`, {
     userId: userIds.stranger,
   });
-  assert.equal(publicItineraryAsStranger.response.status, 200);
+  assert.equal(publicItineraryAsStranger.response.status, 404);
   const publicEventsAsStranger = await send(
     `/event?itinerary_id=${privateItinerary.data._id}`,
     { userId: userIds.stranger },
   );
-  assert.equal(publicEventsAsStranger.response.status, 200);
-  assert.equal(publicEventsAsStranger.data[0].title, 'Private dinner');
+  assert.equal(publicEventsAsStranger.response.status, 404);
   const publicItineraryUpdateAsStranger = await send(
     `/itinerary/${privateItinerary.data._id}`,
     {
@@ -357,8 +359,7 @@ test('trip visibility routes protect private data and retain trip planning flows
   );
   assert.equal(publicItineraryUpdateAsStranger.response.status, 404);
   const publicTripDetail = await send(`/trip/${tripId}`, { userId: userIds.stranger });
-  assert.equal(publicTripDetail.response.status, 200);
-  assert.equal(publicTripDetail.data.currentUserRole, null);
+  assert.equal(publicTripDetail.response.status, 404);
 
   const itineraryCreate = await send('/itinerary', {
     method: 'POST',
