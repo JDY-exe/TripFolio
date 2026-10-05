@@ -1,4 +1,4 @@
-import { Plane } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   Button,
@@ -20,11 +20,15 @@ import { getApiErrorMessage } from '../../../../utils/api';
 import {
   FlightWizardStep,
   createFlightDraft,
+  createFlightSegment,
   flightWizardSteps,
-  normalizeFlightChanges,
+  removeFlightSegment,
+  updateFlightSegment,
   validateFlightStep,
 } from './flightWizard';
 import type { FlightDraft } from './flightWizard';
+import type { FlightSegment } from '../../../../queries/reservations';
+import FlightJourneyTimeline from './FlightJourneyTimeline';
 
 interface FlightReservationFormProps {
   tripId: string;
@@ -33,26 +37,7 @@ interface FlightReservationFormProps {
 }
 
 /**
- * Formats a browser-local input date for the review ticket.
- * @param value - A datetime-local field value.
- * @returns A short date in the user's locale.
- */
-const previewDate = (value: string): string =>
-  new Date(value).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-
-/**
- * Reads the entered clock time without converting it to an airport time zone.
- * @param value - A datetime-local field value.
- * @returns The entered hour and minute.
- */
-const previewTime = (value: string): string => value.slice(11, 16);
-
-/**
- * Presents a four-step editor for a single flight reservation.
+ * Presents a four-step editor for a flight journey.
  * @param props - Trip, optional reservation to edit, and close action.
  * @returns An interactive flight form that saves through the reservation mutation.
  */
@@ -85,7 +70,16 @@ const FlightReservationForm = ({
   const updateDraft = (changes: Partial<FlightDraft>) => {
     setDraft((current) => ({
       ...current,
-      ...normalizeFlightChanges(changes),
+      ...changes,
+    }));
+    setError('');
+  };
+
+  /** Updates one route leg while maintaining its connection to the next. */
+  const updateSegment = (index: number, changes: Partial<FlightSegment>) => {
+    setDraft((current) => ({
+      ...current,
+      segments: updateFlightSegment(current.segments, index, changes),
     }));
     setError('');
   };
@@ -121,17 +115,27 @@ const FlightReservationForm = ({
    * @returns A promise that settles after the save request.
    */
   const handleSave = async () => {
+    const routeError = validateFlightStep(FlightWizardStep.Route, draft);
+    if (routeError) {
+      setError(routeError);
+      setStep(FlightWizardStep.Route);
+      return;
+    }
     const values: ReservationInput = {
       name: draft.name.trim(),
-      startTime: new Date(draft.startTime).toISOString(),
-      endTime: new Date(draft.endTime).toISOString(),
+      startTime: `${draft.segments[0].departTime}:00.000Z`,
+      endTime: `${draft.segments.at(-1)!.arriveTime}:00.000Z`,
       confirmationNumber: draft.confirmationNumber.trim(),
       cost: draft.cost.trim() ? Number(draft.cost) : null,
       notes: draft.notes.trim(),
       flights: {
-        flightNum: draft.flightNum.trim(),
-        departAirport: draft.departAirport.trim(),
-        arriveAirport: draft.arriveAirport.trim(),
+        flightNum: draft.segments[0].flightNum.trim(),
+        departAirport: draft.segments[0].departAirport.trim(),
+        arriveAirport: draft.segments.at(-1)!.arriveAirport.trim(),
+        segments: draft.segments.map((segment) => ({
+          ...segment,
+          flightNum: segment.flightNum.trim(),
+        })),
       },
     };
     setError('');
@@ -156,18 +160,18 @@ const FlightReservationForm = ({
   return (
     <Modal
       open={isOpen}
-      title="Flight information"
+      title="Flight journey"
       description={
         reservation
-          ? 'Edit your flight information.'
-          : 'Input your flight information.'
+          ? 'Edit the legs and booking details for this journey.'
+          : 'Add each leg of your journey, including connections.'
       }
       onClose={() => {
         if (!saveReservation.isPending) onClose();
       }}
       onExited={onClose}
       dismissDisabled={saveReservation.isPending}
-      panelClassName="flex h-[min(42rem,calc(76dvh_-_2rem))] flex-col sm:h-[min(42rem,calc(100dvh_-_4rem))] sm:max-w-3xl"
+      panelClassName="flex h-[calc(100dvh_-_2rem)] max-h-[56rem] flex-col sm:h-[calc(100dvh_-_4rem)] sm:max-w-3xl"
       contentClassName="min-h-0 flex-1 overflow-y-auto"
       footer={(requestClose) => (
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
@@ -208,8 +212,13 @@ const FlightReservationForm = ({
         steps={flightWizardSteps}
         currentStep={step}
         label="Flight form progress"
+        className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container py-4"
       />
-      <div ref={stepContentRef} tabIndex={-1} className="mt-7 outline-none">
+      <div
+        ref={stepContentRef}
+        tabIndex={-1}
+        className="mt-6 scroll-mt-24 outline-none"
+      >
         <Text as="h3" variant="title" className="mb-4">
           {flightWizardSteps[step].label}
         </Text>
@@ -220,76 +229,147 @@ const FlightReservationForm = ({
         ) : null}
 
         {step === FlightWizardStep.Route ? (
-          <div className="overflow-hidden rounded-[1.75rem_1.75rem_1.75rem_1.75rem] border border-outline-variant bg-surface-container-low">
-            <div className="px-5 pt-5">
-              <TextField
-                id="flight-number"
-                label="Airline code and flight number"
-                className="max-w-64"
-                value={draft.flightNum}
-                autoCapitalize="characters"
-                onChange={(event) =>
-                  updateDraft({ flightNum: event.target.value })
-                }
-                placeholder="UA1234"
-              />
-            </div>
-            <div className="grid gap-5 p-5 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
-              <div className="grid gap-4">
-                <TextField
-                  id="flight-depart-airport"
-                  label="Departure airport"
-                  value={draft.departAirport}
-                  maxLength={3}
-                  autoCapitalize="characters"
-                  onChange={(event) =>
-                    updateDraft({ departAirport: event.target.value })
-                  }
-                  required
-                />
-                <TextField
-                  id="flight-departure"
-                  label="Departure date and time"
-                  type="datetime-local"
-                  value={draft.startTime}
-                  onChange={(event) =>
-                    updateDraft({ startTime: event.target.value })
-                  }
-                  required
-                />
+          <div className="space-y-4">
+            <Text color="muted" className="text-sm">
+              Enter the local date and time shown on your ticket at each
+              airport.
+            </Text>
+            {draft.segments.map((segment, index) => (
+              <div key={index}>
+                {index > 0 ? (
+                  <div className="mb-4 flex items-center gap-2 rounded-panel bg-secondary-container px-4 py-3 text-sm text-on-secondary-container">
+                    <span className="font-semibold">
+                      Layover in{' '}
+                      {segment.departAirport || 'your connection airport'}
+                    </span>
+                    <span>· Next flight departs here</span>
+                  </div>
+                ) : null}
+                <section
+                  aria-labelledby={`flight-leg-${index}`}
+                  className="rounded-panel border border-outline-variant bg-surface-container-low p-5"
+                >
+                  <div className="mb-5 flex items-center justify-between gap-3">
+                    <Text
+                      as="h4"
+                      id={`flight-leg-${index}`}
+                      variant="label"
+                      className="font-semibold"
+                    >
+                      Leg {index + 1}
+                    </Text>
+                    {draft.segments.length > 1 ? (
+                      <Button
+                        size="sm"
+                        variant="dangerGhost"
+                        leadingIcon={<Trash2 aria-hidden size={15} />}
+                        onClick={() =>
+                          updateDraft({
+                            segments: removeFlightSegment(
+                              draft.segments,
+                              index,
+                            ),
+                          })
+                        }
+                      >
+                        Remove leg
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <TextField
+                        id={`flight-number-${index}`}
+                        label="Airline code and flight number"
+                        className="max-w-64"
+                        value={segment.flightNum}
+                        autoCapitalize="characters"
+                        onChange={(event) =>
+                          updateSegment(index, {
+                            flightNum: event.target.value,
+                          })
+                        }
+                        placeholder="UA1234"
+                        required
+                      />
+                    </div>
+                    {index === 0 ? (
+                      <TextField
+                        id={`flight-depart-airport-${index}`}
+                        label="Departure airport"
+                        value={segment.departAirport}
+                        maxLength={3}
+                        autoCapitalize="characters"
+                        onChange={(event) =>
+                          updateSegment(index, {
+                            departAirport: event.target.value,
+                          })
+                        }
+                        placeholder="SFO"
+                        required
+                      />
+                    ) : (
+                      <div className="rounded-panel px-4 py-3">
+                        <Text variant="label" color="muted">
+                          Departure airport
+                        </Text>
+                        <Text variant="body" className="mt-2 font-semibold">
+                          {segment.departAirport || 'Enter previous arrival'}
+                        </Text>
+                      </div>
+                    )}
+                    <TextField
+                      id={`flight-arrive-airport-${index}`}
+                      label="Arrival airport"
+                      value={segment.arriveAirport}
+                      maxLength={3}
+                      autoCapitalize="characters"
+                      onChange={(event) =>
+                        updateSegment(index, {
+                          arriveAirport: event.target.value,
+                        })
+                      }
+                      placeholder="ORD"
+                      required
+                    />
+                    <TextField
+                      id={`flight-departure-${index}`}
+                      label="Departure date and local time"
+                      type="datetime-local"
+                      value={segment.departTime}
+                      onChange={(event) =>
+                        updateSegment(index, { departTime: event.target.value })
+                      }
+                      required
+                    />
+                    <TextField
+                      id={`flight-arrival-${index}`}
+                      label="Arrival date and local time"
+                      type="datetime-local"
+                      value={segment.arriveTime}
+                      onChange={(event) =>
+                        updateSegment(index, { arriveTime: event.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </section>
               </div>
-              <div
-                className="hidden items-center gap-2 text-primary sm:flex"
-                aria-hidden="true"
-              >
-                <span className="w-4 border-t border-2 border-dashed border-outline" />
-                <Plane size={20} className="rotate-45" />
-                <span className="w-4 border-t border-2 border-dashed border-outline" />
-              </div>
-              <div className="grid gap-4">
-                <TextField
-                  id="flight-arrive-airport"
-                  label="Arrival airport"
-                  value={draft.arriveAirport}
-                  maxLength={3}
-                  autoCapitalize="characters"
-                  onChange={(event) =>
-                    updateDraft({ arriveAirport: event.target.value })
-                  }
-                  required
-                />
-                <TextField
-                  id="flight-arrival"
-                  label="Arrival date and time"
-                  type="datetime-local"
-                  value={draft.endTime}
-                  onChange={(event) =>
-                    updateDraft({ endTime: event.target.value })
-                  }
-                  required
-                />
-              </div>
-            </div>
+            ))}
+            <Button
+              variant="outline"
+              leadingIcon={<Plus aria-hidden size={18} />}
+              onClick={() =>
+                updateDraft({
+                  segments: [
+                    ...draft.segments,
+                    createFlightSegment(draft.segments.at(-1)?.arriveAirport),
+                  ],
+                })
+              }
+            >
+              Add layover / next flight
+            </Button>
           </div>
         ) : null}
 
@@ -346,75 +426,25 @@ const FlightReservationForm = ({
         {step === FlightWizardStep.Review ? (
           <article className="overflow-hidden rounded-[1.75rem_0.75rem_1.75rem_0.75rem] bg-surface-container-low">
             <div className="p-5 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="grid size-12 shrink-0 place-items-center rounded-[1rem_0.5rem_1rem_0.5rem] bg-primary-container text-on-primary-container">
-                  <Plane aria-hidden size={22} />
-                </div>
-                <div>
-                  <Text as="h4" variant="label" className="font-medium">
-                    {draft.flightNum}
-                  </Text>
-                </div>
-              </div>
-
-              <div className="mt-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
-                <div>
-                  <Text className="text-3xl tracking-tight">
-                    {draft.departAirport}
-                  </Text>
-                  <time
-                    dateTime={draft.startTime}
-                    className="mt-3 block text-lg font-medium tabular-nums"
-                  >
-                    {previewTime(draft.startTime)}
-                  </time>
-                  <time
-                    dateTime={draft.startTime}
-                    className="block text-xs text-on-surface-variant"
-                  >
-                    {previewDate(draft.startTime)}
-                  </time>
-                </div>
-                <div
-                  className="flex items-center gap-2 text-primary"
-                  aria-hidden="true"
-                >
-                  <span className="hidden w-8 border-t border-dashed border-outline-variant sm:block" />
-                  <Plane size={18} className="rotate-45" />
-                  <span className="hidden w-8 border-t border-dashed border-outline-variant sm:block" />
-                </div>
-                <div className="text-right">
-                  <Text className="text-3xl tracking-tight">
-                    {draft.arriveAirport}
-                  </Text>
-                  <time
-                    dateTime={draft.endTime}
-                    className="mt-3 block text-lg font-medium tabular-nums"
-                  >
-                    {previewTime(draft.endTime)}
-                  </time>
-                  <time
-                    dateTime={draft.endTime}
-                    className="block text-xs text-on-surface-variant"
-                  >
-                    {previewDate(draft.endTime)}
-                  </time>
-                </div>
-              </div>
-              <Text variant="caption" color="muted" className="mt-4">
-                Notes
+              <Text as="h4" variant="title">
+                {draft.name}
               </Text>
+              <Text variant="caption" color="muted" className="mt-1">
+                {draft.segments.length === 1
+                  ? 'Nonstop flight'
+                  : `${draft.segments.length - 1} ${draft.segments.length === 2 ? 'layover' : 'layovers'}`}
+              </Text>
+              <FlightJourneyTimeline segments={draft.segments} />
               {draft.notes ? (
                 <Text
                   color="muted"
-                  className="mt-4 whitespace-pre-wrap text-sm"
+                  className="mt-3 whitespace-pre-wrap text-sm"
                 >
                   {draft.notes}
                 </Text>
               ) : null}
             </div>
             <div className="relative flex flex-wrap gap-x-4 gap-y-1 border-t border-dashed border-outline-variant px-5 py-4 text-sm text-on-surface-variant before:absolute before:-left-2 before:-top-2 before:size-4 before:rounded-full before:bg-surface after:absolute after:-right-2 after:-top-2 after:size-4 after:rounded-full after:bg-surface sm:px-6">
-              <span className="font-medium text-on-surface">{draft.name}</span>
               {draft.confirmationNumber ? (
                 <span>Confirmation: {draft.confirmationNumber}</span>
               ) : null}

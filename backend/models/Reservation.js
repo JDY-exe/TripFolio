@@ -59,7 +59,15 @@ const reservationSchema = new mongoose.Schema(
                 ref: "Reservation",
                 default: null,
                 unique: false
-            }
+            },
+            segments: [{
+                _id: false,
+                flightNum: { type: String, required: true },
+                departAirport: { type: String, required: true },
+                departTime: { type: String, required: true },
+                arriveAirport: { type: String, required: true },
+                arriveTime: { type: String, required: true }
+            }]
         },
         accommodations: {
             address: {
