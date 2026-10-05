@@ -4,7 +4,6 @@ import {
   Globe2,
   Images,
   Luggage,
-  Search,
   Settings,
   Truck,
   UserRound,
@@ -18,18 +17,17 @@ export type TripSection =
 /** Top-level application destinations displayed in the default bottom nav. */
 export const topLevelNavItems = [
   { value: '/social', label: 'Social', icon: Globe2 },
-  { value: '/search', label: 'Search', icon: Search },
   { value: '/my-trips', label: 'My Trips', icon: Luggage },
   { value: '/profile', label: 'Profile', icon: UserRound },
 ] as const satisfies readonly BottomNavItem[];
 
 /** Locally controlled views displayed while an individual trip is selected. */
 export const tripNavItems = [
+  { value: 'settings', label: 'Settings', icon: Settings },
   { value: 'itinerary', label: 'Itinerary', icon: CalendarDays },
   { value: 'ledger', label: 'Ledger', icon: CircleDollarSign },
   { value: 'logistics', label: 'Logistics', icon: Truck },
   { value: 'album', label: 'Album', icon: Images },
-  { value: 'settings', label: 'Settings', icon: Settings },
 ] as const satisfies readonly BottomNavItem[];
 
 /**
