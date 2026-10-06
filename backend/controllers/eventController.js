@@ -79,7 +79,7 @@ const getEventPhoto = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
     const trip = await findEventTrip(event);
-    if (!trip || !canReadTrip(trip, req.user.id)) {
+    if (!trip || (!trip.isPublic && !canReadTrip(trip, req.user.id))) {
       return res.status(404).json({ message: 'Event not found' });
     }
     if (!event.placeId) {
