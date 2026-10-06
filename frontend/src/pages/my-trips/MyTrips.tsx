@@ -55,7 +55,7 @@ const MyTrips = () => {
                   status="Upcoming"
                   imagePath={
                     trip.profilePictureId
-                      ? `/trip/${trip._id}/profile_picture`
+                      ? `/trip/${trip._id}/profile_picture?v=${trip.profilePictureId}`
                       : undefined
                   }
                 />

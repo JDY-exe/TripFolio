@@ -141,9 +141,9 @@ const updateTripProfilePicture = async (req, res) => {
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
-    if (!canEditTrip(trip, req.user.id)) {
+    if (getTripRole(trip, req.user.id) !== "owner") {
       return res.status(getTripRole(trip, req.user.id) ? 403 : 404).json({
-        message: "You cannot update this trip cover"
+        message: "Only the trip owner can change the trip picture"
       });
     }
 

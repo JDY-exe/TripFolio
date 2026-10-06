@@ -1,11 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Button, Modal, Text, displayAlert } from '../../components/common';
+import {
+  Button,
+  ImageUploadField,
+  Modal,
+  Text,
+  displayAlert,
+  tripCoverImagePreset,
+} from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { tripsQueryKey } from '../../queries/trips';
 import {
   deleteFromApi,
+  getBlobFromApi,
   getApiErrorMessage,
   getFromApi,
   patchToApi,
@@ -18,11 +26,16 @@ interface TripSettingsData {
   name: string;
   isPublic: boolean;
   currentUserRole: TripRole;
+  profilePictureId?: string;
+}
+
+interface TripPictureResponse {
+  trip: Pick<TripSettingsData, '_id' | 'profilePictureId'>;
 }
 
 /**
  * Loads trip settings and the current user's role, then lets the owner change
- * visibility or confirm deletion through the API.
+ * the picture or visibility and confirm deletion through the API.
  *
  * @returns The trip settings and their loading or failure state.
  */
@@ -31,6 +44,11 @@ const TripSettings = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [pictureFile, setPictureFile] = useState<File>();
+  const [coverImage, setCoverImage] = useState<{
+    pictureId: string;
+    url: string;
+  }>();
   const queryClient = useQueryClient();
   const queryKey = ['trip-settings', id] as const;
   const tripQuery = useQuery({
@@ -38,6 +56,54 @@ const TripSettings = () => {
     queryFn: () => getFromApi<TripSettingsData>(`/trip/${id}`),
     enabled: Boolean(id),
   });
+  const profilePictureId = tripQuery.data?.profilePictureId;
+
+  useEffect(() => {
+    if (!id || !profilePictureId) return;
+
+    let active = true;
+    let objectUrl: string | undefined;
+    void getBlobFromApi(`/trip/${id}/profile_picture?v=${profilePictureId}`)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setCoverImage({ pictureId: profilePictureId, url: objectUrl });
+      })
+      .catch(() => {
+        if (active) setCoverImage(undefined);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [id, profilePictureId]);
+
+  const pictureMutation = useMutation({
+    mutationFn: (image: FormData) =>
+      patchToApi<TripPictureResponse>(`/trip/${id}/profile_picture`, image),
+    onSuccess: (response) => {
+      queryClient.setQueryData<TripSettingsData>(queryKey, (current) =>
+        current
+          ? { ...current, profilePictureId: response.trip.profilePictureId }
+          : current,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: tripsQueryKey(user?.id),
+      });
+      displayAlert({ message: 'Trip picture updated.', tone: 'success' });
+    },
+    onError: (error) => {
+      displayAlert({
+        message: getApiErrorMessage(
+          error,
+          'Trip picture could not be updated.',
+        ),
+        tone: 'error',
+      });
+    },
+  });
+
   const visibilityMutation = useMutation({
     mutationFn: (isPublic: boolean) =>
       patchToApi<TripSettingsData>(`/trip/${id}/visibility`, { isPublic }),
@@ -86,6 +152,10 @@ const TripSettings = () => {
 
   const trip = tripQuery.data;
   const canChangeVisibility = trip.currentUserRole === 'owner';
+  const existingImageUrl =
+    profilePictureId && coverImage?.pictureId === profilePictureId
+      ? coverImage.url
+      : undefined;
 
   return (
     <>
@@ -95,6 +165,31 @@ const TripSettings = () => {
             Trip settings
           </Text>
         </header>
+        {canChangeVisibility ? (
+          <div className="mb-8 max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
+            <Text as="h3" variant="title">
+              Trip picture
+            </Text>
+            <ImageUploadField
+              className="mt-4"
+              disabled={pictureMutation.isPending}
+              existingImageUrl={existingImageUrl}
+              label="Add a trip picture"
+              name="trip-picture"
+              onAccept={async (file) => {
+                const image = new FormData();
+                image.append('image', file);
+                await pictureMutation.mutateAsync(image);
+                setPictureFile(file);
+              }}
+              pickerHeight={240}
+              preset={tripCoverImagePreset}
+              previewAlt="Current trip picture"
+              replaceLabel="Change trip picture"
+              value={pictureFile}
+            />
+          </div>
+        ) : null}
         <label className="flex max-w-2xl items-center justify-between gap-5 rounded-panel border border-outline-variant bg-surface-container-low p-5">
           <span>
             <Text as="span" variant="label">

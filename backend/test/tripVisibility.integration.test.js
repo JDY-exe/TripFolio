@@ -145,18 +145,23 @@ test('trip visibility routes protect private data and retain trip planning flows
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   const userIds = {
     owner: new mongoose.Types.ObjectId().toString(),
+    editor: new mongoose.Types.ObjectId().toString(),
     viewer: new mongoose.Types.ObjectId().toString(),
     stranger: new mongoose.Types.ObjectId().toString(),
   };
   const tokenFor = (userId) => jwt.sign({ id: userId }, process.env.JWT_SECRET);
-  const send = async (path, { method = 'GET', userId, body } = {}) => {
+  const send = async (path, { method = 'GET', userId, body, formData } = {}) => {
     const response = await fetch(`${baseUrl}${path}`, {
       method,
       headers: {
         ...(userId ? { Authorization: `Bearer ${tokenFor(userId)}` } : {}),
         ...(body ? { 'Content-Type': 'application/json' } : {}),
       },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      ...(formData
+        ? { body: formData }
+        : body
+          ? { body: JSON.stringify(body) }
+          : {}),
     });
     const responseText = await response.text();
     const data = responseText ? JSON.parse(responseText) : undefined;
@@ -228,6 +233,32 @@ test('trip visibility routes protect private data and retain trip planning flows
     body: { tripId, userId: userIds.viewer, role: 'viewer' },
   });
   assert.equal(viewerMembership.response.status, 200);
+  const editorMembership = await send('/trip/user', {
+    method: 'PATCH',
+    userId: userIds.owner,
+    body: { tripId, userId: userIds.editor, role: 'editor' },
+  });
+  assert.equal(editorMembership.response.status, 200);
+  const pictureForm = new FormData();
+  pictureForm.append(
+    'image',
+    new Blob(['trip image'], { type: 'image/jpeg' }),
+    'trip.jpg',
+  );
+  const editorPictureUpdate = await send(
+    `/trip/${tripId}/profile_picture`,
+    {
+      method: 'PATCH',
+      userId: userIds.editor,
+      formData: pictureForm,
+    },
+  );
+  assert.equal(editorPictureUpdate.response.status, 403);
+  assert.equal(
+    editorPictureUpdate.data.message,
+    'Only the trip owner can change the trip picture',
+  );
+
   const viewerTripDetail = await send(`/trip/${tripId}`, { userId: userIds.viewer });
   assert.equal(viewerTripDetail.response.status, 200);
   assert.equal(viewerTripDetail.data.currentUserRole, 'viewer');
