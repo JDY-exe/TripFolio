@@ -37,10 +37,10 @@ const SocialFeed = () => {
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   return (
-    <section aria-labelledby="social-heading" className="mx-auto max-w-3xl">
+    <section aria-labelledby="social-heading" className="mx-auto max-w-2xl">
       <header className="mb-7 flex items-end justify-between gap-4">
         <Text as="h1" id="social-heading" variant="display">
-          Public itineraries
+          Global feed
         </Text>
       </header>
 
@@ -68,7 +68,7 @@ const SocialFeed = () => {
           </Text>
         </div>
       ) : (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           {items.map((item) => (
             <ItineraryFeedCard key={item.tripId} item={item} />
           ))}
