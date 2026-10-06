@@ -139,6 +139,33 @@ test("public itinerary endpoints expose only public read data", async (t) => {
   });
   assert.deepEqual(feedPipeline[7], { $skip: 0 });
   assert.deepEqual(feedPipeline[8], { $limit: 2 });
+  assert.deepEqual(feedPipeline[9], {
+    $lookup: {
+      from: "events",
+      let: { itineraryId: "$itinerary._id" },
+      pipeline: [
+        { $match: { $expr: { $eq: ["$itineraryID", "$$itineraryId"] } } },
+        { $limit: 1 },
+      ],
+      as: "itineraryEvents",
+    },
+  });
+  assert.equal(
+    feedPipeline[10].$project.itinerary.title.$cond[0].$and[0].$eq[1],
+    "Blank Itinerary",
+  );
+  assert.deepEqual(
+    feedPipeline[10].$project.itinerary.title.$cond[0].$and[1].$or,
+    [
+      { $gt: [{ $size: "$itineraryEvents" }, 0] },
+      {
+        $ne: [
+          { $trim: { input: { $ifNull: ["$itinerary.description", ""] } } },
+          "",
+        ],
+      },
+    ],
+  );
 
   const publicResponse = await send(`/api/itineraries/${publicTripId}`);
   const publicDetails = await publicResponse.json();

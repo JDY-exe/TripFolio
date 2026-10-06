@@ -67,9 +67,11 @@ const ItineraryFeedCard = ({ item }: { item: PublicItineraryFeedItem }) => {
           <Text as="h2" variant="headline" className="break-words">
             {item.tripName}
           </Text>
-          <Text as="p" variant="label" color="primary" className="mt-1">
-            {item.itinerary.title}
-          </Text>
+          {item.itinerary.title ? (
+            <Text as="p" variant="label" color="primary" className="mt-1">
+              {item.itinerary.title}
+            </Text>
+          ) : null}
           {item.itinerary.description ? (
             <Text
               as="p"

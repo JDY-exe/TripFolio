@@ -81,6 +81,17 @@ const getPublicItineraryFeed = async (req, res) => {
         { $skip: page * pageSize },
         { $limit: pageSize + 1 },
         {
+          $lookup: {
+            from: "events",
+            let: { itineraryId: "$itinerary._id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$itineraryID", "$$itineraryId"] } } },
+              { $limit: 1 },
+            ],
+            as: "itineraryEvents",
+          },
+        },
+        {
           $project: {
             _id: 0,
             tripId: "$_id",
@@ -96,7 +107,32 @@ const getPublicItineraryFeed = async (req, res) => {
             },
             itinerary: {
               _id: "$itinerary._id",
-              title: "$itinerary.title",
+              title: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$itinerary.title", "Blank Itinerary"] },
+                      {
+                        $or: [
+                          { $gt: [{ $size: "$itineraryEvents" }, 0] },
+                          {
+                            $ne: [
+                              {
+                                $trim: {
+                                  input: { $ifNull: ["$itinerary.description", ""] },
+                                },
+                              },
+                              "",
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  "",
+                  "$itinerary.title",
+                ],
+              },
               description: "$itinerary.description",
               startDate: "$itinerary.startDate",
               endDate: "$itinerary.endDate",
