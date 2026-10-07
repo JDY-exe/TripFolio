@@ -74,13 +74,23 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
             type: "flights",
             trip: tripId,
             name: "Flight",
-            startTime: new Date("2027-04-02T08:00:00Z"),
-            endTime: new Date("2027-04-02T10:00:00Z"),
+            startTime: new Date("2027-04-02T08:00:00.000Z"),
+            endTime: new Date("2027-04-02T10:00:00.000Z"),
+
             flights: {
                 flightNum: "AB123",
                 departAirport: "SIN",
                 arriveAirport: "KIX",
-                nextFlightId: null
+
+                segments: [
+                    {
+                        flightNum: "AB123",
+                        departAirport: "SIN",
+                        departTime: "2027-04-02T08:00",
+                        arriveAirport: "KIX",
+                        arriveTime: "2027-04-02T10:00"
+                    }
+                ]
             },
             async save() {
                 return this;
@@ -147,13 +157,16 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
     const payload = {
         tripId,
         name: "Flight",
-        startTime: "2027-04-02T08:00:00Z",
-        endTime: "2027-04-02T10:00:00Z",
         flights: {
-            airline: "Airline",
-            flightNum: "AB123",
-            departAirport: "SIN",
-            arriveAirport: "KIX"
+            segments: [
+                {
+                    flightNum: "AB123",
+                    departAirport: "SIN",
+                    departTime: "2027-04-02T08:00",
+                    arriveAirport: "KIX",
+                    arriveTime: "2027-04-02T10:00"
+                }
+            ]
         }
     };
     Reservation.create = async values => ({
@@ -171,6 +184,24 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
     assert.equal(response.status, 201);
     data = await response.json();
     assert.equal(data.reservation.flights.flightNum, "AB123");
+    assert.equal(data.reservation.flights.departAirport, "SIN");
+    assert.equal(data.reservation.flights.arriveAirport, "KIX");
+    assert.equal(
+        data.reservation.flights.segments.length,
+        1
+    );
+    assert.equal(
+        data.reservation.flights.segments[0].flightNum,
+        "AB123"
+    );
+    assert.equal(
+        data.reservation.startTime,
+        "2027-04-02T08:00:00.000Z"
+    );
+    assert.equal(
+        data.reservation.endTime,
+        "2027-04-02T10:00:00.000Z"
+    );
     assert.equal(linked, true);
     Reservation.findById = async () => ({
         _id: reservationId,
@@ -190,14 +221,27 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         trip: tripId,
         type: "flights",
         name: "Flight",
-        startTime: new Date(payload.startTime),
-        endTime: new Date(payload.endTime),
+        startTime: new Date("2027-04-02T08:00:00.000Z"),
+        endTime: new Date("2027-04-02T10:00:00.000Z"),
         flights: {
-            ...payload.flights
+            flightNum: "AB123",
+            departAirport: "SIN",
+            arriveAirport: "KIX",
+
+            segments: [
+                {
+                    flightNum: "AB123",
+                    departAirport: "SIN",
+                    departTime: "2027-04-02T08:00",
+                    arriveAirport: "KIX",
+                    arriveTime: "2027-04-02T10:00"
+                }
+            ]
         },
         set(field, value) {
             if (field.includes(".")) {
-                this.flights[field.split(".")[1]] = value;
+                const parts = field.split(".");
+                this.flights[parts[1]] = value;
             } else {
                 this[field] = value;
             }
@@ -205,7 +249,6 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         async save() {
             return this;
         },
-
         async deleteOne() {
             this.deleted = true;
         }
@@ -216,15 +259,23 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         ownerId: userId,
         users: [userId]
     });
-
     response = await request(
         `/logistics/flights/${reservationId}`,
         {
             method: "PATCH",
             body: JSON.stringify({
                 name: "Updated flight",
+
                 flights: {
-                    flightNum: "AB456"
+                    segments: [
+                        {
+                            flightNum: "AB456",
+                            departAirport: "SIN",
+                            departTime: "2027-04-02T09:00",
+                            arriveAirport: "KIX",
+                            arriveTime: "2027-04-02T11:00"
+                        }
+                    ]
                 }
             })
         }
@@ -232,7 +283,23 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
     assert.equal(response.status, 200);
     data = await response.json();
     assert.equal(
+        data.reservation.name,
+        "Updated flight"
+    );
+    assert.equal(
         data.reservation.flights.flightNum,
+        "AB456"
+    );
+    assert.equal(
+        data.reservation.flights.departAirport,
+        "SIN"
+    );
+    assert.equal(
+        data.reservation.flights.arriveAirport,
+        "KIX"
+    );
+    assert.equal(
+        data.reservation.flights.segments[0].flightNum,
         "AB456"
     );
     let unlinked = false;
@@ -326,8 +393,9 @@ test("GET /logistics/flights rejects an invalid trip ID", async () => {
 });
 
 
-test("POST /logistics/flights rejects missing required fields", async () => {
+test("POST /logistics/flights rejects missing flight segments", async () => {
     const app = express();
+
     app.use(express.json());
     app.use("/logistics", reservationRoutes);
 
@@ -342,27 +410,28 @@ test("POST /logistics/flights rejects missing required fields", async () => {
         process.env.JWT_SECRET
     );
 
-    const response = await fetch(`${base}/logistics/flights`, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            tripId: "507f1f77bcf86cd799439011",
-            name: "Flight",
-            startTime: "2027-04-02T08:00:00Z",
-            endTime: "2027-04-02T10:00:00Z",
-            flights: {}
-        })
-    });
+    const response = await fetch(
+        `${base}/logistics/flights`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                tripId: "507f1f77bcf86cd799439011",
+                name: "Flight",
+                flights: {}
+            })
+        }
+    );
 
     const data = await response.json();
 
     assert.equal(response.status, 400);
     assert.equal(
         data.message,
-        "Name, start time, end time, and flight information are required"
+        "Add at least one flight leg"
     );
 
     await new Promise(resolve => server.close(resolve));
@@ -375,53 +444,150 @@ test("POST /logistics/flights rejects missing required fields", async () => {
 });
 
 
-test("POST /logistics/flights rejects an end time before start time", async () => {
+test("POST /logistics/flights accepts multiple connected flight segments", async (t) => {
+    const originalFindById = Trip.findById;
+    const originalCreate = Reservation.create;
+    const originalUpdateOne = Trip.updateOne;
+
+    t.after(() => {
+        Trip.findById = originalFindById;
+        Reservation.create = originalCreate;
+        Trip.updateOne = originalUpdateOne;
+    });
+
+    const tripId = "507f1f77bcf86cd799439011";
+    const userId = "507f1f77bcf86cd799439013";
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    t.after(() => {
+        if (previousSecret === undefined) {
+            delete process.env.JWT_SECRET;
+        } else {
+            process.env.JWT_SECRET = previousSecret;
+        }
+    });
+
     const app = express();
     app.use(express.json());
     app.use("/logistics", reservationRoutes);
 
     const server = app.listen(0);
+
+    t.after(() => new Promise(resolve => server.close(resolve)));
+
     const base = `http://127.0.0.1:${server.address().port}`;
 
-    const previousSecret = process.env.JWT_SECRET;
-    process.env.JWT_SECRET = "reservation-test-secret";
-
     const token = jwt.sign(
-        { id: "507f1f77bcf86cd799439013" },
+        { id: userId },
         process.env.JWT_SECRET
     );
 
-    const response = await fetch(`${base}/logistics/flights`, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            tripId: "507f1f77bcf86cd799439011",
-            name: "Flight",
-            startTime: "2027-04-02T10:00:00Z",
-            endTime: "2027-04-02T08:00:00Z",
-            flights: {
-                flightNum: "AB123",
-                departAirport: "LAX",
-                arriveAirport: "JFK"
-            }
-        })
+    Trip.findById = async id => {
+        assert.equal(String(id), tripId);
+
+        return {
+            _id: tripId,
+            ownerId: userId,
+            users: [userId]
+        };
+    };
+
+    Reservation.create = async values => ({
+        ...values,
+        _id: "507f1f77bcf86cd799439012"
     });
+
+    let linked = false;
+
+    Trip.updateOne = async () => {
+        linked = true;
+    };
+
+    const response = await fetch(
+        `${base}/logistics/flights`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                tripId,
+                name: "Multi-leg Flight",
+                flights: {
+                    segments: [
+                        {
+                            flightNum: "AB123",
+                            departAirport: "SIN",
+                            departTime: "2027-04-02T08:00",
+                            arriveAirport: "KIX",
+                            arriveTime: "2027-04-02T10:00"
+                        },
+                        {
+                            flightNum: "CD456",
+                            departAirport: "KIX",
+                            departTime: "2027-04-02T12:00",
+                            arriveAirport: "LAX",
+                            arriveTime: "2027-04-02T18:00"
+                        }
+                    ]
+                }
+            })
+        }
+    );
 
     const data = await response.json();
 
-    assert.equal(response.status, 400);
-    assert.equal(data.message, "End time cannot be before start time");
+    assert.equal(response.status, 201);
 
-    await new Promise(resolve => server.close(resolve));
+    assert.equal(
+        data.reservation.flights.segments.length,
+        2
+    );
 
-    if (previousSecret === undefined) {
-        delete process.env.JWT_SECRET;
-    } else {
-        process.env.JWT_SECRET = previousSecret;
-    }
+    assert.equal(
+        data.reservation.flights.segments[0].flightNum,
+        "AB123"
+    );
+
+    assert.equal(
+        data.reservation.flights.segments[1].flightNum,
+        "CD456"
+    );
+
+    assert.equal(
+        data.reservation.flights.segments[0].arriveAirport,
+        "KIX"
+    );
+
+    assert.equal(
+        data.reservation.flights.segments[1].departAirport,
+        "KIX"
+    );
+
+    assert.equal(
+        data.reservation.flights.departAirport,
+        "SIN"
+    );
+
+    assert.equal(
+        data.reservation.flights.arriveAirport,
+        "LAX"
+    );
+
+    assert.equal(
+        data.reservation.startTime,
+        "2027-04-02T08:00:00.000Z"
+    );
+
+    assert.equal(
+        data.reservation.endTime,
+        "2027-04-02T18:00:00.000Z"
+    );
+
+    assert.equal(linked, true);
 });
 
 
@@ -450,13 +616,17 @@ test("POST /logistics/flights rejects a negative cost", async () => {
         body: JSON.stringify({
             tripId: "507f1f77bcf86cd799439011",
             name: "Flight",
-            startTime: "2027-04-02T08:00:00Z",
-            endTime: "2027-04-02T10:00:00Z",
             cost: -10,
             flights: {
-                flightNum: "AB123",
-                departAirport: "LAX",
-                arriveAirport: "JFK"
+                segments: [
+                    {
+                        flightNum: "AB123",
+                        departAirport: "LAX",
+                        departTime: "2027-04-02T08:00",
+                        arriveAirport: "JFK",
+                        arriveTime: "2027-04-02T10:00"
+                    }
+                ]
             }
         })
     });
@@ -705,6 +875,534 @@ test("GET /logistics/flights rejects an invalid authentication token", async () 
 
     assert.equal(response.status, 401);
     assert.equal(data.message, "Invalid or expired token");
+
+    await new Promise(resolve => server.close(resolve));
+
+    if (previousSecret === undefined) {
+        delete process.env.JWT_SECRET;
+    } else {
+        process.env.JWT_SECRET = previousSecret;
+    }
+});
+test("POST /logistics/flights rejects incomplete flight segments", async () => {
+    const app = express();
+
+    app.use(express.json());
+    app.use("/logistics", reservationRoutes);
+
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    const token = jwt.sign(
+        { id: "507f1f77bcf86cd799439013" },
+        process.env.JWT_SECRET
+    );
+
+    const response = await fetch(
+        `${base}/logistics/flights`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                tripId: "507f1f77bcf86cd799439011",
+                name: "Flight",
+                flights: {
+                    segments: [
+                        {
+                            flightNum: "AB123",
+                            departAirport: "SIN",
+                            departTime: "2027-04-02T08:00",
+                            arriveAirport: "KIX"
+                        }
+                    ]
+                }
+            })
+        }
+    );
+
+    const data = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(
+        data.message,
+        "Enter valid local dates and times for leg 1"
+    );
+
+    await new Promise(resolve => server.close(resolve));
+
+    if (previousSecret === undefined) {
+        delete process.env.JWT_SECRET;
+    } else {
+        process.env.JWT_SECRET = previousSecret;
+    }
+});
+test("POST /logistics/flights rejects invalid airport codes", async () => {
+    const app = express();
+
+    app.use(express.json());
+    app.use("/logistics", reservationRoutes);
+
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    const token = jwt.sign(
+        { id: "507f1f77bcf86cd799439013" },
+        process.env.JWT_SECRET
+    );
+
+    const response = await fetch(
+        `${base}/logistics/flights`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                tripId: "507f1f77bcf86cd799439011",
+                name: "Flight",
+                flights: {
+                    segments: [
+                        {
+                            flightNum: "AB123",
+                            departAirport: "SIN",
+                            departTime: "2027-04-02T08:00",
+                            arriveAirport: "JFK1",
+                            arriveTime: "2027-04-02T10:00"
+                        }
+                    ]
+                }
+            })
+        }
+    );
+
+    const data = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(
+        data.message,
+        "Use three-letter airport codes for leg 1"
+    );
+
+    await new Promise(resolve => server.close(resolve));
+
+    if (previousSecret === undefined) {
+        delete process.env.JWT_SECRET;
+    } else {
+        process.env.JWT_SECRET = previousSecret;
+    }
+});
+test("POST /logistics/flights rejects the same departure and arrival airport", async () => {
+    const app = express();
+
+    app.use(express.json());
+    app.use("/logistics", reservationRoutes);
+
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    const token = jwt.sign(
+        { id: "507f1f77bcf86cd799439013" },
+        process.env.JWT_SECRET
+    );
+
+    const response = await fetch(
+        `${base}/logistics/flights`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                tripId: "507f1f77bcf86cd799439011",
+                name: "Flight",
+                flights: {
+                    segments: [
+                        {
+                            flightNum: "AB123",
+                            departAirport: "SIN",
+                            departTime: "2027-04-02T08:00",
+                            arriveAirport: "SIN",
+                            arriveTime: "2027-04-02T10:00"
+                        }
+                    ]
+                }
+            })
+        }
+    );
+
+    const data = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(
+        data.message,
+        "Choose different airports for leg 1"
+    );
+
+    await new Promise(resolve => server.close(resolve));
+
+    if (previousSecret === undefined) {
+        delete process.env.JWT_SECRET;
+    } else {
+        process.env.JWT_SECRET = previousSecret;
+    }
+});
+test("POST /logistics/hotels accepts a valid hotel reservation", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/logistics", reservationRoutes);
+
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    const token = jwt.sign(
+        { id: "507f1f77bcf86cd799439013" },
+        process.env.JWT_SECRET
+    );
+
+    const originalFindById = Trip.findById;
+    const originalCreate = Reservation.create;
+    const originalUpdateOne = Trip.updateOne;
+
+    Trip.findById = async () => ({
+        _id: "507f1f77bcf86cd799439011",
+        ownerId: "507f1f77bcf86cd799439013",
+        users: ["507f1f77bcf86cd799439013"]
+    });
+
+    Reservation.create = async values => ({
+        ...values,
+        _id: "507f1f77bcf86cd799439012"
+    });
+
+    let linked = false;
+
+    Trip.updateOne = async () => {
+        linked = true;
+    };
+
+    const response = await fetch(`${base}/logistics/hotels`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            tripId: "507f1f77bcf86cd799439011",
+            name: "Grand Hotel",
+            startTime: "2027-04-02T15:00:00Z",
+            endTime: "2027-04-05T11:00:00Z",
+            confirmationNumber: "HOTEL123",
+            cost: 450,
+            notes: "Check in at front desk",
+            accommodations: {
+                address: "123 Main Street"
+            }
+        })
+    });
+
+    const data = await response.json();
+
+    assert.equal(response.status, 201);
+    assert.equal(data.reservation.name, "Grand Hotel");
+    assert.equal(data.reservation.type, "accommodations");
+    assert.equal(
+        data.reservation.accommodations.address,
+        "123 Main Street"
+    );
+    assert.equal(linked, true);
+
+    Trip.findById = originalFindById;
+    Reservation.create = originalCreate;
+    Trip.updateOne = originalUpdateOne;
+
+    await new Promise(resolve => server.close(resolve));
+
+    if (previousSecret === undefined) {
+        delete process.env.JWT_SECRET;
+    } else {
+        process.env.JWT_SECRET = previousSecret;
+    }
+});
+test("POST /logistics/hotels rejects an end time before start time", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/logistics", reservationRoutes);
+
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    const token = jwt.sign(
+        { id: "507f1f77bcf86cd799439013" },
+        process.env.JWT_SECRET
+    );
+
+    const response = await fetch(`${base}/logistics/hotels`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            tripId: "507f1f77bcf86cd799439011",
+            name: "Grand Hotel",
+            startTime: "2027-04-05T15:00:00Z",
+            endTime: "2027-04-02T11:00:00Z",
+            accommodations: {
+                address: "123 Main Street"
+            }
+        })
+    });
+
+    const data = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(
+        data.message,
+        "End time cannot be before start time"
+    );
+
+    await new Promise(resolve => server.close(resolve));
+
+    if (previousSecret === undefined) {
+        delete process.env.JWT_SECRET;
+    } else {
+        process.env.JWT_SECRET = previousSecret;
+    }
+});
+test("POST /logistics/hotels rejects a negative cost", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/logistics", reservationRoutes);
+
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    const token = jwt.sign(
+        { id: "507f1f77bcf86cd799439013" },
+        process.env.JWT_SECRET
+    );
+
+    const response = await fetch(`${base}/logistics/hotels`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            tripId: "507f1f77bcf86cd799439011",
+            name: "Grand Hotel",
+            startTime: "2027-04-02T15:00:00Z",
+            endTime: "2027-04-05T11:00:00Z",
+            cost: -100,
+            accommodations: {
+                address: "123 Main Street"
+            }
+        })
+    });
+
+    const data = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(data.message, "Cost must be zero or more");
+
+    await new Promise(resolve => server.close(resolve));
+
+    if (previousSecret === undefined) {
+        delete process.env.JWT_SECRET;
+    } else {
+        process.env.JWT_SECRET = previousSecret;
+    }
+});
+test("POST /logistics/rental_cars accepts a valid rental", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/logistics", reservationRoutes);
+
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    const token = jwt.sign(
+        { id: "507f1f77bcf86cd799439013" },
+        process.env.JWT_SECRET
+    );
+
+    const originalFindById = Trip.findById;
+    const originalCreate = Reservation.create;
+    const originalUpdateOne = Trip.updateOne;
+
+    Trip.findById = async () => ({
+        _id: "507f1f77bcf86cd799439011",
+        ownerId: "507f1f77bcf86cd799439013",
+        users: ["507f1f77bcf86cd799439013"]
+    });
+
+    Reservation.create = async values => ({
+        ...values,
+        _id: "507f1f77bcf86cd799439012"
+    });
+
+    let linked = false;
+
+    Trip.updateOne = async () => {
+        linked = true;
+    };
+
+    const response = await fetch(`${base}/logistics/rental_cars`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            tripId: "507f1f77bcf86cd799439011",
+            name: "Rental Car",
+            startTime: "2027-04-02T10:00:00Z",
+            endTime: "2027-04-05T10:00:00Z",
+            confirmationNumber: "CAR123",
+            cost: 200,
+            notes: "Pickup at airport",
+            rentals: {
+                company: "Enterprise"
+            }
+        })
+    });
+
+    const data = await response.json();
+
+    assert.equal(response.status, 201);
+    assert.equal(data.reservation.name, "Rental Car");
+    assert.equal(data.reservation.type, "rentals");
+    assert.equal(
+        data.reservation.rentals.company,
+        "Enterprise"
+    );
+    assert.equal(linked, true);
+
+    Trip.findById = originalFindById;
+    Reservation.create = originalCreate;
+    Trip.updateOne = originalUpdateOne;
+
+    await new Promise(resolve => server.close(resolve));
+
+    if (previousSecret === undefined) {
+        delete process.env.JWT_SECRET;
+    } else {
+        process.env.JWT_SECRET = previousSecret;
+    }
+});
+test("POST /logistics/rental_cars rejects an end time before start time", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/logistics", reservationRoutes);
+
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    const token = jwt.sign(
+        { id: "507f1f77bcf86cd799439013" },
+        process.env.JWT_SECRET
+    );
+
+    const response = await fetch(`${base}/logistics/rental_cars`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            tripId: "507f1f77bcf86cd799439011",
+            name: "Rental Car",
+            startTime: "2027-04-05T10:00:00Z",
+            endTime: "2027-04-02T10:00:00Z",
+            rentals: {
+                company: "Enterprise"
+            }
+        })
+    });
+
+    const data = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(
+        data.message,
+        "End time cannot be before start time"
+    );
+
+    await new Promise(resolve => server.close(resolve));
+
+    if (previousSecret === undefined) {
+        delete process.env.JWT_SECRET;
+    } else {
+        process.env.JWT_SECRET = previousSecret;
+    }
+});
+test("POST /logistics/rental_cars rejects a negative cost", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/logistics", reservationRoutes);
+
+    const server = app.listen(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = "reservation-test-secret";
+
+    const token = jwt.sign(
+        { id: "507f1f77bcf86cd799439013" },
+        process.env.JWT_SECRET
+    );
+
+    const response = await fetch(`${base}/logistics/rental_cars`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            tripId: "507f1f77bcf86cd799439011",
+            name: "Rental Car",
+            startTime: "2027-04-02T10:00:00Z",
+            endTime: "2027-04-05T10:00:00Z",
+            cost: -50,
+            rentals: {
+                company: "Enterprise"
+            }
+        })
+    });
+
+    const data = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(data.message, "Cost must be zero or more");
 
     await new Promise(resolve => server.close(resolve));
 

@@ -11,6 +11,14 @@ export const ReservationType = {
 export type ReservationType =
   (typeof ReservationType)[keyof typeof ReservationType];
 
+export interface FlightSegment {
+  flightNum: string;
+  departAirport: string;
+  departTime: string;
+  arriveAirport: string;
+  arriveTime: string;
+}
+
 export interface Reservation {
   _id: string;
   type: ReservationType;
@@ -25,6 +33,7 @@ export interface Reservation {
     flightNum?: string;
     departAirport: string;
     arriveAirport: string;
+    segments: FlightSegment[];
   };
   rentals?: { company: string };
   accommodations?: { address: string };

@@ -74,9 +74,9 @@ const LogisticsView = () => {
             }}
           />
 
-          <RentalCarsSection
+          <AccommodationsSection
             tripId={tripId}
-            onAdd={() => setAddingType(ReservationType.Rentals)}
+            onAdd={() => setAddingType(ReservationType.Accommodations)}
             onEdit={setEditing}
             onDelete={(reservation) => {
               setReservationToDelete(reservation);
@@ -84,9 +84,9 @@ const LogisticsView = () => {
             }}
           />
 
-          <AccommodationsSection
+          <RentalCarsSection
             tripId={tripId}
-            onAdd={() => setAddingType(ReservationType.Accommodations)}
+            onAdd={() => setAddingType(ReservationType.Rentals)}
             onEdit={setEditing}
             onDelete={(reservation) => {
               setReservationToDelete(reservation);
