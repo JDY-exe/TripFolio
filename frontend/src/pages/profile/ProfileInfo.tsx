@@ -45,6 +45,7 @@ const ProfileInfo = ({
 
       <div className="mt-5 flex items-center gap-3 sm:gap-5">
         <button
+          data-cy="profile-picture-open"
           className="group relative grid size-20 shrink-0 cursor-pointer place-items-center rounded-full bg-primary-container text-on-primary-container outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-surface motion-safe:transition-transform motion-safe:duration-200 motion-safe:hover:scale-105"
           onClick={onPictureClick}
           type="button"
@@ -66,7 +67,7 @@ const ProfileInfo = ({
         </button>
 
         <div className="min-w-0 flex-1">
-          <Text as="h2" variant="title">
+          <Text as="h2" data-cy="profile-username" variant="title">
             {username}
           </Text>
           <Text className="mt-1 flex items-center gap-2" color="muted">
@@ -75,6 +76,7 @@ const ProfileInfo = ({
           </Text>
         </div>
         <Button
+          data-cy="logout"
           className="shrink-0"
           leadingIcon={<LogOut aria-hidden size={18} />}
           onClick={onLogout}

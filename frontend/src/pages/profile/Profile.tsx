@@ -25,7 +25,9 @@ const Profile = () => {
 
   return (
     <>
-      <Text as="h1" variant="display">My Profile</Text>
+      <Text as="h1" data-cy="profile-title" variant="display">
+        My Profile
+      </Text>
       <section className="mx-auto max-w-2xl text-on-surface">
         <ProfileInfo
           email={user.email}

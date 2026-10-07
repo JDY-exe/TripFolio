@@ -1,0 +1,14 @@
+{
+    "root": [
+        "./e2e/auth.cy.ts",
+        "./e2e/itinerary.cy.ts",
+        "./e2e/logistics.cy.ts",
+        "./e2e/my-trips.cy.ts",
+        "./e2e/navigation.cy.ts",
+        "./e2e/profile.cy.ts",
+        "./e2e/trip-visibility.cy.ts",
+        "./support/auth.ts",
+        "./support/ownedTrip.ts"
+    ],
+    "version": "6.0.3"
+}

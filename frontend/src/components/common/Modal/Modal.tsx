@@ -113,8 +113,8 @@ function Modal({
   useEffect(() => {
     if (open) {
       if (shouldRender) return;
-      const frame = window.requestAnimationFrame(() => setShouldRender(true));
-      return () => window.cancelAnimationFrame(frame);
+      const timeout = window.setTimeout(() => setShouldRender(true), 0);
+      return () => window.clearTimeout(timeout);
     }
 
     if (!shouldRender) return;
@@ -143,7 +143,7 @@ function Modal({
     };
   }, [open, shouldRender]);
 
-  if (!shouldRender) return null;
+  if (!open && !shouldRender) return null;
 
   /**
    * Dismisses only presses that begin on the backdrop rather than modal content.

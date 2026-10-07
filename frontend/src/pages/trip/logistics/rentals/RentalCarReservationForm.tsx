@@ -157,6 +157,7 @@ const RentalCarReservationForm = ({
 
   return (
     <Modal
+      data-cy="rental-form"
       open={isOpen}
       title={reservation ? 'Edit rental car' : 'Add rental car'}
       onClose={() => {
@@ -189,9 +190,12 @@ const RentalCarReservationForm = ({
               </Button>
             ) : null}
             {step === 0 ? (
-              <Button onClick={handleNext}>Next: Cost</Button>
+              <Button data-cy="rental-next" onClick={handleNext}>
+                Next: Cost
+              </Button>
             ) : (
               <Button
+                data-cy="rental-save"
                 disabled={saveReservation.isPending}
                 onClick={() => void handleSave()}
               >
@@ -232,6 +236,7 @@ const RentalCarReservationForm = ({
               </div>
               <div className="grid gap-4 p-5 sm:grid-cols-2">
                 <TextField
+                  data-cy="rental-name"
                   id="rental-name"
                   label="Vehicle"
                   value={draft.name}
@@ -241,6 +246,7 @@ const RentalCarReservationForm = ({
                   required
                 />
                 <TextField
+                  data-cy="rental-company"
                   id="rental-company"
                   label="Rental company"
                   value={draft.company}
@@ -265,6 +271,7 @@ const RentalCarReservationForm = ({
                 </Text>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <TextField
+                    data-cy="rental-pickup"
                     id="rental-pickup"
                     label="Pick-up date"
                     type="date"
@@ -275,6 +282,7 @@ const RentalCarReservationForm = ({
                     required
                   />
                   <TextField
+                    data-cy="rental-return"
                     id="rental-return"
                     label="Return date"
                     type="date"
@@ -324,6 +332,7 @@ const RentalCarReservationForm = ({
               </div>
             </div>
             <TextField
+              data-cy="rental-cost"
               id="rental-cost"
               label="Cost"
               type="number"

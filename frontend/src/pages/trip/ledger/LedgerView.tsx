@@ -9,7 +9,7 @@ import { Text } from '../../../components/common';
 function LedgerView() {
   return (
     <div className="min-h-72 rounded-panel bg-surface-container p-8 text-on-surface">
-      <Text as="h2" variant="title">
+      <Text as="h2" data-cy="trip-section-ledger" variant="title">
         Ledger
       </Text>
       <Text color="muted" className="mt-2">

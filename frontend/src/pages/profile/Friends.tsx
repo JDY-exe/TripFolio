@@ -176,6 +176,7 @@ const Friends = () => {
                     </Text>
                   </div>
                   <Button
+                    data-cy={`accept-friend-${request.id}`}
                     disabled={isRelationshipPending}
                     leadingIcon={<Check aria-hidden size={17} />}
                     onClick={() => void handleAcceptRequest(request.id)}
@@ -201,6 +202,7 @@ const Friends = () => {
             Find people
           </Text>
           <TextField
+            data-cy="friend-search"
             autoComplete="off"
             id="friend-search"
             label="Username"
@@ -271,6 +273,7 @@ const Friends = () => {
                       <FriendIdentity user={result} />
                       {relationship === 'none' ? (
                         <Button
+                          data-cy={`add-friend-${result.id}`}
                           disabled={isRelationshipPending}
                           leadingIcon={<UserPlus aria-hidden size={17} />}
                           onClick={() => void handleSendRequest(result.id)}
@@ -351,7 +354,7 @@ const Friends = () => {
           )}
         </section>
 
-        <section aria-labelledby="all-friends-heading">
+        <section data-cy="friends-list" aria-labelledby="all-friends-heading">
           <Text
             as="h3"
             className="mb-3"

@@ -175,6 +175,7 @@ const Auth = () => {
           <legend className="sr-only">Account access</legend>
           <label className={modeClasses}>
             <input
+              data-cy="auth-login-mode"
               id="auth-login"
               type="radio"
               name="auth-mode"
@@ -188,6 +189,7 @@ const Auth = () => {
           </label>
           <label className={modeClasses}>
             <input
+              data-cy="auth-signup-mode"
               id="auth-signup"
               type="radio"
               name="auth-mode"
@@ -215,6 +217,7 @@ const Auth = () => {
             className={`absolute inset-x-0 top-0 space-y-5 motion-safe:transition-opacity motion-safe:duration-300 ${mode === 'login' ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
           >
             <TextField
+              data-cy="login-email"
               id="login-email"
               name="email"
               label="Email"
@@ -222,6 +225,7 @@ const Auth = () => {
               autoComplete="username"
             />
             <TextField
+              data-cy="login-password"
               id="login-password"
               name="password"
               label="Password"
@@ -229,6 +233,7 @@ const Auth = () => {
               autoComplete="current-password"
             />
             <Button
+              data-cy="login-submit"
               type="submit"
               size="lg"
               fullWidth
@@ -249,6 +254,7 @@ const Auth = () => {
             className={`absolute inset-x-0 top-0 space-y-5 motion-safe:transition-opacity motion-safe:duration-300 ${mode === 'signup' ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
           >
             <TextField
+              data-cy="signup-name"
               id="signup-name"
               name="user"
               label="User Name"
@@ -256,6 +262,7 @@ const Auth = () => {
               autoComplete="name"
             />
             <TextField
+              data-cy="signup-email"
               id="signup-email"
               name="email"
               label="Email"
@@ -263,6 +270,7 @@ const Auth = () => {
               autoComplete="username"
             />
             <TextField
+              data-cy="signup-password"
               id="signup-password"
               name="password"
               label="Password"
@@ -270,6 +278,7 @@ const Auth = () => {
               autoComplete="new-password"
             />
             <TextField
+              data-cy="signup-password-again"
               id="signup-password-again"
               name="passwordAgain"
               label="Password again"
@@ -277,6 +286,7 @@ const Auth = () => {
               autoComplete="new-password"
             />
             <Button
+              data-cy="signup-submit"
               type="submit"
               size="lg"
               fullWidth

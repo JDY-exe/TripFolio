@@ -57,6 +57,7 @@ function BottomNav({
         <span className="sr-only">{label}</span>
         {leadingAction && LeadingIcon ? (
           <button
+            data-cy="nav-back"
             type="button"
             onClick={leadingAction.onClick}
             className={`${actionClasses} min-w-11 shrink-0 gap-1.5 px-2 text-label active:bg-primary/12 sm:px-4`}
@@ -83,6 +84,7 @@ function BottomNav({
             return (
               <button
                 key={item.value}
+                data-cy={`nav-${item.value.replace(/^\//, '')}`}
                 type="button"
                 aria-pressed={item.value === value}
                 onClick={() => onChange(item.value)}

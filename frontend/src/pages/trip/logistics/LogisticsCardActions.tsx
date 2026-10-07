@@ -20,12 +20,14 @@ const LogisticsCardActions = ({
 }: LogisticsCardActionsProps) => (
   <div className="absolute right-4 top-4 z-10 flex gap-1 rounded-full bg-surface-container-low/90 p-1 opacity-0 pointer-events-none shadow-sm transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 motion-reduce:transition-none sm:right-5 sm:top-5">
     <IconButton
+      data-cy={`edit-reservation-${reservation._id}`}
       label={`Edit ${reservation.name}`}
       size="sm"
       icon={<Pencil aria-hidden size={18} />}
       onClick={() => onEdit(reservation)}
     />
     <IconButton
+      data-cy={`delete-reservation-${reservation._id}`}
       label={`Delete ${reservation.name}`}
       size="sm"
       variant="dangerGhost"

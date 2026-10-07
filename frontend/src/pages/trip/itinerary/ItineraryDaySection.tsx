@@ -58,6 +58,7 @@ const ItineraryDaySection = ({
     >
       <div className="flex items-start gap-4">
         <button
+          data-cy={`day-toggle-${date}`}
           type="button"
           aria-label={
             showDayNumber

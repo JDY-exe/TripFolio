@@ -61,7 +61,12 @@ const Onboard = ({ onComplete }: OnboardProps) => {
       className="mx-auto max-w-xl py-4 text-on-surface sm:py-8"
     >
       <div className="mt-20 text-center">
-        <Text as="h1" id="onboard-heading" variant="headline">
+        <Text
+          as="h1"
+          data-cy="onboard-title"
+          id="onboard-heading"
+          variant="headline"
+        >
           Add a <span className="text-primary">profile picture?</span>
         </Text>
       </div>
@@ -90,6 +95,7 @@ const Onboard = ({ onComplete }: OnboardProps) => {
 
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
         <Button
+          data-cy="onboard-skip"
           className="flex-1"
           disabled={isSaving || cropStatus.active}
           leadingIcon={<UserRound aria-hidden size={18} />}
@@ -100,6 +106,7 @@ const Onboard = ({ onComplete }: OnboardProps) => {
           Skip
         </Button>
         <Button
+          data-cy="onboard-continue"
           className="flex-1"
           disabled={isSaving || cropStatus.active || !picture}
           onClick={() => void finishOnboarding(picture)}

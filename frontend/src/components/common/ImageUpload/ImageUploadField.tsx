@@ -259,6 +259,7 @@ const ImageUploadField = ({
           </div>
           <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button
+              data-cy={`${name}-crop-cancel`}
               disabled={disabled || isProcessing}
               onClick={cancelCrop}
               variant="ghost"
@@ -266,6 +267,7 @@ const ImageUploadField = ({
               {cancelLabel}
             </Button>
             <Button
+              data-cy={`${name}-crop-accept`}
               disabled={disabled || !cropArea || isProcessing}
               onClick={() => void acceptCrop()}
             >

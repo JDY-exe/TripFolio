@@ -136,6 +136,7 @@ const AccommodationReservationForm = ({
 
   return (
     <Modal
+      data-cy="accommodation-form"
       open={isOpen}
       title={reservation ? 'Edit accommodation' : 'Add accommodation'}
       onClose={() => {
@@ -168,9 +169,12 @@ const AccommodationReservationForm = ({
               </Button>
             ) : null}
             {step === 0 ? (
-              <Button onClick={handleNext}>Next: Cost</Button>
+              <Button data-cy="accommodation-next" onClick={handleNext}>
+                Next: Cost
+              </Button>
             ) : (
               <Button
+                data-cy="accommodation-save"
                 disabled={saveReservation.isPending}
                 onClick={() => void handleSave()}
               >
@@ -204,6 +208,7 @@ const AccommodationReservationForm = ({
               </div>
               <div className="grid gap-4 p-5 pt-3">
                 <TextField
+                  data-cy="accommodation-name"
                   id="accommodation-name"
                   label="Property name"
                   value={name}
@@ -211,6 +216,7 @@ const AccommodationReservationForm = ({
                   required
                 />
                 <TextField
+                  data-cy="accommodation-address"
                   id="accommodation-address"
                   label="Address"
                   value={address}
@@ -228,6 +234,7 @@ const AccommodationReservationForm = ({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <TextField
+                    data-cy="accommodation-check-in"
                     id="accommodation-check-in"
                     label="Check-in date"
                     type="date"
@@ -236,6 +243,7 @@ const AccommodationReservationForm = ({
                     required
                   />
                   <TextField
+                    data-cy="accommodation-check-out"
                     id="accommodation-check-out"
                     label="Check-out date"
                     type="date"
@@ -281,6 +289,7 @@ const AccommodationReservationForm = ({
               </div>
             </div>
             <TextField
+              data-cy="accommodation-cost"
               id="accommodation-cost"
               label="Cost"
               type="number"

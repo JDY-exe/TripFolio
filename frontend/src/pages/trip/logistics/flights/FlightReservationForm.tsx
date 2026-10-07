@@ -159,6 +159,7 @@ const FlightReservationForm = ({
 
   return (
     <Modal
+      data-cy="flight-form"
       open={isOpen}
       title="Flight journey"
       description={
@@ -176,6 +177,7 @@ const FlightReservationForm = ({
       footer={(requestClose) => (
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
           <Button
+            data-cy="flight-cancel"
             variant="secondary"
             disabled={saveReservation.isPending}
             onClick={requestClose}
@@ -185,6 +187,7 @@ const FlightReservationForm = ({
           <div className="flex items-center gap-2">
             {step !== FlightWizardStep.Route ? (
               <Button
+                data-cy="flight-back"
                 variant="outline"
                 disabled={saveReservation.isPending}
                 onClick={handleBack}
@@ -193,11 +196,16 @@ const FlightReservationForm = ({
               </Button>
             ) : null}
             {step !== FlightWizardStep.Review ? (
-              <Button disabled={saveReservation.isPending} onClick={handleNext}>
+              <Button
+                data-cy="flight-next"
+                disabled={saveReservation.isPending}
+                onClick={handleNext}
+              >
                 Next: {flightWizardSteps[step + 1].label}
               </Button>
             ) : (
               <Button
+                data-cy="flight-save"
                 disabled={saveReservation.isPending}
                 onClick={() => void handleSave()}
               >
@@ -279,6 +287,11 @@ const FlightReservationForm = ({
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
                       <TextField
+                        data-cy={
+                          index === 0
+                            ? 'flight-number'
+                            : `flight-number-${index}`
+                        }
                         id={`flight-number-${index}`}
                         label="Airline code and flight number"
                         className="max-w-64"
@@ -295,6 +308,7 @@ const FlightReservationForm = ({
                     </div>
                     {index === 0 ? (
                       <TextField
+                        data-cy="flight-depart-airport"
                         id={`flight-depart-airport-${index}`}
                         label="Departure airport"
                         value={segment.departAirport}
@@ -319,6 +333,11 @@ const FlightReservationForm = ({
                       </div>
                     )}
                     <TextField
+                      data-cy={
+                        index === 0
+                          ? 'flight-arrive-airport'
+                          : `flight-arrive-airport-${index}`
+                      }
                       id={`flight-arrive-airport-${index}`}
                       label="Arrival airport"
                       value={segment.arriveAirport}
@@ -333,6 +352,11 @@ const FlightReservationForm = ({
                       required
                     />
                     <TextField
+                      data-cy={
+                        index === 0
+                          ? 'flight-departure'
+                          : `flight-departure-${index}`
+                      }
                       id={`flight-departure-${index}`}
                       label="Departure date and local time"
                       type="datetime-local"
@@ -343,6 +367,11 @@ const FlightReservationForm = ({
                       required
                     />
                     <TextField
+                      data-cy={
+                        index === 0
+                          ? 'flight-arrival'
+                          : `flight-arrival-${index}`
+                      }
                       id={`flight-arrival-${index}`}
                       label="Arrival date and local time"
                       type="datetime-local"
@@ -377,6 +406,7 @@ const FlightReservationForm = ({
           <div className="grid gap-4 rounded-panel bg-surface-container-low p-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <TextField
+                data-cy="flight-name"
                 id="flight-name"
                 label="Flight name"
                 value={draft.name}
@@ -386,6 +416,7 @@ const FlightReservationForm = ({
               />
             </div>
             <TextField
+              data-cy="flight-confirmation"
               id="flight-confirmation"
               label="Confirmation number"
               value={draft.confirmationNumber}
@@ -412,6 +443,7 @@ const FlightReservationForm = ({
         {step === FlightWizardStep.Cost ? (
           <div className="rounded-panel bg-surface-container-low p-5">
             <TextField
+              data-cy="flight-cost"
               id="flight-cost"
               label="Cost"
               type="number"

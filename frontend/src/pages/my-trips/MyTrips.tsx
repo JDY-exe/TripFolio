@@ -24,10 +24,11 @@ const MyTrips = () => {
     <>
       <section className="text-on-surface">
         <header className="flex items-center justify-between gap-4">
-          <Text as="h1" variant="display">
+          <Text as="h1" data-cy="my-trips-title" variant="display">
             My Upcoming Trips
           </Text>
           <Button
+            data-cy="new-trip"
             onClick={() => setIsCreateOpen(true)}
             leadingIcon={<Plus aria-hidden size={18} />}
             className="shrink-0"
