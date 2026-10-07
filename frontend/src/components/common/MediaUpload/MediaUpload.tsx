@@ -283,6 +283,7 @@ function MediaUpload({
         </>
       )}
       <input
+        data-cy={`${name}-file-input`}
         ref={inputRef}
         accept={getMediaUploadAccept(mediaType)}
         disabled={disabled}

@@ -93,7 +93,12 @@ const ItineraryView = () => {
         className="min-w-0 text-on-surface"
       >
         <header className="mb-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-          <Text as="h2" id="itinerary-heading" variant="display">
+          <Text
+            as="h2"
+            data-cy="trip-section-itinerary"
+            id="itinerary-heading"
+            variant="display"
+          >
             Itinerary
           </Text>
           {tripName ? (
@@ -150,6 +155,7 @@ const ItineraryView = () => {
       </aside>
       {eventToDelete ? (
         <Modal
+          data-cy="delete-event-dialog"
           open={deleteModalOpen}
           title={`Delete ${eventToDelete.title}?`}
           onClose={() => {
@@ -160,6 +166,7 @@ const ItineraryView = () => {
           footer={(requestClose) => (
             <>
               <Button
+                data-cy="delete-event-cancel"
                 variant="secondary"
                 disabled={isDeletingEvent}
                 onClick={requestClose}
@@ -167,6 +174,7 @@ const ItineraryView = () => {
                 Cancel
               </Button>
               <Button
+                data-cy="delete-event-confirm"
                 variant="danger"
                 disabled={isDeletingEvent}
                 onClick={() => void handleDeleteEvent()}

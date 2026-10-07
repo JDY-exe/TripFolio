@@ -55,7 +55,12 @@ const LogisticsView = () => {
       className="min-w-0 text-on-surface lg:col-span-2"
     >
       <header>
-        <Text as="h2" id="logistics-heading" variant="display">
+        <Text
+          as="h2"
+          data-cy="trip-section-logistics"
+          id="logistics-heading"
+          variant="display"
+        >
           Logistics
         </Text>
       </header>
@@ -97,6 +102,7 @@ const LogisticsView = () => {
       </div>
       {reservationToDelete ? (
         <Modal
+          data-cy="delete-reservation-dialog"
           open={deleteModalOpen}
           title={`Delete ${reservationToDelete.name}?`}
           onClose={() => {
@@ -107,6 +113,7 @@ const LogisticsView = () => {
           footer={(requestClose) => (
             <>
               <Button
+                data-cy="delete-reservation-cancel"
                 variant="secondary"
                 disabled={deleteReservation.isPending}
                 onClick={requestClose}
@@ -114,6 +121,7 @@ const LogisticsView = () => {
                 Cancel
               </Button>
               <Button
+                data-cy="delete-reservation-confirm"
                 variant="danger"
                 disabled={deleteReservation.isPending}
                 onClick={() => void handleDelete()}

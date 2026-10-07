@@ -121,6 +121,7 @@ const AddNewEventCard = ({
     <>
       {event ? null : (
         <button
+          data-cy={`add-event-${date}`}
           type="button"
           onClick={() => setIsOpen(true)}
           className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-transparent py-4 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
@@ -140,6 +141,7 @@ const AddNewEventCard = ({
         footer={
           <>
             <Button
+              data-cy="event-cancel"
               variant="secondary"
               onClick={() => {
                 setIsOpen(false);
@@ -148,7 +150,11 @@ const AddNewEventCard = ({
             >
               Cancel
             </Button>
-            <Button onClick={saveEvent} disabled={isSaving}>
+            <Button
+              data-cy="event-save"
+              onClick={saveEvent}
+              disabled={isSaving}
+            >
               {event ? 'Save Changes' : 'Save Event'}
             </Button>
           </>
@@ -156,6 +162,7 @@ const AddNewEventCard = ({
       >
         <div className="grid gap-4">
           <TextField
+            data-cy="event-title"
             id="event-title"
             label="Event title"
             value={draft.title}
@@ -169,6 +176,7 @@ const AddNewEventCard = ({
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
+              data-cy="event-start"
               id="event-start"
               label="Start time"
               type="time"
@@ -179,6 +187,7 @@ const AddNewEventCard = ({
               required
             />
             <TextField
+              data-cy="event-end"
               id="event-end"
               label="End time"
               type="time"
@@ -195,6 +204,7 @@ const AddNewEventCard = ({
           >
             Notes
             <TextArea
+              data-cy="event-notes"
               id="event-notes"
               value={draft.notes}
               onChange={(event) => updateDraft({ notes: event.target.value })}

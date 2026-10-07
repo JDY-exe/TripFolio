@@ -58,6 +58,7 @@ const Toast = ({ alert, onDismiss }: ToastProps) => {
 
   return (
     <article
+      data-cy="toast"
       role={isUrgent ? 'alert' : 'status'}
       className={`${animationClass} relative flex w-full items-start gap-3 overflow-hidden rounded-panel border border-outline-variant/60 bg-surface-container-high p-4 pl-5 text-on-surface shadow-raised`}
     >

@@ -57,6 +57,7 @@ const ItineraryDescription = ({
         </Text>
         {!readOnly && !isEditing ? (
           <IconButton
+            data-cy="description-edit"
             label="Edit description"
             icon={<Pencil size={16} />}
             size="sm"
@@ -67,6 +68,7 @@ const ItineraryDescription = ({
       {isEditing ? (
         <div className="mt-3 flex flex-col gap-3">
           <TextArea
+            data-cy="description-input"
             aria-label="Description"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -75,6 +77,7 @@ const ItineraryDescription = ({
           />
           <div className="flex flex-wrap gap-2">
             <Button
+              data-cy="description-save"
               onClick={() => void handleSave()}
               size="sm"
               leadingIcon={<Check size={16} />}
@@ -82,6 +85,7 @@ const ItineraryDescription = ({
               Save
             </Button>
             <Button
+              data-cy="description-cancel"
               onClick={() => setIsEditing(false)}
               variant="ghost"
               size="sm"

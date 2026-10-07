@@ -1,0 +1,87 @@
+{
+  "user": {
+    "id": "64b000000000000000000002",
+    "username": "owner",
+    "email": "owner@tripfolio.test",
+    "friends": []
+  },
+  "trip": {
+    "_id": "64b000000000000000000001",
+    "name": "Coastal weekend",
+    "startDate": "2030-04-01T00:00:00.000Z",
+    "endDate": "2030-04-05T00:00:00.000Z",
+    "isPublic": false,
+    "currentUserRole": "owner"
+  },
+  "itinerary": {
+    "_id": "64b000000000000000000004",
+    "tripId": "64b000000000000000000001",
+    "title": "Weekend itinerary",
+    "description": "A seaside trip",
+    "startDate": "2030-04-01T00:00:00.000Z",
+    "endDate": "2030-04-05T00:00:00.000Z"
+  },
+  "event": {
+    "_id": "64b000000000000000000005",
+    "title": "Visit the pier",
+    "address": "Ocean Pier",
+    "placeId": null,
+    "startTime": "2030-04-01T09:00:00.000Z",
+    "endTime": "2030-04-01T10:00:00.000Z",
+    "notes": "Bring a camera"
+  },
+  "placeSuggestion": {
+    "placePrediction": {
+      "placeId": "place-ocean-pier",
+      "text": { "text": "Ocean Pier, Miami" },
+      "structuredFormat": {
+        "mainText": { "text": "Ocean Pier" },
+        "secondaryText": { "text": "Miami, FL" }
+      },
+      "types": ["tourist_attraction"]
+    }
+  },
+  "flight": {
+    "_id": "64b000000000000000000006",
+    "type": "flights",
+    "name": "Morning flight",
+    "startTime": "2030-04-01T08:00:00.000Z",
+    "endTime": "2030-04-01T10:00:00.000Z",
+    "cost": 240,
+    "flights": {
+      "flightNum": "AA123",
+      "departAirport": "IND",
+      "arriveAirport": "MIA"
+    }
+  },
+  "rental": {
+    "_id": "64b000000000000000000007",
+    "type": "rentals",
+    "name": "Compact car",
+    "startTime": "2030-04-01T00:00:00.000Z",
+    "endTime": "2030-04-05T00:00:00.000Z",
+    "cost": 180,
+    "rentals": { "company": "Roadway" }
+  },
+  "accommodation": {
+    "_id": "64b000000000000000000008",
+    "type": "accommodations",
+    "name": "Harbor hotel",
+    "startTime": "2030-04-01T00:00:00.000Z",
+    "endTime": "2030-04-05T00:00:00.000Z",
+    "cost": 500,
+    "accommodations": { "address": "5 Harbor Road" }
+  },
+  "friend": {
+    "id": "64b000000000000000000009",
+    "username": "traveler"
+  },
+  "incomingRequest": {
+    "id": "64b000000000000000000010",
+    "createdAt": "2030-03-01T00:00:00.000Z",
+    "user": {
+      "id": "64b000000000000000000009",
+      "username": "traveler"
+    }
+  }
+}

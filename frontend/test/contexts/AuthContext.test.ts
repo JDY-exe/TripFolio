@@ -31,6 +31,35 @@ afterEach(() => {
 });
 
 describe('readStoredSession', () => {
+  it('restores a complete unexpired session', () => {
+    const serialized = createSerializedSession(
+      Math.floor(Date.now() / 1000) + 60,
+    );
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn(() => serialized),
+      removeItem: vi.fn(),
+    });
+
+    expect(readStoredSession()).toEqual({
+      session: JSON.parse(serialized),
+      hasStaleToken: false,
+    });
+  });
+
+  it('removes a malformed stored session without calling it expired', () => {
+    const removeItem = vi.fn();
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn(() => '{not-json'),
+      removeItem,
+    });
+
+    expect(readStoredSession()).toEqual({
+      session: null,
+      hasStaleToken: false,
+    });
+    expect(removeItem).toHaveBeenCalledWith(storageKey);
+  });
+
   it('reports an expired token so the redirect can explain the stale session', () => {
     const removeItem = vi.fn();
     vi.stubGlobal('localStorage', {

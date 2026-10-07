@@ -1,9 +1,9 @@
 {
   "tripsPath": "/my-trips",
-  "tripPath": "/trip",
+  "tripPath": "/trip/64b000000000000000000001",
   "backLabel": "My Trips",
   "destinations": [
-    { "label": "Search", "path": "/search" },
+    { "label": "Social", "path": "/social" },
     { "label": "Profile", "path": "/profile" },
     { "label": "My Trips", "path": "/my-trips" }
   ],

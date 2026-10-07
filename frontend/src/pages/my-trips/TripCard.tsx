@@ -33,8 +33,12 @@ const TripCard = ({
   const image = useProtectedImage(imagePath, publicImage);
 
   return (
-    <article className="relative overflow-hidden rounded-panel border border-outline-variant bg-surface-container-low hover:-translate-y-0.5 transition-transform">
+    <article
+      data-cy={`trip-card-container-${id}`}
+      className="relative overflow-hidden rounded-panel border border-outline-variant bg-surface-container-low hover:-translate-y-0.5 transition-transform"
+    >
       <Link
+        data-cy={`trip-card-${id}`}
         to={`/trip/${id}`}
         aria-label={`View ${title}`}
         className="absolute inset-0 z-10 cursor-pointer rounded-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
@@ -58,7 +62,7 @@ const TripCard = ({
       </div>
 
       <div className="p-5 sm:p-6">
-        <Text as="h2" variant="title">
+        <Text as="h2" data-cy="trip-card-title" variant="title">
           {title}
         </Text>
 

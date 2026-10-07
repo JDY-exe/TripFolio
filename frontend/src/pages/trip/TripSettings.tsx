@@ -91,7 +91,12 @@ const TripSettings = () => {
     <>
       <section aria-labelledby="trip-settings-heading" className="min-w-0">
         <header className="mb-6">
-          <Text as="h2" id="trip-settings-heading" variant="title">
+          <Text
+            as="h2"
+            data-cy="trip-settings-title"
+            id="trip-settings-heading"
+            variant="title"
+          >
             Trip settings
           </Text>
         </header>
@@ -106,6 +111,7 @@ const TripSettings = () => {
             </Text>
           </span>
           <input
+            data-cy="trip-visibility"
             type="checkbox"
             role="switch"
             aria-label="Public trip"
@@ -130,13 +136,18 @@ const TripSettings = () => {
             <Text color="muted" className="mt-1 mb-4">
               Permanently remove this trip and its itinerary.
             </Text>
-            <Button variant="danger" onClick={() => setDeleteModalOpen(true)}>
+            <Button
+              data-cy="delete-trip-open"
+              variant="danger"
+              onClick={() => setDeleteModalOpen(true)}
+            >
               Delete trip
             </Button>
           </div>
         ) : null}
       </section>
       <Modal
+        data-cy="delete-trip-dialog"
         open={deleteModalOpen}
         title={`Delete ${trip.name}?`}
         onClose={() => setDeleteModalOpen(false)}
@@ -144,6 +155,7 @@ const TripSettings = () => {
         footer={(requestClose) => (
           <>
             <Button
+              data-cy="delete-trip-cancel"
               variant="secondary"
               disabled={deleteMutation.isPending}
               onClick={requestClose}
@@ -151,6 +163,7 @@ const TripSettings = () => {
               Cancel
             </Button>
             <Button
+              data-cy="delete-trip-confirm"
               variant="danger"
               disabled={deleteMutation.isPending}
               onClick={() => deleteMutation.mutate(id)}

@@ -51,6 +51,7 @@ const AccommodationsSection = ({
           Accommodations
         </Text>
         <Button
+          data-cy="add-accommodation"
           size="sm"
           variant="secondary"
           leadingIcon={<Plus aria-hidden size={16} />}
@@ -83,6 +84,7 @@ const AccommodationsSection = ({
       <div className="space-y-4">
         {reservations.map((reservation) => (
           <article
+            data-cy={`reservation-card-${reservation._id}`}
             key={reservation._id}
             className="group relative overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low p-5 sm:p-6"
           >

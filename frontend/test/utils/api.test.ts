@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { isUnauthorizedApiError } from '../../src/utils/api';
+import {
+  getApiErrorMessage,
+  isUnauthorizedApiError,
+} from '../../src/utils/api';
 
 /**
  * Creates the minimum Axios-shaped error needed for HTTP status classification.
@@ -26,5 +29,24 @@ describe('isUnauthorizedApiError', () => {
     ['non-Axios rejection', new Error('Request failed')],
   ])('does not invalidate the session for a %s', (_label, error) => {
     expect(isUnauthorizedApiError(error)).toBe(false);
+  });
+});
+
+describe('getApiErrorMessage', () => {
+  it('uses a nonempty backend message', () => {
+    expect(
+      getApiErrorMessage(
+        { isAxiosError: true, response: { data: { message: 'Try again' } } },
+        'Fallback',
+      ),
+    ).toBe('Try again');
+  });
+
+  it.each([
+    { isAxiosError: true, response: { data: { message: '  ' } } },
+    createAxiosError(),
+    new Error('Network failure'),
+  ])('uses the fallback for unusable response data', (error) => {
+    expect(getApiErrorMessage(error, 'Fallback')).toBe('Fallback');
   });
 });

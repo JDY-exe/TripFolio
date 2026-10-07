@@ -147,6 +147,7 @@ const EventPlaceField = ({
       }}
     >
       <TextField
+        data-cy="event-address"
         id="event-address"
         label="Location"
         hint={
@@ -207,6 +208,7 @@ const EventPlaceField = ({
                   prediction.structuredFormat?.secondaryText?.text;
                 return (
                   <button
+                    data-cy={`place-option-${prediction.placeId}`}
                     key={prediction.placeId}
                     id={`${listId}-${index}`}
                     type="button"

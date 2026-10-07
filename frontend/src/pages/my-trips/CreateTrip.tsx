@@ -129,6 +129,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
             Cancel
           </Button>
           <Button
+            data-cy="create-trip"
             type="submit"
             form="create-trip-form"
             disabled={isSaving || cropStatus.active}
@@ -139,7 +140,12 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
       )}
     >
       {error ? (
-        <Text color="error" role="alert" className="mb-4">
+        <Text
+          data-cy="create-trip-error"
+          color="error"
+          role="alert"
+          className="mb-4"
+        >
           {error}
         </Text>
       ) : null}
@@ -151,6 +157,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
       >
         <div className="grid content-start gap-7">
           <TextField
+            data-cy="trip-name"
             id="trip-name"
             label="Trip Name *"
             type="text"
@@ -189,6 +196,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
             </Text>
           </div>
           <TextField
+            data-cy="trip-start-date"
             id="trip-start-date"
             label="Start Date *"
             type="date"
@@ -197,6 +205,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
             required
           />
           <TextField
+            data-cy="trip-end-date"
             id="trip-end-date"
             label="End Date *"
             type="date"
@@ -206,6 +215,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
           />
           <label className="flex items-start gap-3 rounded-panel border border-outline-variant p-4">
             <input
+              data-cy="trip-public"
               type="checkbox"
               checked={isPublic}
               onChange={(event) => setIsPublic(event.target.checked)}
