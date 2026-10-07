@@ -73,16 +73,16 @@ describe('trip logistics', () => {
 
       if (category.kind === 'flight') {
         cy.get('[data-cy="flight-number"]').type('AA123');
-        cy.get('[data-cy="flight-depart-airport"]').type('IND');
+        cy.get('[data-cy="flight-depart-airport"]').type('IN');
         cy.get('[data-cy="flight-departure"]').type('2030-04-01T08:00');
         cy.get('[data-cy="flight-arrive-airport"]').type('MIA');
-        cy.get('[data-cy="flight-arrival"]').type('2030-04-01T07:00');
+        cy.get('[data-cy="flight-arrival"]').type('2030-04-01T10:00');
         cy.get('[data-cy="flight-next"]').click();
         cy.get('[data-cy="flight-form"] [role="alert"]').should(
           'contain.text',
-          'Arrival cannot be before departure.',
+          'Use three-letter airport codes for leg 1.',
         );
-        cy.get('[data-cy="flight-arrival"]').clear().type('2030-04-01T10:00');
+        cy.get('[data-cy="flight-depart-airport"]').type('D');
         cy.get('[data-cy="flight-next"]').click();
         cy.get('[data-cy="flight-name"]').type(category.record.name);
         cy.get('[data-cy="flight-next"]').click();

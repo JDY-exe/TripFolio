@@ -51,7 +51,16 @@
     "flights": {
       "flightNum": "AA123",
       "departAirport": "IND",
-      "arriveAirport": "MIA"
+      "arriveAirport": "MIA",
+      "segments": [
+        {
+          "flightNum": "AA123",
+          "departAirport": "IND",
+          "departTime": "2030-04-01T08:00",
+          "arriveAirport": "MIA",
+          "arriveTime": "2030-04-01T10:00"
+        }
+      ]
     }
   },
   "rental": {
