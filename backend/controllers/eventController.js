@@ -17,7 +17,7 @@ const denyTripAccess = (res, trip, userId) => {
 
 const createEvent = async (req, res) => {
   try {
-    const { itineraryID, title, placeId, address, startTime, endTime, notes } = req.body;
+    const { itineraryID, title, placeId, address, startTime, endTime, notes, restaurant, reservationMade} = req.body;
     const itinerary = await Itinerary.findById(itineraryID);
     if (!itinerary) {
       return res.status(404).json({ message: 'Itinerary not found' });
@@ -37,7 +37,9 @@ const createEvent = async (req, res) => {
       address,
       startTime,
       endTime,
-      notes: notes || ''
+      notes: notes || '',
+      restaurant: false || restaurant,
+      reservationMade: false || reservationMade
     });
 
     await newEvent.save()

@@ -16,7 +16,7 @@ import type { PlaceSuggestion } from '../../../queries/places';
 interface EventPlaceFieldProps {
   value: string;
   placeId: string | null;
-  onChange: (value: string, placeId: string | null) => void;
+  onChange: (value: string, placeId: string | null, restaurant: boolean) => void;
 }
 
 /** Chooses a familiar visual category from a prediction's Google place types.
@@ -83,6 +83,16 @@ const getPlaceIcon = (types: readonly string[]) => {
     ? Landmark
     : MapPin;
 };
+/**
+ * Determines if Google's place is a restaurant
+ */
+const isRestaurantPlace = (types: readonly string[]): boolean =>
+  types.some(
+    (type) =>
+      type === 'restaurant' ||
+      type.endsWith('_restaurant') ||
+      type === 'steak_house',
+  );
 
 /** Lets an event use a Google place or retain a custom location.
  * @param props - Current location text, matched place, and change callback.
@@ -129,9 +139,11 @@ const EventPlaceField = ({
    * @returns Nothing.
    */
   const selectSuggestion = (suggestion: (typeof matches)[number]) => {
+    const restaurant = isRestaurantPlace(suggestion.placePrediction.types ?? []);
     onChange(
       suggestion.placePrediction.text.text,
       suggestion.placePrediction.placeId,
+      restaurant
     );
     setSearchOpen(false);
     setActiveIndex(-1);
@@ -166,7 +178,7 @@ const EventPlaceField = ({
         }
         onFocus={() => setSearchOpen(true)}
         onChange={(event) => {
-          onChange(event.target.value, null);
+          onChange(event.target.value, null, false);
           setSearchOpen(true);
           setActiveIndex(-1);
         }}

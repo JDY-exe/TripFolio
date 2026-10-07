@@ -32,6 +32,12 @@ const eventSchema = new mongoose.Schema({
   },
   notes: {
     type: String,
+  },
+  restaurant: {
+    type: Boolean
+  },
+  reservationMade: {
+    type: Boolean
   }
 }, { timestamps: true });
 

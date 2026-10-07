@@ -22,6 +22,8 @@ interface EventDraft {
   startTime: string;
   finishTime: string;
   notes: string;
+  restaurant: boolean;
+  reservationMade: boolean;
 }
 
 /**
@@ -40,6 +42,8 @@ const createEventDraft = (event?: EventData): EventDraft => ({
     ? new Date(event.endTime).toISOString().slice(11, 16)
     : '10:00',
   notes: event?.notes ?? '',
+  restaurant: event?.restaurant ?? false,
+  reservationMade: event?.reservationMade ?? false
 });
 
 /** Opens a modal for entering an event and reports its saved record to the itinerary.
@@ -100,13 +104,15 @@ const AddNewEventCard = ({
         startTime: start.toISOString(),
         endTime: end.toISOString(),
         notes: draft.notes,
+        restaurant: draft.restaurant,
+        reservationMade: draft.reservationMade
       };
       const savedEvent = event
         ? await patchToApi<EventData>(`/event/${event._id}`, payload)
         : await postToApi<EventData>('/event', {
-            itineraryID: itineraryId,
-            ...payload,
-          });
+          itineraryID: itineraryId,
+          ...payload,
+        });
       onCreated(savedEvent);
       setIsOpen(false);
       setDraft(createEventDraft());
@@ -172,8 +178,21 @@ const AddNewEventCard = ({
           <EventPlaceField
             value={draft.address}
             placeId={draft.placeId}
-            onChange={(address, placeId) => updateDraft({ address, placeId })}
+            onChange={(address, placeId, restaurant) => updateDraft({ address, placeId, restaurant })}
           />
+          {draft.restaurant ? (
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={draft.reservationMade}
+                onChange={(event) =>
+                  updateDraft({ reservationMade: event.target.checked })
+                }
+                className="h-4 w-4 cursor-pointer accent-primary"
+              />
+              <span>Reservation made</span>
+            </label>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               data-cy="event-start"
