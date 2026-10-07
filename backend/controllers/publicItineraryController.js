@@ -81,6 +81,17 @@ const getPublicItineraryFeed = async (req, res) => {
         { $skip: page * pageSize },
         { $limit: pageSize + 1 },
         {
+          $lookup: {
+            from: "events",
+            let: { itineraryId: "$itinerary._id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$itineraryID", "$$itineraryId"] } } },
+              { $limit: 1 },
+            ],
+            as: "itineraryEvents",
+          },
+        },
+        {
           $project: {
             _id: 0,
             tripId: "$_id",
@@ -96,7 +107,32 @@ const getPublicItineraryFeed = async (req, res) => {
             },
             itinerary: {
               _id: "$itinerary._id",
-              title: "$itinerary.title",
+              title: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$itinerary.title", "Blank Itinerary"] },
+                      {
+                        $or: [
+                          { $gt: [{ $size: "$itineraryEvents" }, 0] },
+                          {
+                            $ne: [
+                              {
+                                $trim: {
+                                  input: { $ifNull: ["$itinerary.description", ""] },
+                                },
+                              },
+                              "",
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  "",
+                  "$itinerary.title",
+                ],
+              },
               description: "$itinerary.description",
               startDate: "$itinerary.startDate",
               endDate: "$itinerary.endDate",
@@ -168,4 +204,48 @@ const getPublicItinerary = async (req, res) => {
   }
 };
 
-module.exports = { getPublicItineraryFeed, getPublicItinerary };
+/** Streams a trip cover only when its trip is marked public.
+ * @param {import("express").Request} req - Authenticated public-cover request.
+ * @param {import("express").Response} res - HTTP response to populate.
+ * @returns {Promise<import("express").Response|import("stream").Readable>} Image stream or a not-found response.
+ */
+const getPublicTripCover = async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    if (!mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+
+    const trip = await Trip.findById(tripId);
+    if (!trip || !trip.isPublic || !trip.profilePictureId) {
+      return res.status(404).json({ message: "Public trip cover not found" });
+    }
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      bucketName: "tripProfilePictures",
+    });
+    const [picture] = await bucket
+      .find({ _id: trip.profilePictureId })
+      .toArray();
+
+    if (!picture) {
+      return res.status(404).json({ message: "Public trip cover not found" });
+    }
+
+    res.set("Content-Type", picture.metadata?.contentType || "application/octet-stream");
+    res.set("Cache-Control", "public, max-age=3600");
+    const downloadStream = bucket.openDownloadStream(trip.profilePictureId);
+    downloadStream.on("error", (error) => {
+      if (!res.headersSent) {
+        res.status(404).json({ message: "Public trip cover could not be read" });
+      } else {
+        res.destroy(error);
+      }
+    });
+    return downloadStream.pipe(res);
+  } catch (error) {
+    return res.status(500).json({ message: "Error fetching public trip cover", error: error.message });
+  }
+};
+
+module.exports = { getPublicItineraryFeed, getPublicItinerary, getPublicTripCover };

@@ -66,6 +66,12 @@ const PublicItinerary = () => {
     dayEvents.push(event);
     eventsByDay.set(date, dayEvents);
   }
+  const itineraryHasContent =
+    data.events.length > 0 || Boolean(data.itinerary.description.trim());
+  const itineraryTitle =
+    data.itinerary.title === 'Blank Itinerary' && itineraryHasContent
+      ? 'Itinerary'
+      : data.itinerary.title || 'Itinerary';
 
   return (
     <section className="mx-auto max-w-6xl">
@@ -114,7 +120,7 @@ const PublicItinerary = () => {
             variant="headline"
             className="mb-6"
           >
-            {data.itinerary.title || 'Itinerary'}
+            {itineraryTitle}
           </Text>
           {days.length > 0 ? (
             days.map((date, index) => (

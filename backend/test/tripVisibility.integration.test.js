@@ -15,6 +15,8 @@ const reservationRoutes = require('../routes/reservationRoutes');
 
 test('trip visibility routes protect private data and retain trip planning flows', async (t) => {
   const previousSecret = process.env.JWT_SECRET;
+  const previousGoogleApiKey = process.env.GOOGLE_API_KEY;
+  const originalFetch = global.fetch;
   process.env.JWT_SECRET = 'trip-visibility-integration-secret';
   const originalTripMethods = {
     find: Trip.find,
@@ -41,6 +43,7 @@ test('trip visibility routes protect private data and retain trip planning flows
   const itineraries = new Map();
   const events = new Map();
   const reservations = new Map();
+  const request = global.fetch.bind(global);
 
   Trip.find = (filter = {}) => ({
     sort: async () => [...trips.values()]
@@ -145,18 +148,23 @@ test('trip visibility routes protect private data and retain trip planning flows
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   const userIds = {
     owner: new mongoose.Types.ObjectId().toString(),
+    editor: new mongoose.Types.ObjectId().toString(),
     viewer: new mongoose.Types.ObjectId().toString(),
     stranger: new mongoose.Types.ObjectId().toString(),
   };
   const tokenFor = (userId) => jwt.sign({ id: userId }, process.env.JWT_SECRET);
-  const send = async (path, { method = 'GET', userId, body } = {}) => {
-    const response = await fetch(`${baseUrl}${path}`, {
+  const send = async (path, { method = 'GET', userId, body, formData } = {}) => {
+    const response = await request(`${baseUrl}${path}`, {
       method,
       headers: {
         ...(userId ? { Authorization: `Bearer ${tokenFor(userId)}` } : {}),
         ...(body ? { 'Content-Type': 'application/json' } : {}),
       },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      ...(formData
+        ? { body: formData }
+        : body
+          ? { body: JSON.stringify(body) }
+          : {}),
     });
     const responseText = await response.text();
     const data = responseText ? JSON.parse(responseText) : undefined;
@@ -191,6 +199,9 @@ test('trip visibility routes protect private data and retain trip planning flows
     Reservation.findById = originalTripMethods.reservationFindById;
     Reservation.create = originalTripMethods.reservationCreate;
     Reservation.prototype.save = originalTripMethods.reservationSave;
+    global.fetch = originalFetch;
+    if (previousGoogleApiKey === undefined) delete process.env.GOOGLE_API_KEY;
+    else process.env.GOOGLE_API_KEY = previousGoogleApiKey;
     if (previousSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = previousSecret;
   });
@@ -228,6 +239,32 @@ test('trip visibility routes protect private data and retain trip planning flows
     body: { tripId, userId: userIds.viewer, role: 'viewer' },
   });
   assert.equal(viewerMembership.response.status, 200);
+  const editorMembership = await send('/trip/user', {
+    method: 'PATCH',
+    userId: userIds.owner,
+    body: { tripId, userId: userIds.editor, role: 'editor' },
+  });
+  assert.equal(editorMembership.response.status, 200);
+  const pictureForm = new FormData();
+  pictureForm.append(
+    'image',
+    new Blob(['trip image'], { type: 'image/jpeg' }),
+    'trip.jpg',
+  );
+  const editorPictureUpdate = await send(
+    `/trip/${tripId}/profile_picture`,
+    {
+      method: 'PATCH',
+      userId: userIds.editor,
+      formData: pictureForm,
+    },
+  );
+  assert.equal(editorPictureUpdate.response.status, 403);
+  assert.equal(
+    editorPictureUpdate.data.message,
+    'Only the trip owner can change the trip picture',
+  );
+
   const viewerTripDetail = await send(`/trip/${tripId}`, { userId: userIds.viewer });
   assert.equal(viewerTripDetail.response.status, 200);
   assert.equal(viewerTripDetail.data.currentUserRole, 'viewer');
@@ -318,6 +355,11 @@ test('trip visibility routes protect private data and retain trip planning flows
     { userId: userIds.stranger },
   );
   assert.equal(privateEventsAsStranger.response.status, 404);
+  const privateEventPhotoAsStranger = await send(
+    `/event/${privateEvent.data._id}/photo`,
+    { userId: userIds.stranger },
+  );
+  assert.equal(privateEventPhotoAsStranger.response.status, 404);
   const privateEventUpdateAsStranger = await send(`/event/${privateEvent.data._id}`, {
     method: 'PATCH',
     userId: userIds.stranger,
@@ -389,6 +431,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     body: {
       itineraryID: itineraryId,
       title: 'Dinner',
+      placeId: 'places/example-place',
       address: '15 Example Street',
       startTime: '2027-04-02T18:00:00.000Z',
       endTime: '2027-04-02T19:00:00.000Z',
@@ -404,6 +447,33 @@ test('trip visibility routes protect private data and retain trip planning flows
   });
   assert.equal(eventRead.response.status, 200);
   assert.equal(eventRead.data?.[0]?.title, 'Dinner', JSON.stringify(eventRead.data));
+  process.env.GOOGLE_API_KEY = 'test-google-api-key';
+  const googleFetchUrls = [];
+  global.fetch = async (url) => {
+    googleFetchUrls.push(String(url));
+    if (String(url).includes('/media?')) {
+      return {
+        ok: true,
+        json: async () => ({ photoUri: 'https://photos.example/place.jpg' }),
+      };
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        photos: [{
+          name: 'places/example-place/photos/example-photo',
+          googleMapsUri: 'https://maps.google.com/example-place',
+        }],
+      }),
+    };
+  };
+  const publicEventPhotoAsStranger = await send(
+    `/event/${eventCreate.data._id}/photo`,
+    { userId: userIds.stranger },
+  );
+  assert.equal(publicEventPhotoAsStranger.response.status, 200);
+  assert.equal(publicEventPhotoAsStranger.data.photo.url, 'https://photos.example/place.jpg');
+  assert.equal(googleFetchUrls.length, 2);
   const viewerEventUpdate = await send(`/event/${eventCreate.data._id}`, {
     method: 'PATCH',
     userId: userIds.viewer,
