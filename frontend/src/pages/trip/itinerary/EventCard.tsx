@@ -1,4 +1,4 @@
-import { ChevronDown, Clock3, MapPin, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, Clock3, MapPin, Pencil, Trash2, UtensilsCrossed } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, IconButton, Text } from '../../../components/common';
@@ -42,6 +42,9 @@ const EventCard = ({
   readOnly = false,
 }: EventCardProps): ReactNode => {
   const [expanded, setExpanded] = useState(false);
+  const [reservationMade, setReservationMade] = useState(
+    event.reservationMade ?? false,
+  );
   const detailsId = useId();
   const photoRef = useRef<HTMLDivElement>(null);
   const [photoVisible, setPhotoVisible] = useState(false);
@@ -116,9 +119,20 @@ const EventCard = ({
       <div className="col-start-2 row-start-1 flex min-h-0 min-w-0 flex-col overflow-hidden">
         <div className="flex h-42 shrink-0 flex-col">
           <div className="px-4 pb-1 pt-10 sm:px-6">
-            <Text as="h4" variant="title" className="break-words">
-              {event.title}
-            </Text>
+            <div className="flex min-w-0 items-center gap-2">
+              <Text as="h4" variant="title" className="min-w-0 break-words">
+                {event.title}
+              </Text>
+
+              {event.restaurant ? (
+                <UtensilsCrossed
+                  aria-label="Restaurant"
+                  size={18}
+                  className="shrink-0 text-primary"
+                />
+              ) : null}
+            </div>
+
             <Text
               variant="label"
               color="primary"
@@ -133,6 +147,17 @@ const EventCard = ({
                 {eventTime.format(new Date(event.endTime))}
               </time>
             </Text>
+            {event.restaurant ? (
+              <label className="mt-3 flex items-center gap-2 text-sm text-on-surface-variant">
+                <input
+                  type="checkbox"
+                  checked={event.reservationMade ?? false}
+                  disabled={readOnly}
+                  className="h-4 w-4 cursor-pointer accent-primary"
+                />
+                <span>Reservation made</span>
+              </label>
+            ) : null}
           </div>
           {hasDetails ? (
             <div className="mt-auto flex justify-center px-3 py-1">

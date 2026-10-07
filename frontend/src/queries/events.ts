@@ -9,6 +9,8 @@ export interface EventData {
   startTime: string;
   endTime: string;
   notes?: string;
+  restaurant? : boolean;
+  reservationMade?: boolean;
 }
 
 export interface EventPhotoData {
