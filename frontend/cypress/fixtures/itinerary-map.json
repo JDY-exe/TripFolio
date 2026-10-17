@@ -1,0 +1,42 @@
+{
+  "style": {
+    "version": 8,
+    "sources": {},
+    "layers": [
+      {
+        "id": "background",
+        "type": "background",
+        "paint": { "background-color": "#eff5f3" }
+      }
+    ]
+  },
+  "events": [
+    {
+      "_id": "map-museum",
+      "title": "Museum visit",
+      "address": "Museum, Miami",
+      "startTime": "2030-04-01T09:00:00.000Z",
+      "endTime": "2030-04-01T10:00:00.000Z",
+      "notes": "Explore the collection"
+    },
+    {
+      "_id": "map-lunch",
+      "title": "Museum cafe",
+      "address": "Museum, Miami",
+      "startTime": "2030-04-01T12:00:00.000Z",
+      "endTime": "2030-04-01T13:00:00.000Z"
+    },
+    {
+      "_id": "map-beach",
+      "title": "Beach walk",
+      "address": "South Beach, Miami",
+      "startTime": "2030-04-02T09:00:00.000Z",
+      "endTime": "2030-04-02T10:00:00.000Z"
+    }
+  ],
+  "locations": {
+    "map-museum": { "lat": 25.7858, "lng": -80.1862 },
+    "map-lunch": { "lat": 25.7858, "lng": -80.1862 },
+    "map-beach": { "lat": 25.7826, "lng": -80.1341 }
+  }
+}

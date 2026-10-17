@@ -5,6 +5,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const Trip = require('../models/trip');
+const User = require('../models/User');
 const Itinerary = require('../models/itinerary');
 const Event = require('../models/event');
 const Reservation = require('../models/Reservation');
@@ -19,6 +20,7 @@ test('trip visibility routes protect private data and retain trip planning flows
   const originalFetch = global.fetch;
   process.env.JWT_SECRET = 'trip-visibility-integration-secret';
   const originalTripMethods = {
+    userFind: User.find,
     find: Trip.find,
     findById: Trip.findById,
     findByIdAndUpdate: Trip.findByIdAndUpdate,
@@ -153,6 +155,20 @@ test('trip visibility routes protect private data and retain trip planning flows
     stranger: new mongoose.Types.ObjectId().toString(),
   };
   const tokenFor = (userId) => jwt.sign({ id: userId }, process.env.JWT_SECRET);
+  User.find = ({ _id }) => ({
+    select: (fields) => {
+      assert.equal(fields, 'username profile_picture');
+      return {
+        lean: async () => Object.entries(userIds)
+          .filter(([, id]) => _id.$in.includes(id))
+          .map(([username, id]) => ({
+            _id: id,
+            username,
+            profile_picture: username === 'owner' ? 'data:image/png;base64,avatar' : null,
+          })),
+      };
+    },
+  });
   const send = async (path, { method = 'GET', userId, body, formData } = {}) => {
     const response = await request(`${baseUrl}${path}`, {
       method,
@@ -182,6 +198,7 @@ test('trip visibility routes protect private data and retain trip planning flows
       findByIdAndDelete: originalTripMethods.findByIdAndDelete,
     });
     Trip.prototype.save = originalTripMethods.save;
+    User.find = originalTripMethods.userFind;
     Object.assign(Itinerary, {
       findById: originalTripMethods.itineraryFindById,
       findOne: originalTripMethods.itineraryFindOne,
@@ -232,6 +249,11 @@ test('trip visibility routes protect private data and retain trip planning flows
   const ownerTripList = await send('/trip', { userId: userIds.owner });
   assert.equal(ownerTripList.data.length, 1);
   assert.equal(ownerTripList.data[0]._id, tripId);
+  assert.deepEqual(ownerTripList.data[0].travelers, [{
+    id: userIds.owner,
+    username: 'owner',
+    profile_picture: 'data:image/png;base64,avatar',
+  }]);
 
   const viewerMembership = await send('/trip/user', {
     method: 'PATCH',

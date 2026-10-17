@@ -1,6 +1,7 @@
 const Trip = require("../models/trip");
 const Itinerary = require("../models/itinerary");
 const Event = require("../models/event");
+const User = require("../models/User");
 
 const mongoose = require("mongoose");
 const { validateTripProfilePicture } = require("../utils/tripMedia");
@@ -49,7 +50,23 @@ const getTrips = async (req, res) => {
     const trips = await Trip.find({
       $or: [{ ownerId: req.user.id }, { users: req.user.id }]
     }).sort({ createdAt: -1 });
-    res.status(200).json(trips);
+    const travelerIds = [...new Set(trips.flatMap((trip) =>
+      [trip.ownerId, ...trip.users].filter(Boolean).map(String)
+    ))];
+    const travelers = await User.find({ _id: { $in: travelerIds } })
+      .select("username profile_picture").lean();
+    const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
+    res.status(200).json(trips.map((trip) => ({
+      ...(typeof trip.toObject === 'function' ? trip.toObject() : trip),
+      travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
+        .map((id) => travelersById.get(id))
+        .filter(Boolean)
+        .map((traveler) => ({
+          id: String(traveler._id),
+          username: traveler.username,
+          profile_picture: traveler.profile_picture ?? null
+        }))
+    })));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -1,4 +1,11 @@
-import { ChevronDown, Clock3, MapPin, Pencil, Trash2, UtensilsCrossed } from 'lucide-react';
+import {
+  ChevronDown,
+  Clock3,
+  MapPin,
+  Pencil,
+  Trash2,
+  UtensilsCrossed,
+} from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, IconButton, Text } from '../../../components/common';
@@ -11,6 +18,7 @@ interface EventCardProps {
   onEdit?: (event: EventData) => void;
   onDelete?: (event: EventData) => void;
   readOnly?: boolean;
+  size?: 'md' | 'lg';
 }
 
 const eventTime = new Intl.DateTimeFormat(undefined, {
@@ -40,11 +48,9 @@ const EventCard = ({
   onEdit,
   onDelete,
   readOnly = false,
+  size = 'md',
 }: EventCardProps): ReactNode => {
   const [expanded, setExpanded] = useState(false);
-  const [reservationMade, setReservationMade] = useState(
-    event.reservationMade ?? false,
-  );
   const detailsId = useId();
   const photoRef = useRef<HTMLDivElement>(null);
   const [photoVisible, setPhotoVisible] = useState(false);
@@ -81,7 +87,7 @@ const EventCard = ({
   return (
     <article
       data-cy={`event-card-${event._id}`}
-      className="group relative grid min-h-42 grid-cols-[minmax(7rem,34%)_minmax(0,1fr)] overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low"
+      className={`group relative grid ${size === 'lg' ? 'min-h-56' : 'min-h-42'} grid-cols-[minmax(7rem,34%)_minmax(0,1fr)] overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low`}
     >
       {!readOnly && onEdit && onDelete ? (
         <div className="absolute right-4 top-4 z-10 flex gap-1 rounded-full bg-surface-container-low/90 p-1 opacity-0 pointer-events-none shadow-sm transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 motion-reduce:transition-none sm:right-5 sm:top-5">
@@ -117,8 +123,12 @@ const EventCard = ({
         />
       </div>
       <div className="col-start-2 row-start-1 flex min-h-0 min-w-0 flex-col overflow-hidden">
-        <div className="flex h-42 shrink-0 flex-col">
-          <div className="px-4 pb-1 pt-10 sm:px-6">
+        <div
+          className={`flex shrink-0 flex-col ${size === 'lg' ? 'min-h-56' : 'h-42'}`}
+        >
+          <div
+            className={`px-4 pb-1 sm:px-6 ${size === 'lg' ? 'pt-20' : 'pt-10'}`}
+          >
             <div className="flex min-w-0 items-center gap-2">
               <Text as="h4" variant="title" className="min-w-0 break-words">
                 {event.title}

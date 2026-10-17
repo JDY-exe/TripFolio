@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { Button, Modal, Text, displayAlert } from '../../../components/common';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -9,6 +9,10 @@ import { useTrips } from '../../../queries/trips';
 import { useItinerary } from '../../../queries/itineraries';
 import ItineraryDaySection from './ItineraryDaySection';
 import ItineraryDescription from './ItineraryDescription';
+import TripOverview from './TripOverview';
+import ItineraryMap from './map/ItineraryMap';
+import { useActiveItineraryDay } from './map/useActiveItineraryDay';
+import AddNewEventCard from './AddNewEventCard';
 import type { EventData } from '../../../queries/events';
 import ErrorDisplay from '../../../components/common/ErrorDisplay/ErrorDisplay';
 import { getItineraryDays } from './itineraryDays';
@@ -20,7 +24,11 @@ const ItineraryView = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { trips } = useTrips(user?.id);
+  const {
+    trips,
+    isPending: tripsLoading,
+    isError: tripsError,
+  } = useTrips(user?.id);
   const { itinerary, isError, refetch } = useItinerary(id);
   const {
     events = [],
@@ -32,6 +40,13 @@ const ItineraryView = () => {
   const [eventToDelete, setEventToDelete] = useState<EventData | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
+  const [mapEventBeingEdited, setMapEventBeingEdited] =
+    useState<EventData | null>(null);
+  const itineraryColumn = useRef<HTMLElement>(null);
+  const activeDate = useActiveItineraryDay(
+    itineraryColumn,
+    itinerary?.startDate.slice(0, 10),
+  );
 
   /** Removes the confirmed event and refreshes the itinerary list.
    * @returns A promise that settles when deletion completes.
@@ -72,7 +87,8 @@ const ItineraryView = () => {
       </div>
     );
 
-  const tripName = trips.find((trip) => trip._id === id)?.name;
+  const trip = trips.find((trip) => trip._id === id);
+  const tripName = trip?.name;
   const days = getItineraryDays(itinerary.startDate, itinerary.endDate);
   const eventsByTime = [...events].sort(
     (first, second) =>
@@ -89,6 +105,7 @@ const ItineraryView = () => {
   return (
     <>
       <section
+        ref={itineraryColumn}
         aria-labelledby="itinerary-heading"
         className="min-w-0 text-on-surface"
       >
@@ -142,17 +159,44 @@ const ItineraryView = () => {
           ))
         )}
       </section>
-      <aside className="flex min-w-0 flex-col gap-5">
+      <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-8 lg:self-start">
         <ItineraryDescription itinerary={itinerary} tripId={id} />
-        <section className="rounded-panel bg-surface-container p-8 text-on-surface">
-          <Text as="h2" variant="title">
-            Trip overview
-          </Text>
-          <Text color="muted" className="mt-2">
-            Dates, travelers, and key details coming soon.
-          </Text>
-        </section>
+        <TripOverview
+          startDate={trip?.startDate ?? itinerary.startDate}
+          endDate={trip?.endDate ?? itinerary.endDate}
+          travelers={trip?.travelers}
+          travelersLoading={tripsLoading}
+          travelersError={tripsError}
+        />
+        <ItineraryMap
+          key={itinerary._id}
+          events={eventsByTime}
+          activeDate={activeDate}
+          startDate={itinerary.startDate}
+          loading={eventsLoading}
+          onEdit={setMapEventBeingEdited}
+          onDelete={(event) => {
+            setEventToDelete(event);
+            setDeleteModalOpen(true);
+          }}
+        />
       </aside>
+      {mapEventBeingEdited ? (
+        <AddNewEventCard
+          key={mapEventBeingEdited._id}
+          event={mapEventBeingEdited}
+          itineraryId={itinerary._id}
+          startDate={itinerary.startDate}
+          endDate={itinerary.endDate}
+          date={mapEventBeingEdited.startTime.slice(0, 10)}
+          onClose={() => setMapEventBeingEdited(null)}
+          onCreated={() =>
+            void queryClient.invalidateQueries({
+              queryKey: eventsQueryKey(itinerary._id),
+            })
+          }
+        />
+      ) : null}
       {eventToDelete ? (
         <Modal
           data-cy="delete-event-dialog"

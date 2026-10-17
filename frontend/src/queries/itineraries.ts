@@ -1,5 +1,4 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useLoading } from '../contexts/LoadingContext';
 import type { EventData } from './events';
 import { getFromApi } from '../utils/api';
 
@@ -90,7 +89,6 @@ export const itineraryQueryKey = (tripId?: string) =>
  * @returns Itinerary data, loading and error state, and a retry function.
  */
 export const useItinerary = (tripId?: string) => {
-  const { setLoading } = useLoading();
   const {
     data: itinerary,
     isPending,
@@ -98,14 +96,7 @@ export const useItinerary = (tripId?: string) => {
     refetch,
   } = useQuery({
     queryKey: itineraryQueryKey(tripId),
-    queryFn: async () => {
-      setLoading(true);
-      try {
-        return await getFromApi<Itinerary>(`/itinerary?id=${tripId}`);
-      } finally {
-        setLoading(false);
-      }
-    },
+    queryFn: () => getFromApi<Itinerary>(`/itinerary?id=${tripId}`),
     enabled: Boolean(tripId),
   });
 
