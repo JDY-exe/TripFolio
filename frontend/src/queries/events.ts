@@ -6,10 +6,12 @@ export interface EventData {
   title: string;
   placeId?: string | null;
   address: string;
+  lat?: number | null;
+  lng?: number | null;
   startTime: string;
   endTime: string;
   notes?: string;
-  restaurant? : boolean;
+  restaurant?: boolean;
   reservationMade?: boolean;
 }
 

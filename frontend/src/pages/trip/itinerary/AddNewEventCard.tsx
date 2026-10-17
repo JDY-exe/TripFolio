@@ -21,6 +21,7 @@ interface EventDraft {
   placeId: string | null;
   startTime: string;
   finishTime: string;
+  finishNextDay: boolean;
   notes: string;
   restaurant: boolean;
   reservationMade: boolean;
@@ -41,9 +42,12 @@ const createEventDraft = (event?: EventData): EventDraft => ({
   finishTime: event
     ? new Date(event.endTime).toISOString().slice(11, 16)
     : '10:00',
+  finishNextDay: Boolean(
+    event && event.endTime.slice(0, 10) > event.startTime.slice(0, 10),
+  ),
   notes: event?.notes ?? '',
   restaurant: event?.restaurant ?? false,
-  reservationMade: event?.reservationMade ?? false
+  reservationMade: event?.reservationMade ?? false,
 });
 
 /** Opens a modal for entering an event and reports its saved record to the itinerary.
@@ -73,12 +77,31 @@ const AddNewEventCard = ({
     setDraft((current) => ({ ...current, ...changes }));
   };
 
+  /** Sets a selected start time and defaults the finish to one hour later.
+   * @param startTime - Native time input value; empty values only clear the start.
+   * @returns Nothing; updates both times and tracks a finish after midnight.
+   */
+  const updateStartTime = (startTime: string) => {
+    if (!startTime) {
+      updateDraft({ startTime });
+      return;
+    }
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const finishHour = (hours + 1) % 24;
+    updateDraft({
+      startTime,
+      finishTime: `${String(finishHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
+      finishNextDay: hours === 23,
+    });
+  };
+
   /** Combines the selected day with the entered times and saves the event.
    * @returns A promise that settles after saving.
    */
   const saveEvent = async () => {
     const start = new Date(`${date}T${draft.startTime}:00.000Z`);
     const end = new Date(`${date}T${draft.finishTime}:00.000Z`);
+    if (draft.finishNextDay) end.setUTCDate(end.getUTCDate() + 1);
     const tripStart = new Date(startDate);
     const tripEnd = new Date(endDate);
     tripEnd.setUTCHours(23, 59, 59, 999);
@@ -105,14 +128,14 @@ const AddNewEventCard = ({
         endTime: end.toISOString(),
         notes: draft.notes,
         restaurant: draft.restaurant,
-        reservationMade: draft.reservationMade
+        reservationMade: draft.reservationMade,
       };
       const savedEvent = event
         ? await patchToApi<EventData>(`/event/${event._id}`, payload)
         : await postToApi<EventData>('/event', {
-          itineraryID: itineraryId,
-          ...payload,
-        });
+            itineraryID: itineraryId,
+            ...payload,
+          });
       onCreated(savedEvent);
       setIsOpen(false);
       setDraft(createEventDraft());
@@ -178,7 +201,9 @@ const AddNewEventCard = ({
           <EventPlaceField
             value={draft.address}
             placeId={draft.placeId}
-            onChange={(address, placeId, restaurant) => updateDraft({ address, placeId, restaurant })}
+            onChange={(address, placeId, restaurant) =>
+              updateDraft({ address, placeId, restaurant })
+            }
           />
           {draft.restaurant ? (
             <label className="flex items-center gap-2 text-sm font-medium">
@@ -200,9 +225,7 @@ const AddNewEventCard = ({
               label="Start time"
               type="time"
               value={draft.startTime}
-              onChange={(event) =>
-                updateDraft({ startTime: event.target.value })
-              }
+              onChange={(event) => updateStartTime(event.target.value)}
               required
             />
             <TextField
@@ -211,8 +234,13 @@ const AddNewEventCard = ({
               label="End time"
               type="time"
               value={draft.finishTime}
+              hint={draft.finishNextDay ? 'Ends the following day.' : undefined}
               onChange={(event) =>
-                updateDraft({ finishTime: event.target.value })
+                updateDraft({
+                  finishTime: event.target.value,
+                  finishNextDay:
+                    draft.finishNextDay && event.target.value < draft.startTime,
+                })
               }
               required
             />

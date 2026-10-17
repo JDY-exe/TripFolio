@@ -2,6 +2,7 @@ const Event = require('../models/event');
 const Itinerary = require('../models/itinerary');
 const Trip = require('../models/trip');
 const { canEditTrip, canReadTrip, getTripRole } = require('../utils/tripAccess');
+const { tryPlaceCoordinates } = require('../utils/eventCoordinates');
 
 const findEventTrip = async (event) => {
   const itinerary = await Itinerary.findById(event.itineraryID);
@@ -30,11 +31,13 @@ const createEvent = async (req, res) => {
       return denyTripAccess(res, trip, req.user.id);
     }
 
+    const coordinates = await tryPlaceCoordinates(placeId);
     const newEvent = new Event ({
       itineraryID,
       title: title || 'New Event',
       placeId: placeId || undefined,
       address,
+      ...coordinates,
       startTime,
       endTime,
       notes: notes || '',
@@ -149,9 +152,19 @@ const updateEvent = async (req, res) => {
       return denyTripAccess(res, trip, req.user.id);
     }
 
+    const changes = { ...req.body };
+    // Re-resolve when the selected place or custom address changes.
+    delete changes.lat;
+    delete changes.lng;
+    if ((changes.address !== undefined && changes.address !== event.address)
+      || (changes.placeId !== undefined && changes.placeId !== event.placeId)) {
+      changes.lat = null;
+      changes.lng = null;
+      Object.assign(changes, await tryPlaceCoordinates(changes.placeId !== undefined ? changes.placeId : event.placeId));
+    }
     const updatedEvent = await Event.findByIdAndUpdate(
       id,
-      { $set: req.body },
+      { $set: changes },
       { returnDocument: 'after', runValidators: true }
     );
 

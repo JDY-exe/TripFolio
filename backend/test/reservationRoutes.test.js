@@ -3,12 +3,14 @@ const assert = require("node:assert/strict");
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const Trip = require("../models/trip");
+const User = require("../models/User");
 const Reservation = require("../models/Reservation");
 const reservationRoutes = require("../routes/reservationRoutes");
 const tripRoutes = require("../routes/tripRoutes");
 
 test("reservation routes scope reads and writes to trip editors", async (t) => {
     const original = {
+        findUsers: User.find,
         findByIdTrip: Trip.findById,
         findTrips: Trip.find,
         updateOne: Trip.updateOne,
@@ -18,6 +20,7 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         saveTrip: Trip.prototype.save,
     };
     t.after(() => {
+        User.find = original.findUsers;
         Trip.findById = original.findByIdTrip;
         Trip.find = original.findTrips;
         Trip.updateOne = original.updateOne;
@@ -27,6 +30,7 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         Trip.prototype.save = original.saveTrip;
     });
     const tripId = "507f1f77bcf86cd799439011";
+    User.find = () => ({ select: () => ({ lean: async () => [] }) });
     const reservationId = "507f1f77bcf86cd799439012";
     const userId = "507f1f77bcf86cd799439013";
     const previousSecret = process.env.JWT_SECRET;

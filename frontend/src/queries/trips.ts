@@ -1,12 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { getFromApi } from '../utils/api';
 
+export interface TripTraveler {
+  id: string;
+  username: string;
+  profile_picture?: string | null;
+}
+
 export interface Trip {
   _id: string;
   name: string;
   startDate: string;
   endDate: string;
   profilePictureId?: string;
+  travelers?: TripTraveler[];
 }
 
 /** Creates the cache key for a user's trips. */
