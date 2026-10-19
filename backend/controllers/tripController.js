@@ -2,6 +2,7 @@ const Trip = require("../models/trip");
 const Itinerary = require("../models/itinerary");
 const Event = require("../models/event");
 const User = require("../models/User");
+const TripInvitation = require("../models/TripInvitation");
 
 const mongoose = require("mongoose");
 const { validateTripProfilePicture } = require("../utils/tripMedia");
@@ -247,6 +248,68 @@ const getTripFromUser = async (req, res) => {
   }
 };
 
+const shareTrip = async (req, res) => {
+  try {
+    const { id: tripId } = req.params;
+    const { recipientId } = req.body || {};
+
+    if (!mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+    if (!mongoose.isValidObjectId(recipientId)) {
+      return res.status(400).json({ message: "A valid recipientId is required" });
+    }
+
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+    if (!canEditTrip(trip, req.user.id)) {
+      return res.status(403).json({
+        message: "Only trip owners and editors can share this trip"
+      });
+    }
+
+    const recipient = await User.findById(recipientId);
+    if (!recipient) {
+      return res.status(404).json({ message: "Recipient profile not found" });
+    }
+    if (getTripRole(trip, recipientId)) {
+      return res.status(409).json({ message: "User is already a trip member" });
+    }
+
+    const existingInvitation = await TripInvitation.findOne({
+      trip: tripId,
+      recipient: recipientId,
+      status: "pending"
+    });
+    if (existingInvitation) {
+      return res.status(409).json({
+        message: "A pending invitation already exists for this user"
+      });
+    }
+
+    const invitation = new TripInvitation({
+      trip: tripId,
+      recipient: recipientId,
+      inviter: req.user.id
+    });
+    await invitation.save();
+
+    return res.status(201).json({
+      message: "Trip invitation created",
+      invitation
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "A pending invitation already exists for this user"
+      });
+    }
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 const addUserToTrip = async (req, res) => {
   try {
     const { tripId, userId, role = "editor" } = req.body;
@@ -294,5 +357,6 @@ module.exports = {
   updateTripProfilePicture,
   getTripProfilePicture,
   getTripFromUser,
+  shareTrip,
   addUserToTrip
 };
