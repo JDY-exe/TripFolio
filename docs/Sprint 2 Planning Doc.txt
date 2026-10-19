@@ -1,0 +1,719 @@
+﻿Sprint 2 Planning
+Group 8: TripFolio
+John Yuan
+Daniel Choi
+Bryce Miller
+Piper Elling
+________________
+
+
+Sprint overview
+Sprint Overview
+This sprint will focus on getting up the last of our core features for our app that weren’t developed in sprint 1, for instance getting the ledger and photo album set up. Additionally, we will begin working on polishing the features that we started last sprint such as some of the social aspects. At the end of this sprint we hope that we have a prototype that achieves most of the goals we laid out but will still need fine tuning and polishing that will really make our product stand out which we can implement in sprint 3.
+
+
+Scrum Master: Bryce Miller
+Meeting Plan: Wednesday afternoons/evenings
+
+
+Risks and challenges
+Since our first sprint went so well we have a solid starting point but as we begin to integrate and develop more features we need to make sure that we don’t mess up previous work. We have some test cases that we have developed to hopefully check that we don’t mess up previous work but as we add more and more features especially features that interact with our trip object it becomes increasingly important that we don’t develop anything that sets us backwards. Another challenge that could appear is work we did in sprint 1 was good for getting our tasks in sprint 1 completed but might make future work more complicated and while we believe that our code base is set up in a way that is modular to hopefully reduce this risk it is still important to note that we might not have foreseen challenges we will face in this sprint and might have to redo prior work that we may not have been responsible for.
+________________
+
+
+2.1) As a user, I want to be able to set an overall budget
+Description
+	Hours
+	Owner
+	Update Trip model to include budget field
+	1
+	Daniel
+	Create GET API endpoint for budget
+	1.5
+	Daniel
+	Create PATCH API endpoint for budget 
+	1.5
+	Daniel
+	Create UI Input on ledger page to set and view budget
+	2
+	Daniel
+	Integrate frontend and backend
+	1
+	Daniel
+	TOTAL
+	7
+	===
+	Acceptance criteria
+1. Given the user is on the ledger page, when the user enters a valid number in the budget field and clicks save, then the new budget is displayed.
+2. Given a budget is already set, when the user loads the ledger page, the set budget should be displayed on the ledger page.
+3. Given the user is editing the budget, when the user enters a negative number, the input is rejected.
+4. Given the user updates the budget, when the user clicks on the submit button, then the UI updates immediately without requiring a page refresh
+5. Given the user is viewing the ledger, when expenses are added to the trip, then the user visually sees how much of the budget remains.
+________________
+2.2) As a user, I want to be able add costs to every item in the itinerary
+Description
+	Hours
+	Owner
+	Update Event model to include a cost or expense field
+	1
+	Daniel
+	Create Expense model to store transaction details
+	1
+	Daniel
+	Add cost input fields to event creation/edit modals
+	2
+	Daniel
+	Sync up costs between ledger page with itinerary page
+	2
+	Daniel
+	TOTAL
+	6
+	===
+	Acceptance criteria
+1. Given the user creates a new itinerary event, when the user inputs a cost amount and hits save, then the cost is saved alongside the event details.
+2. Given the user edits an existing event, when a new cost is input to the field, then the new cost is reflected on the itinerary’s page.
+3. Given an event has an attached cost, when the user navigates to the ledger page, then that specific event’s cost will be reflected onto the ledger page.
+4. Given the user leaves the cost field blank during event creation, when the user saves the event, then the cost will default to 0.
+5. Given an itinerary event is deleted, when the user checks the ledger, then the cost for that event will automatically be removed from the ledger.
+________________
+2.3) As a user, if I upload an expense I want to be able to set who should split those expenses
+Description
+	Hours
+	Owner
+	Update Expense model to include paidBy and splitAmong fields
+	1.5
+	Daniel
+	Create dropdown menu to allow users to choose which members are involved in the split
+	2
+	Daniel
+	Develop backend logic to calculate split amounts
+	2
+	Daniel
+	Integrate and synchronize values to ensure accurate numbers
+	1.5
+	Daniel
+	TOTAL
+	7
+	===
+	Acceptance criteria
+1. Given the user is adding a new expense, when the split dropdown is opened, then I see a comprehensive list of all current trip members.
+2. Given the user selects specific members to split a cost with, when the expense is saved to the ledger, then the backend divides the cost exclusively among those selected users.
+3. Given the user is viewing a pre-existing expense, when the user expands its details, then the user can clearly see which users have paid and which users are involved in the expense.
+4. Given the user creates an expense with no one split it with, when that expense is saved, then the app assigns the full cost to the person who paid.
+5. Given a new expense is added, when the user returns to the summary table on the ledger, then the displayed balances are correctly updated to reflect the new expense’s influence.
+________________
+2.4) As a user, I want to be able to see how much money is owed to everyone else on the trip.
+Description
+	Hours
+	Owner
+	Establish logic for distinguishing which user to user relationships should be displayed
+	1.5
+	Daniel
+	Implement balance calculation logic in backend to simplify expense payment
+	4
+	Daniel
+	Build a clean summary table of all payments due between all relevant user to user combinations
+	2
+	Daniel
+	Verify frontend and backend agree upon values when encountering edge cases
+	1
+	Daniel
+	TOTAL
+	8.5
+	===
+	Acceptance criteria
+1. Given the trip has expenses associated with it, when the user views the summary table, then the user will see a clear list of all users who owe money to another user.
+2. Given User A owes User B money, when User A’s total is displayed, then the amount is an accurate mathematically aggregated value of all of the logged expenses pertaining to that relationship between User A and User B.
+3. Given a user’s balances are entirely settled, when the user views the summary table, then the user will be shown a state indicating their lack of debt (either $0 or lack of name mention).
+4. Given multiple expenses affect the same two users, when the summary table is viewed, then the mutual debts are coalesced into one balance.
+5. Given a cost that cannot be split evenly (like $10 split between 3 people) is added to the ledger, when the balance is calculated, the backend rounds to the nearest cent.
+________________
+2.5) As a user, I want to be able to remove an item from the ledger (in case someone double adds the same item).
+Description
+	Hours
+	Owner
+	Create DELETE endpoint for expenses
+	1
+	Daniel
+	Add delete button next to expenses
+	1
+	Daniel
+	Verify that deletion logic maintains accurate expense numbers across summary table and individual expenses
+	2
+	Daniel
+	Verify that deletion logic updates relevant user to user relationships properly
+	2.5
+	Daniel
+	TOTAL
+	6.5
+	===
+	Acceptance criteria
+1. Given that the user is viewing the ledger, when the user clicks the delete button on an expense, then the user is prompted to confirm the deletion.
+2. Given the user confirms the deletion, when the delete request successfully goes through, then the expense disappears from the ledger list
+3. Given an expense is successfully deleted, when the user checks the summary table, then all user balances are recalculated to reflect this removal.
+4. Given an expense was previously tied to an itinerary event, when the expense is deleted from the ledger, then the cost on the itinerary event is reduced by that expense’s cost amount.
+5. Given an error occurs during deletion on the backend, when the server throws that error, then the UI reverts the deletion and shows an error message.
+________________
+
+
+2.6) As a user, I want to be able to upload photos to the app
+Description
+	Hours
+	Owner
+	[F] Make frontend interface to upload multiple photos
+	2
+	John
+	[B] Make POST photos
+	1
+	Bryce
+	[I] Integrate backend and frontend
+	2
+	Bryce
+	[T] Creating Tests for photo routes
+	1
+	Bryce
+	TOTAL
+	
+
+	===
+	Acceptance criteria
+1. Given photo upload is working, the user should be able to upload multiple photos at once
+2. Given photo upload is working, images larger than 16MB will be broken up using MongoDBs build in GridFS
+3. Given photo upload is working, all automated JEST testing will pass
+
+
+________________
+2.7) As a user, I want my photos to be linked to events on my itinerary
+Description
+	Hours
+	Owner
+	Update Photo model to include the optional eventId that is referenced
+	1
+	Daniel
+	Add dropdown menu to allow user to select an itinerary event for an uploaded photo
+	1.5
+	Daniel
+	Update photo album view to display photos by tagged itinerary events
+	3
+	Daniel
+	TOTAL
+	5.5
+	===
+	Acceptance criteria
+1. Given the user uploads a new photo, when the user clicks on the event dropdown, then the user sees a list of all current itinerary events for the given trip.
+2. Given the user selects an event during upload, when the upload is done, then the user sees a little indicator signifying that the photo is linked to the event.
+3. Given the user is viewing a photo album, when the user scrolls through the grid, then the user sees tags that indicate which itinerary events that the photos belong to.
+4. Given the user uploads a photo without selecting an event, when the photo saves, then the photo appears in the album without any event tag
+5. Given an itinerary event is deleted, when the user views its previously linked photos, then the photos lose the event specific tag but remain in the album.
+________________
+2.8) As a user, I want to be able to view all of my photos associated with a trip in a grid like menu
+Description
+	Hours
+	Owner
+	[F] Make frontend photo visualizer
+	5
+	John
+	[B] Make GET /photos?tripId={}
+	1
+	Bryce
+	[I] Integrate
+	2
+	Bryce
+	[T] Create Tests for get photo from trips
+	1
+	Bryce
+	TOTAL
+	
+
+	===
+	Acceptance criteria
+1. Given there are photos in the trip, I should be able to view all photos
+2. Given there are photos in the trip, I should be able to view other people’s photos from the same trip
+3. Given there are photos in the trip, I should be able to see all photos of archived trips
+4. Given there are photos in the trip, only users on the trip should be able to use the API call
+5. Given there are photos in the trip, automated JEST testing will all pass
+________________
+2.9) As a user, I want to be able to see on a map where my photos were taken using the geotagging available in most photos
+Description
+	Hours
+	Owner
+	[F] Make map visualization interface
+	10
+	John
+	[B] Get geotagging data and stored connect to image data
+	2
+	Bryce
+	[I] Integrate map visualization with geotagged data
+	2
+	Bryce
+	[T] Test for geo tagged images
+	1
+	Bryce
+	TOTAL
+	
+
+	===
+	Acceptance criteria
+1. Given a photo is taken with geographical tagging data, the user should be able to see that photo on the map visualization
+2. Given there are events in the itinerary, the user should also be able to see event pins on the map visualization
+3. Given that the photos were matched correctly, all photos aggregated under an event should appear as the user hovers the event pin. 
+4. Given the photo geotagging is working properly, all backend tests should pass
+________________
+2.10) As a user, I want to be able to share my trip with my friends or family.
+Description
+	Hours
+	Owner
+	Build UI with friend list and email invite input
+	3
+	Piper
+	Create trip membership schema and POST /trip/:id/share endpoint
+	2
+	Piper
+	Add share permission verification logic (only owners/editors can share)
+	2
+	Piper
+	Hook up front and backend
+	1.5
+	Piper
+	Implement integration and unit testing
+	1.5
+	Piper
+	TOTAL
+	10
+	===
+	Acceptance criteria
+1. Given an authenticated trip member opens the trip settings and clicks "Share Trip", then a modal displays a searchable list of their friends and an email invite input field.
+2. Given the user selects a friend from the list and clicks "Send Invite", then the modal displays a confirmation message and the recipient receives an invitation record in the database.
+3. Given an invited user is already an existing member of the trip, then the UI disables selection for that user and displays a badge indicating they are already a participant.
+4. Given a non-member or unauthorized user sends a network request to POST /trip/:id/share, then the backend rejects the request with an HTTP 403 Forbidden error.
+5. Given automated test suites are executed for trip sharing endpoints and UI components, then all test cases pass.
+________________
+2.11) As a user, I want to be able to accept an invite to a trip
+Description
+	Hours
+	Owner
+	Create trip invitations list
+	2
+	Piper
+	Implement GET /user/invites endpoint to fetch pending trip invites
+	1
+	Piper
+	Implement PATCH /trip/:id/invites/accept and reject endpoints
+	2
+	Piper
+	Integrate accept/decline actions with frontend and refresh trip list
+	1.5
+	Piper
+	Write backend and frontend unit tests 
+	1.5
+	Piper
+	TOTAL
+	8
+	===
+	Acceptance criteria
+1. Given a user receives a trip invitation, then an alert badge appears on their notifications icon and the invite card displays the trip name, dates, and inviting user's username.
+2. Given the user clicks "Accept" on a trip invite card, then the invite record status updates to accepted and the trip immediately renders under the user's "Upcoming Trips" dashboard.
+3. Given the user clicks "Decline" on a trip invite card, then the invitation is removed from their pending invites list and the user is not added to the trip participants list.
+4. Given a user accepts an invite for a trip they have already joined in another active session, then the frontend displays an informational toast stating they are already a member without duplicating their entry.
+5. Given automated tests are run against the invitation acceptance endpoints and UI handlers, then all test cases pass.
+________________
+2.12) As a user, I want to be able to designate users as read-only users
+Description
+	Hours
+	Owner
+	Update trip member schema to support role definitions (editor vs viewer)
+	1
+	Piper
+	Build participant management UI with role toggle dropdowns (Editor / Viewer
+	3
+	Piper
+	Create PATCH /trip/:id/members/:userId/role endpoint
+	1.5
+	Piper
+	Implement client-side role enforcement (hide edit modals/buttons for read-only users)
+	2
+	Piper
+	Implement role endpoint security middleware and write unit tests 
+	1.5
+	Piper
+	TOTAL
+	9
+	===
+	Acceptance criteria
+1. Given a trip owner or editor views the participant settings menu, then each participant has a role selector dropdown displaying either "Editor" or "Viewer".
+2. Given an editor changes a member's role from "Editor" to "Viewer", then the member's permissions update instantly in the database and the UI displays a confirmation.
+3. Given a designated "Viewer" opens the trip, then all editing controls, addition buttons, and delete icons across the itinerary, ledger, and logistics tabs are hidden from view.
+4. Given the role-permission test suite runs across both frontend role guards and backend authorization middleware, then all test cases pass.
+________________
+2.13) As a user, I want to be able to edit the trip one-at-a-time.
+Description
+	Hours
+	Owner
+	[DB] Update records to have monotonic versioning fields
+	2
+	John
+	[B] Update all WRITE endpoints to pull version number before saving
+	2
+	John
+	[B] Make logic for auto-merging unrelated changes
+	4
+	John
+	[F] Make interface for resolving conflicting changes
+	4
+	John
+	TOTAL
+	
+
+	===
+	Acceptance criteria
+1. If there are two users who write to unrelated fields (e.g. one user is editing the flights while another user is editing the hotels), the system should merge them automatically
+2. If there are two users who write to the same field, the first user to save should be able to save. The second user to save should be prompted on the frontend to resolve the conflicts
+3. Before the user starts a write action, the system should automatically pull unseen changes.
+4. Automated testing passes. 
+________________
+2.14) As a user, I want to be able to share the highlights of my trip to external social medias such as facebook or instagram
+Description
+	Hours
+	Owner
+	[F] Make trip highlights generator
+	5
+	John
+	[F] Make callback/integration with instagram
+	5
+	John
+	TOTAL
+	10
+	===
+	Acceptance criteria
+1. Given the trip has photos, the user should be able to generate a collage of photos for their trip
+2. Given the collage is generated, the user should be able to download that collage
+3. Given the collage is generated, the user should be able to share the collage to instagram
+4. Automated testing passes
+________________
+2.15) As a user, I want to be able to upvote itineraries
+Description
+	Hours
+	Owner
+	[F] Create Upvote and Downvote buttons on Global Feed
+	1
+	Bryce
+	[B] Update Schema and Create Route to Upvote and Downvote
+	1
+	Bryce
+	[I] Integrate Frontend and Backend
+	1
+	Bryce
+	[T] Create Tests For Upvoting and Downvoting
+	1
+	Bryce
+	TOTAL
+	4
+	===
+	Acceptance criteria
+1. Given upvoting itineraries is implemented properly, there should be an upvote and downvote button on the global feed posts
+2. Given upvoting itineraries is implemented properly, the total upvotes on itineraries should equal the number of upvotes minus the number of downvotes
+3. Given upvoting itineraries is implemented properly, your upvotes should appear without refresh
+4. Given upvoting itineraries is implemented properly, other users upvotes should appear after the refresh
+5. Given upvoting itineraries is implemented properly, all JEST test should work
+________________
+
+
+2.16) As a user, I want to be able to search by location and get the most popular itineraries
+Description
+	Hours
+	Owner
+	[F] Create Search Bar
+	1
+	Bryce
+	[B] Create Backend Search by location route and popularity route
+	3
+	Bryce
+	[I] Integrate Frontend and Backend
+	2
+	Bryce
+	[T] Create Testing for Backend Routes
+	1
+	Bryce
+	TOTAL
+	7
+	===
+	Acceptance criteria
+   1. Given the search by location is working properly, the global feed should feature a search bar to search by location
+   2. Given the search by location is working properly, when a location is searched only trips to that location will be shown
+   3. Given the search by location is working properly, when a location is searched the trips will be ordered by popularity(upvotes)
+   4. Given the search by location is working properly, all JEST test should work
+________________
+
+
+
+
+2.17) As a user, I want to hide myself from a public trip
+Description
+	Hours
+	Owner
+	[F] Create Menu Showing Participants in Trip
+	.5
+	Bryce
+	[F] Create Menu Option to hide yourself from a public trip
+	.5
+	Bryce
+	[B] Create Route to hide or unhide from a trip
+	1
+	Bryce
+	[I] Integrate Frontend and Backend
+	1
+	Bryce
+	[T] Create Tests for Route
+	1
+	Bryce
+	TOTAL
+	4
+	===
+	Acceptance criteria
+   1. Given the hide functionality is working properly, users should be able to see what other users where on a global trip
+   2. Given the hide functionality is working properly, users should see an option to hide themselves from a global trip
+   3. Given the hide functionality is working properly, a hidden user will not show up on the list of users on a global trip
+   4. Given the hide functionality is working properly, all JEST testing will work properly
+________________
+2.18) As a user, I want to add hotel checkins, rental car pickups, flights as events in the itinerary
+Description
+	Hours
+	Owner
+	[B] Add additional itinerary event when creating logistics
+	1
+	Bryce
+	[B] Cascading deletion on logistics deletion
+	1
+	Bryce
+	[F] Add badge/icon to logistics events (checking in/out hotels, etc) in the itinerary
+	1
+	John
+	TOTAL
+	
+
+	===
+	Acceptance criteria
+      1. Given that logistics are being added to itinerary properly, when a logistical event is create an itinerary event is also created on the itinerary
+      2. Given that logistics are being added to itinerary properly, when logistical event is deleted its itinerary event is also deleted
+      3. Given that logistics are being added to itinerary properly, all JEST tests past
+________________
+2.19) As a user, when a trip is over, I want to be able to archive a trip
+Description
+	Hours
+	Owner
+	[F] Create Archived Trips Option
+	1
+	Bryce
+	[B] Create Patch to archive a trip
+	1
+	Bryce
+	[I] Integrate Frontend and Backend
+	1
+	Bryce
+	[T] Create Test cases
+	1
+	Bryce
+	TOTAL
+	4
+	===
+	Acceptance criteria
+         1. Given that the archiving trip feature is working properly, users should see an option to archive a trip if the end date has passed
+         2. Given that the archiving trip feature is working properly, archived trips won’t appear on the my trip page
+         3. Given that the archiving trip feature is working properly, all JEST tests will pass 
+________________
+
+
+2.20) As a user, I want to be able to view my archived trip
+Description
+	Hours
+	Owner
+	[F] Create All Archive Trip Page
+	2
+	Bryce
+	[F] Create Individual Archive Trip Page
+	1
+	Bryce
+	[B] Create Get Archived Trips
+	1
+	Bryce
+	[I] Integrate Frontend and Backend
+	3
+	Bryce
+	[T] Testing Backend Routes
+	1
+	Bryce
+	TOTAL
+	6
+	===
+	Acceptance criteria
+         1. Given the viewing archived trip feature is working properly, users should see a grid of all archived trips
+         2. Given the viewing archived trip feature is working properly, users should see a read only view of the trip now that it has been completed
+         3. Given the viewing archived trip feature is working properly, all JEST tests should pass
+________________
+
+
+2.21) As a user, I want to be able to add notes to an archived itinerary
+Description
+	Hours
+	Owner
+	[F] Create adding notes interface
+	1
+	Piper
+	[B] Creating Post and Patch for Notes
+	2
+	Piper
+	[I] Integrate frontend and Backend
+	1
+	Piper
+	[T] Testing for Routes
+	1
+	Piper
+	TOTAL
+	5
+	===
+	Acceptance criteria
+         1. Given the adding notes feature is working properly, there should be a place to add notes to an archived trip
+         2. Give the adding notes feature is working properly, notes should not be visible on the global feed
+         3. Given the adding notes feature is working properly, notes should only be visible for the user that wrote them
+         4. Given the adding notes feature is working properly, all JEST tests should pass
+________________
+2.22) As a user, I want to be able to share an archived trip with another user
+Description
+	Hours
+	Owner
+	Build "Share Archived Trip" button and modal on archived itinerary view 
+	2
+	Piper
+	POST /trips/:id/share-archive endpoint to grant access to target user
+	2
+	Piper
+	Add backend authorization logic ensuring only trip participants can share an archive
+	1.5
+	Piper
+	Integrate share modal with backend API and display target user confirmation toast 
+	1.5
+	Piper
+	Implement automated test suite covering endpoints and UI share flow
+	1
+	Piper
+	TOTAL
+	8
+	===
+	Acceptance criteria
+         1. Given an authenticated user views an archived trip and clicks "Share Archived Trip", then a modal opens displaying a list of their friends and an email lookup input.
+         2. Given the user selects a recipient and confirms sharing, then the modal closes, a success toast appears, and the archived trip is made accessible to that recipient.
+         3. Given the recipient navigates to their archived trips tab, then the shared archived trip appears in their list labeled with a "Shared with you" badge.  
+         4. Given the automated test suite is run against the archived trip sharing endpoints and components, then all test cases pass. 
+
+
+________________
+Team member hour breakdown
+Member
+	General responsibilities
+	Hours
+	John
+	Map features, collaboration features
+	40
+	Piper
+	Adding sharing capabilities and user permissions on trips
+	40
+	Bryce
+	Social Features, Archiving Features, and miscellaneous backends
+	40
+	Daniel
+	Ledger feature and manual photo tagging of itinerary events
+	40.5
+	TOTAL
+	===
+	
+
+	________________
+
+
+Remaining backlog
+User Account (Backend: 15h, Frontend: 20h, Connecting: 10h) = 45
+         * As a user, I want to create an account with username, email, and password
+         * As a user, I want to set a profile picture
+         * As a user, I want to login to my account using my email and password
+         * As a user, I want to be able to friend other users
+         * As a user, I want to be able to reset my password (if time allows)
+         * As an admin, I want to be able to delete user accounts (if time allows)
+
+
+Trip Creation (Backend: 15h, Frontend: 20h, Connecting 5h) = 40
+         * As a user, I want to create a trip with a defined time period and trip name
+         * As a user, I want to view a tab with all trips I am in
+         * As a user, I want to set a profile picture for the trip
+         * As a user, I want to set a trip as private vs. public
+
+
+Logistics (Backend: 10h, Frontend: 15h, Connecting: 5h) = 30
+         * As a user, I want to be able to add flights to my trip. 
+         * As a user, I want to be able to add rental cars to my trip.
+         * As a user, I want to be able to add hotels to my trip.
+
+
+Itinerary planning (Backend: 20h, Frontend: 40h, Connecting: 10h) = 70
+         * As a user, I want to create a blank itinerary with a title, description and dates
+         * As a user, I want to be able to add destinations/attractions to my itinerary
+         * As a user, I want to be able to add restaurants or bars to my itinerary
+         * As a user, I want to be able to add transit to my itinerary (if time allows)
+         * As a user, I want to be able to see a map with items on my itinerary (if time allows)
+
+
+Trip sharing (Backend: 20h, Frontend: 20h, Connecting: 10h) = 50
+         * As a user, I want to be able to share my trip with my friends or family.
+         * As a user, I want to be able to accept an invite to a trip
+         * As a user, I want to be able to designate users as read-only users
+         * As a user, I want to be able to edit the trip one-at-a-time. (We do not want to implement something like google docs live-update yet. One user will be able to commit changes at a time, with a write lock)
+         * As a user, I want to be able to edit the trip in real-time (if time allows). This is the above mentioned google-docs-live-update
+
+
+Photo Upload (Backend: 20h, Frontend: 25h, Connecting: 10h) = 55
+         * As a user, I want to be able to upload photos to the app
+         * As a user, I want my photos to be linked to events on my itinerary
+         * As a user, I want to be able to view all of my photos associated with a trip in a grid like menu
+         * As a user, I want my past uploaded photos to be visible when viewing my archived itineraries
+         * As a user I want to view photos that other users have uploaded to a trip
+         * As a user, I want to be able to see on a map where my photos were taken using the geotagging available in most photos
+         * As a user, I can hide certain photos on a public trip (if time allows)
+
+
+Ledger (Backend: 10h, Frontend: 15h, Connecting: 5h) = 30
+         * As a user, I want to be able to set an overall budget
+         * As a user, I want to be able to add costs to every item in the itinerary, such as flights, rental cars, hotels, etc. (see section B for all features)
+         * As a user, if I upload an expense I want to be able designate other users to split the expense.
+         * As a user, I want to be able to see how much money is owed to everyone else on the trip.
+         * As a user, I want to be able to remove an item from the ledger (in case someone double adds the same item).
+
+
+Archiving (Backend: 10h, Frontend: 30h, Connecting: 5h) = 45
+         * As a user, when a trip is over, I want to be able to archive a trip
+         * As a user, I want to be able to view my archived trip
+         * As a user, I want to be able to add notes to an archived itinerary
+         * As a user, I want to be able to share an archived trip with another user
+         * As a user, I want to be able to set an archived trip to public or private
+
+
+Statistics (Backend: 15h Frontend: 20h, Connecting 5h) = 40
+         * As a user, I want to be able to view basic statistics of a trip on a dashboard
+         * As a user, I want to know how many days and nights I spent, how much total money I spent, and how many locations I visited given a specific itinerary.
+         * As a user, I want to know how much distance I covered throughout a specific itinerary.
+         * As a user, I want to know how many pictures I uploaded to a trip
+
+
+Polling (Backend: 20h, Frontend: 20h, Connecting 5h) = 45
+         * As a user, I want to create a poll for itinerary options
+         * As a user, I want to embed links to itinerary options for a poll so other users can view the options
+         * As a user, I want to be able to vote on an itinerary poll
+         * As a user, I want to be able to close polls at a specified time or at my discretion
+         * As a user, once a poll is closed, I would like to see the result of the poll reflected in the itinerary
+         * As a user, I would like to delete a poll
+
+
+Social (Backend: 15h Frontend: 10h, Connecting 5:) = 30
+         * As a user, I want to be able to share the highlights of my trip to external social medias such as facebook or instagram
+         * As a user, I want to view a scrollable feed of public itineraries
+         * As a user, I want to be able to upvote itineraries
+         * As a user, I want to be able to search by location and get the most popular itineraries
+         * As a user, I want to hide myself from a public trip
