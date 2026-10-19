@@ -1,0 +1,19 @@
+{
+  "tripId": "64b000000000000000000001",
+  "ownerId": "64b000000000000000000002",
+  "viewerId": "64b000000000000000000003",
+  "memberId": "64b000000000000000000009",
+  "friendId": "64b000000000000000000010",
+  "tripName": "Coastal weekend",
+  "itineraryId": "64b000000000000000000004",
+  "startDate": "2030-04-01T00:00:00.000Z",
+  "endDate": "2030-04-05T00:00:00.000Z",
+  "friend": {
+    "id": "64b000000000000000000010",
+    "username": "traveler"
+  },
+  "member": {
+    "id": "64b000000000000000000009",
+    "username": "already-joining"
+  }
+}
