@@ -1,3 +1,9 @@
+export { Chip } from './Chip/Chip';
+export type { ChipProps } from './Chip/Chip';
+export { Switch } from './Switch/Switch';
+export type { SwitchProps } from './Switch/Switch';
+export { InfoPopover } from './InfoPopover/InfoPopover';
+export type { InfoPopoverProps } from './InfoPopover/InfoPopover';
 export { default as Button } from './Button';
 export type { ButtonProps } from './Button';
 export { default as CircularProgressIndicator } from './CircularProgressIndicator';
@@ -30,6 +36,8 @@ export type {
 } from './MediaUpload';
 export { default as Modal } from './Modal';
 export type { ModalProps } from './Modal';
+export { ShareWithFriends } from './ShareWithFriends/ShareWithFriends';
+export type { ShareWithFriendsProps } from './ShareWithFriends/ShareWithFriends';
 export { default as Skeleton } from './Skeleton';
 export type { SkeletonProps } from './Skeleton';
 export { default as Stepper } from './Stepper';

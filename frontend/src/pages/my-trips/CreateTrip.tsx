@@ -3,6 +3,9 @@ import {
   Button,
   ImageUploadField,
   Modal,
+  ShareWithFriends,
+  Switch,
+  InfoPopover,
   Text,
   TextField,
   displayAlert,
@@ -40,6 +43,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [coverFile, setCoverFile] = useState<File>();
   const [cropStatus, setCropStatus] = useState<ImageCropStatus>({
@@ -103,6 +107,22 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
             tone: 'error',
           });
         }
+      }
+
+      const invitations = await Promise.allSettled(
+        selectedFriendIds.map((recipientId) =>
+          postToApi(`/trip/${newTrip.savedTrip._id}/share`, { recipientId }),
+        ),
+      );
+      const failedInvitations = invitations.filter(
+        (invitation) => invitation.status === 'rejected',
+      ).length;
+      if (failedInvitations) {
+        displayAlert({
+          title: 'Trip created with unsent invitations',
+          message: `${failedInvitations} invitation(s) could not be sent. You can retry from trip settings.`,
+          tone: 'warning',
+        });
       }
 
       setIsOpen(false);
@@ -189,51 +209,76 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
           </div>
         </div>
 
-        <div className="grid content-start gap-6 md:border-l md:border-outline md:pl-8">
-          <div>
-            <Text as="h3" variant="title">
+        <div className="grid content-start gap-7 md:border-l md:border-outline-variant md:pl-8">
+          <section
+            aria-labelledby="create-trip-dates-heading"
+            className="grid gap-4"
+          >
+            <Text as="h3" id="create-trip-dates-heading" variant="title">
               Travel dates
             </Text>
-          </div>
-          <TextField
-            data-cy="trip-start-date"
-            id="trip-start-date"
-            label="Start Date *"
-            type="date"
-            value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
-            required
-          />
-          <TextField
-            data-cy="trip-end-date"
-            id="trip-end-date"
-            label="End Date *"
-            type="date"
-            value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
-            required
-          />
-          <label className="flex items-start gap-3 rounded-panel border border-outline-variant p-4">
-            <input
-              data-cy="trip-public"
-              type="checkbox"
-              checked={isPublic}
-              onChange={(event) => setIsPublic(event.target.checked)}
-              disabled={isSaving}
-              className="mt-1 size-4 shrink-0 accent-primary"
+            <TextField
+              data-cy="trip-start-date"
+              id="trip-start-date"
+              label="Start date *"
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              required
             />
-            <span>
-              <Text as="span" variant="label">
-                Make this trip public
-              </Text>
-              <Text color="muted" className="mt-1">
-                Any signed-in user can view a public trip.
-              </Text>
-            </span>
-          </label>
-          <Text as="h3" variant="title">
-            Add friends (coming soon!)
-          </Text>
+            <TextField
+              data-cy="trip-end-date"
+              id="trip-end-date"
+              label="End date *"
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              required
+            />
+          </section>
+
+          <section
+            aria-labelledby="create-trip-share-heading"
+            className="border-t border-outline-variant pt-6"
+          >
+            <Text as="h3" id="create-trip-share-heading" variant="title">
+              Sharing
+            </Text>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-1">
+                <Text
+                  as="label"
+                  htmlFor="trip-public"
+                  variant="label"
+                  className="cursor-pointer"
+                >
+                  Make this trip public
+                </Text>
+                <InfoPopover label="About public trips">
+                  Any signed-in user can view a public trip.
+                </InfoPopover>
+              </div>
+              <Switch
+                id="trip-public"
+                data-cy="trip-public"
+                label="Make this trip public"
+                checked={isPublic}
+                onChange={(event) => setIsPublic(event.target.checked)}
+                disabled={isSaving}
+              />
+            </div>
+
+            <div>
+              <ShareWithFriends
+                label="Invite friends"
+                description="Optional. Invitations are sent after you create the trip."
+                multiple
+                selectedFriendIds={selectedFriendIds}
+                onSelectionChange={setSelectedFriendIds}
+                disabled={isSaving}
+              />
+            </div>
+          </section>
         </div>
       </form>
     </Modal>

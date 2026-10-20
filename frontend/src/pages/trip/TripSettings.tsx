@@ -1,19 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { UserRound } from 'lucide-react';
 import {
   Button,
   ImageUploadField,
-  LoadingIndicator,
   Modal,
-  TextField,
+  ShareWithFriends,
   Text,
   displayAlert,
   tripCoverImagePreset,
 } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
-import { useFriends } from '../../queries/friends';
 import { tripsQueryKey } from '../../queries/trips';
 import {
   deleteFromApi,
@@ -55,7 +52,6 @@ const TripSettings = () => {
   const { user } = useAuth();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [friendSearch, setFriendSearch] = useState('');
   const [selectedFriendId, setSelectedFriendId] = useState<string>();
   const [pictureFile, setPictureFile] = useState<File>();
   const [coverImage, setCoverImage] = useState<{
@@ -63,7 +59,6 @@ const TripSettings = () => {
     url: string;
   }>();
   const queryClient = useQueryClient();
-  const friendsQuery = useFriends(user?.id);
   const queryKey = ['trip-settings', id] as const;
   const tripQuery = useQuery({
     queryKey,
@@ -161,7 +156,6 @@ const TripSettings = () => {
       ),
     onSuccess: (response) => {
       setShareModalOpen(false);
-      setFriendSearch('');
       setSelectedFriendId(undefined);
       displayAlert({ message: response.message, tone: 'success' });
     },
@@ -190,14 +184,6 @@ const TripSettings = () => {
   const canChangeVisibility = trip.currentUserRole === 'owner';
   const canShareTrip =
     trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor';
-  const normalizedFriendSearch = friendSearch.trim().toLocaleLowerCase();
-  const tripMemberIds = new Set(
-    (trip.users ?? []).map((memberId) => String(memberId)),
-  );
-  const filteredFriends = (friendsQuery.friends?.friends ?? []).filter(
-    (friend) =>
-      friend.username.toLocaleLowerCase().includes(normalizedFriendSearch),
-  );
   const existingImageUrl =
     profilePictureId && coverImage?.pictureId === profilePictureId
       ? coverImage.url
@@ -310,7 +296,6 @@ const TripSettings = () => {
         description="Choose a friend with an existing TripFolio profile."
         onClose={() => {
           setShareModalOpen(false);
-          setFriendSearch('');
           setSelectedFriendId(undefined);
         }}
         dismissDisabled={shareMutation.isPending}
@@ -337,98 +322,13 @@ const TripSettings = () => {
         )}
         panelClassName="max-w-xl"
       >
-        <TextField
-          data-cy="share-trip-friend-search"
-          autoComplete="off"
-          id="share-trip-friend-search"
-          label="Search friends"
-          onChange={(event) => {
-            setFriendSearch(event.target.value);
-            setSelectedFriendId(undefined);
-          }}
-          placeholder="Search by username"
-          type="search"
-          value={friendSearch}
+        <ShareWithFriends
+          key={String(shareModalOpen)}
+          selectedFriendIds={selectedFriendId ? [selectedFriendId] : []}
+          onSelectionChange={(ids) => setSelectedFriendId(ids[0])}
+          memberIds={trip.users}
+          disabled={shareMutation.isPending}
         />
-        <div className="mt-4">
-          {friendsQuery.isPending ? (
-            <LoadingIndicator label="Loading friends" size={36} />
-          ) : friendsQuery.isError ? (
-            <div className="flex flex-wrap items-center gap-3" role="alert">
-              <Text color="error">
-                {getApiErrorMessage(
-                  friendsQuery.error,
-                  'Could not load your friends.',
-                )}
-              </Text>
-              <Button
-                onClick={() => void friendsQuery.refetch()}
-                size="sm"
-                variant="outline"
-              >
-                Retry
-              </Button>
-            </div>
-          ) : filteredFriends.length ? (
-            <ul
-              aria-label="Friends available to invite"
-              className="max-h-72 divide-y divide-outline-variant overflow-y-auto"
-              data-cy="share-trip-friends"
-            >
-              {filteredFriends.map((friend) => {
-                const isTripMember = tripMemberIds.has(friend.id);
-                return (
-                  <li
-                    className="flex items-center gap-3 py-3 first:pt-1"
-                    key={friend.id}
-                  >
-                    <Button
-                      aria-pressed={
-                        !isTripMember && selectedFriendId === friend.id
-                      }
-                      className="flex min-w-0 flex-1 items-center justify-start gap-3 text-left"
-                      data-cy={`share-trip-friend-${friend.id}`}
-                      disabled={isTripMember || shareMutation.isPending}
-                      onClick={() => setSelectedFriendId(friend.id)}
-                      variant="ghost"
-                    >
-                      <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary-container text-on-secondary-container">
-                        {friend.profile_picture ? (
-                          <img
-                            alt=""
-                            className="size-full object-cover"
-                            src={friend.profile_picture}
-                          />
-                        ) : (
-                          <UserRound aria-hidden size={20} />
-                        )}
-                      </span>
-                      <Text className="truncate" variant="label">
-                        {friend.username}
-                      </Text>
-                    </Button>
-                    {isTripMember ? (
-                      <Text
-                        className="shrink-0 rounded-full bg-surface-container-high px-3 py-1"
-                        color="muted"
-                        data-cy={`share-trip-member-badge-${friend.id}`}
-                        variant="caption"
-                      >
-                        Already a participant
-                      </Text>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <Text color="muted">
-              {friendSearch.trim()
-                ? 'No friends match your search.'
-                : 'You do not have any friends to invite yet.'}
-            </Text>
-          )}
-        </div>
       </Modal>
       <Modal
         data-cy="delete-trip-dialog"
