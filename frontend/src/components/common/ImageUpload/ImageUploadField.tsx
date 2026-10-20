@@ -217,7 +217,7 @@ const ImageUploadField = ({
 
   return (
     <div className={className}>
-      {sourceUrl ? (
+      {sourceUrl && (
         <div className="rounded-panel bg-surface-container-low p-4">
           <div className="relative h-72 overflow-hidden rounded-xl bg-on-surface">
             <Cropper
@@ -275,9 +275,10 @@ const ImageUploadField = ({
             </Button>
           </div>
         </div>
-      ) : (
+      )}
+      {!sourceUrl && (
         <>
-          {previewUrl ? (
+          {previewUrl && (
             <img
               alt={previewAlt}
               className={[
@@ -288,7 +289,7 @@ const ImageUploadField = ({
               ].join(' ')}
               src={previewUrl}
             />
-          ) : null}
+          )}
           <div className={previewUrl ? 'flex justify-center' : undefined}>
             <MediaUpload
               buttonOnly={Boolean(previewUrl)}

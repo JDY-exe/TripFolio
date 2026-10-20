@@ -156,7 +156,7 @@ const AccommodationReservationForm = ({
             Cancel
           </Button>
           <div className="flex items-center gap-2">
-            {step === 1 ? (
+            {step === 1 && (
               <Button
                 variant="outline"
                 disabled={saveReservation.isPending}
@@ -167,12 +167,13 @@ const AccommodationReservationForm = ({
               >
                 Back
               </Button>
-            ) : null}
-            {step === 0 ? (
+            )}
+            {step === 0 && (
               <Button data-cy="accommodation-next" onClick={handleNext}>
                 Next: Cost
               </Button>
-            ) : (
+            )}
+            {step !== 0 && (
               <Button
                 data-cy="accommodation-save"
                 disabled={saveReservation.isPending}
@@ -194,13 +195,13 @@ const AccommodationReservationForm = ({
         <Text as="h3" variant="title" className="mb-4">
           {accommodationSteps[step].label}
         </Text>
-        {error ? (
+        {error && (
           <Text role="alert" color="error" className="mb-4">
             {error}
           </Text>
-        ) : null}
+        )}
 
-        {step === 0 ? (
+        {step === 0 && (
           <>
             <div className="overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] border border-outline-variant bg-surface-container-low">
               <div className="px-5 pt-5">
@@ -273,7 +274,8 @@ const AccommodationReservationForm = ({
               </div>
             </div>
           </>
-        ) : (
+        )}
+        {step !== 0 && (
           <div className="rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low p-5 sm:p-6">
             <div className="mb-6 flex items-center gap-3">
               <div className="grid size-12 place-items-center rounded-2xl bg-secondary-container text-on-secondary-container">

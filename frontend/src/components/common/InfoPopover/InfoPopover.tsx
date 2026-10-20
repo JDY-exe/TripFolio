@@ -63,14 +63,14 @@ export const InfoPopover = ({
         aria-controls={open ? id : undefined}
         onClick={() => setOpen(!open)}
       />
-      {open ? (
+      {open && (
         <div
           id={id}
           className="absolute top-full right-0 z-20 mt-1 w-64 max-w-[calc(100vw-3rem)] rounded-xl border border-outline-variant bg-surface-container-high p-4 shadow-lg"
         >
           <Text variant="body">{children}</Text>
         </div>
-      ) : null}
+      )}
     </div>
   );
 };

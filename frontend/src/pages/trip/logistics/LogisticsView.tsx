@@ -100,7 +100,7 @@ const LogisticsView = () => {
           />
         </div>
       </div>
-      {reservationToDelete ? (
+      {reservationToDelete && (
         <Modal
           data-cy="delete-reservation-dialog"
           open={deleteModalOpen}
@@ -135,9 +135,9 @@ const LogisticsView = () => {
         >
           <Text>This reservation will be removed from your trip.</Text>
         </Modal>
-      ) : null}
-      {addingType === ReservationType.Flights ||
-      editing?.type === ReservationType.Flights ? (
+      )}
+      {(addingType === ReservationType.Flights ||
+        editing?.type === ReservationType.Flights) && (
         <FlightReservationForm
           key={editing?._id ?? 'new'}
           tripId={tripId}
@@ -147,9 +147,9 @@ const LogisticsView = () => {
             setEditing(null);
           }}
         />
-      ) : null}
-      {addingType === ReservationType.Rentals ||
-      editing?.type === ReservationType.Rentals ? (
+      )}
+      {(addingType === ReservationType.Rentals ||
+        editing?.type === ReservationType.Rentals) && (
         <RentalCarReservationForm
           key={editing?._id ?? 'new'}
           tripId={tripId}
@@ -159,9 +159,9 @@ const LogisticsView = () => {
             setEditing(null);
           }}
         />
-      ) : null}
-      {addingType === ReservationType.Accommodations ||
-      editing?.type === ReservationType.Accommodations ? (
+      )}
+      {(addingType === ReservationType.Accommodations ||
+        editing?.type === ReservationType.Accommodations) && (
         <AccommodationReservationForm
           key={editing?._id ?? 'new'}
           tripId={tripId}
@@ -171,7 +171,7 @@ const LogisticsView = () => {
             setEditing(null);
           }}
         />
-      ) : null}
+      )}
     </section>
   );
 };

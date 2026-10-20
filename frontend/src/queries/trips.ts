@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { getFromApi, patchToApi } from '../utils/api';
+import { getFromApi, patchToApi, postToApi } from '../utils/api';
 
 export interface TripTraveler {
   id: string;
@@ -84,3 +84,32 @@ export const useRespondToTripInvitation = (userId?: string) => {
     },
   });
 };
+
+export interface SendTripInvitationsInput {
+  tripId: string;
+  recipientIds: string[];
+}
+
+export interface SendTripInvitationsResponse {
+  message: string;
+  invitations: {
+    _id: string;
+    trip: string;
+    recipient: string;
+    inviter: string;
+    status: 'pending';
+  }[];
+}
+
+/** Sends a single atomic invitation batch without changing trip membership.
+ * @returns A mutation with batch pending, success, and error state; retries are manual.
+ */
+export const useSendTripInvitations = () =>
+  useMutation({
+    mutationFn: ({ tripId, recipientIds }: SendTripInvitationsInput) =>
+      postToApi<SendTripInvitationsResponse, { recipientIds: string[] }>(
+        `/trip/${tripId}/share`,
+        { recipientIds },
+      ),
+    retry: 0,
+  });

@@ -12,17 +12,22 @@ const InvitationCover = ({ trip }: { trip: Trip }) => {
       ? `/trip/${trip._id}/profile_picture?v=${trip.profilePictureId}`
       : undefined,
   );
-  return image ? (
-    <img
-      data-cy="invitation-trip-picture"
-      src={image}
-      alt=""
-      className="h-full w-full object-cover"
-    />
-  ) : (
-    <div className="h-full w-full [&>svg]:h-full [&>svg]:object-cover">
-      <TripPlaceholderArt />
-    </div>
+  return (
+    <>
+      {image && (
+        <img
+          data-cy="invitation-trip-picture"
+          src={image}
+          alt=""
+          className="h-full w-full object-cover"
+        />
+      )}
+      {!image && (
+        <div className="h-full w-full [&>svg]:h-full [&>svg]:object-cover">
+          <TripPlaceholderArt />
+        </div>
+      )}
+    </>
   );
 };
 

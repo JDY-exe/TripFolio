@@ -56,7 +56,7 @@ function TextField({
           .join(' ')}
         {...props}
       />
-      {error || hint ? (
+      {(error || hint) && (
         <Text
           id={supportingId}
           variant="caption"
@@ -64,7 +64,7 @@ function TextField({
         >
           {error ?? hint}
         </Text>
-      ) : null}
+      )}
     </div>
   );
 }

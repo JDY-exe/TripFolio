@@ -96,7 +96,7 @@ const FlightJourneyTimeline = ({ segments }: FlightJourneyTimelineProps) => (
               </div>
             </div>
           </div>
-          {next ? (
+          {next && (
             <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-3 sm:gap-4">
               <span
                 className="mx-auto h-full border-l-3 border-dotted border-outline"
@@ -110,7 +110,7 @@ const FlightJourneyTimeline = ({ segments }: FlightJourneyTimelineProps) => (
                 </Text>
               </div>
             </div>
-          ) : null}
+          )}
         </li>
       );
     })}

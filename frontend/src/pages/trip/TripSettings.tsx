@@ -11,14 +11,13 @@ import {
   tripCoverImagePreset,
 } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
-import { tripsQueryKey } from '../../queries/trips';
+import { tripsQueryKey, useSendTripInvitations } from '../../queries/trips';
 import {
   deleteFromApi,
   getBlobFromApi,
   getApiErrorMessage,
   getFromApi,
   patchToApi,
-  postToApi,
 } from '../../utils/api';
 
 type TripRole = 'owner' | 'editor' | 'viewer' | null;
@@ -30,10 +29,6 @@ interface TripSettingsData {
   currentUserRole: TripRole;
   users?: string[];
   profilePictureId?: string;
-}
-
-interface TripShareResponse {
-  message: string;
 }
 
 interface TripPictureResponse {
@@ -148,18 +143,22 @@ const TripSettings = () => {
       });
     },
   });
-  const shareMutation = useMutation({
-    mutationFn: (recipientId: string) =>
-      postToApi<TripShareResponse, { recipientId: string }>(
-        `/trip/${id}/share`,
-        { recipientId },
-      ),
-    onSuccess: (response) => {
+  const shareMutation = useSendTripInvitations();
+
+  /** Sends the selected friend's invitation and preserves the selection on failure.
+   * @returns A promise that resolves after feedback and modal state are updated.
+   */
+  const sendInvitation = async () => {
+    if (!id || !selectedFriendId) return;
+    try {
+      const response = await shareMutation.mutateAsync({
+        tripId: id,
+        recipientIds: [selectedFriendId],
+      });
       setShareModalOpen(false);
       setSelectedFriendId(undefined);
       displayAlert({ message: response.message, tone: 'success' });
-    },
-    onError: (error) => {
+    } catch (error) {
       displayAlert({
         message: getApiErrorMessage(
           error,
@@ -167,8 +166,8 @@ const TripSettings = () => {
         ),
         tone: 'error',
       });
-    },
-  });
+    }
+  };
 
   if (!id) {
     return <Text color="error">Trip not found.</Text>;
@@ -202,7 +201,7 @@ const TripSettings = () => {
             Trip settings
           </Text>
         </header>
-        {canChangeVisibility ? (
+        {canChangeVisibility && (
           <div className="mb-8 max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
             <Text as="h3" variant="title">
               Trip picture
@@ -226,8 +225,8 @@ const TripSettings = () => {
               value={pictureFile}
             />
           </div>
-        ) : null}
-        {canShareTrip ? (
+        )}
+        {canShareTrip && (
           <div className="mb-8 max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
             <Text as="h3" variant="title">
               Share trip
@@ -242,7 +241,7 @@ const TripSettings = () => {
               Share trip
             </Button>
           </div>
-        ) : null}
+        )}
         <label className="flex max-w-2xl items-center justify-between gap-5 rounded-panel border border-outline-variant bg-surface-container-low p-5">
           <span>
             <Text as="span" variant="label">
@@ -266,12 +265,12 @@ const TripSettings = () => {
             className="size-5 shrink-0 accent-primary"
           />
         </label>
-        {!canChangeVisibility ? (
+        {!canChangeVisibility && (
           <Text color="muted" className="mt-3">
             Only the trip owner can change visibility.
           </Text>
-        ) : null}
-        {canChangeVisibility ? (
+        )}
+        {canChangeVisibility && (
           <div className="mt-8 max-w-2xl rounded-panel border border-error/30 bg-surface-container-low p-5">
             <Text as="h3" variant="title">
               Delete trip
@@ -287,7 +286,7 @@ const TripSettings = () => {
               Delete trip
             </Button>
           </div>
-        ) : null}
+        )}
       </section>
       <Modal
         data-cy="share-trip-dialog"
@@ -312,9 +311,7 @@ const TripSettings = () => {
             <Button
               data-cy="share-trip-submit"
               disabled={!selectedFriendId || shareMutation.isPending}
-              onClick={() => {
-                if (selectedFriendId) shareMutation.mutate(selectedFriendId);
-              }}
+              onClick={() => void sendInvitation()}
             >
               {shareMutation.isPending ? 'Sending...' : 'Send invite'}
             </Button>

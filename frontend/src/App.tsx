@@ -79,14 +79,14 @@ const AppContent = () => {
         </Routes>
       </main>
 
-      {showPrimaryNav ? (
+      {showPrimaryNav && (
         <BottomNav
           label="Main navigation"
           items={topLevelNavItems}
           value={getTopLevelNavValue(location.pathname)}
           onChange={navigate}
         />
-      ) : null}
+      )}
 
       <ToastViewport />
     </div>

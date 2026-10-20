@@ -54,26 +54,26 @@ const FlightsSection = ({
           Add flight journey
         </Button>
       </div>
-      {isPending ? (
+      {isPending && (
         <LogisticsSkeletonCard
           label="Loading flights"
           className="rounded-[1.75rem_0.75rem_1.75rem_0.75rem]"
         />
-      ) : null}
-      {isError ? (
+      )}
+      {isError && (
         <div className="flex flex-wrap items-center gap-3">
           <Text color="error">Could not load flights.</Text>
           <Button size="sm" variant="outline" onClick={() => void refetch()}>
             Retry
           </Button>
         </div>
-      ) : null}
-      {!isPending && !isError && reservations.length === 0 ? (
+      )}
+      {!isPending && !isError && reservations.length === 0 && (
         <LogisticsEmptyState
           title="No flights added yet."
           icon={<Plane size={30} />}
         />
-      ) : null}
+      )}
 
       <div className="space-y-4">
         {reservations.map((reservation) => (
@@ -106,23 +106,24 @@ const FlightsSection = ({
                 </div>
               </div>
 
-              {reservation.flights?.segments.length ? (
+              {!!reservation.flights?.segments.length && (
                 <FlightJourneyTimeline
                   segments={reservation.flights.segments}
                 />
-              ) : (
+              )}
+              {!reservation.flights?.segments.length && (
                 <Text color="error" className="mt-6">
                   Flight details unavailable.
                 </Text>
               )}
-              {reservation.notes ? (
+              {reservation.notes && (
                 <Text
                   color="muted"
                   className="mt-4 whitespace-pre-wrap text-sm"
                 >
                   {reservation.notes}
                 </Text>
-              ) : null}
+              )}
             </div>
 
             <dl className="relative flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-outline-variant px-5 py-4 before:absolute before:-left-2 before:-top-2 before:size-4 before:rounded-full before:bg-surface after:absolute after:-right-2 after:-top-2 after:size-4 after:rounded-full after:bg-surface sm:px-6">

@@ -55,7 +55,7 @@ function BottomNav({
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-center px-2 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">
       <nav className="pointer-events-auto flex w-full max-w-full gap-1 overflow-x-auto rounded-dock bg-surface-container p-1 shadow-raised sm:w-auto">
         <span className="sr-only">{label}</span>
-        {leadingAction && LeadingIcon ? (
+        {leadingAction && LeadingIcon && (
           <button
             data-cy="nav-back"
             type="button"
@@ -72,7 +72,7 @@ function BottomNav({
               {leadingAction.label}
             </span>
           </button>
-        ) : null}
+        )}
 
         <div
           className="flex min-w-0 flex-1 gap-1 sm:w-(--nav-width)"

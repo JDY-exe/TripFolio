@@ -33,9 +33,7 @@ const EventPhoto = ({
         aria-label={`View ${title} on Google Maps`}
         className="absolute inset-0 block overflow-hidden bg-primary-container focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary"
       >
-        {!imageLoaded ? (
-          <Skeleton className="absolute inset-0 rounded-none" />
-        ) : null}
+        {!imageLoaded && <Skeleton className="absolute inset-0 rounded-none" />}
         <img
           src={photo.url}
           alt={`Photo of ${title}`}

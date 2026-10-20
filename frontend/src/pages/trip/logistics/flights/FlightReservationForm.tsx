@@ -185,7 +185,7 @@ const FlightReservationForm = ({
             Cancel
           </Button>
           <div className="flex items-center gap-2">
-            {step !== FlightWizardStep.Route ? (
+            {step !== FlightWizardStep.Route && (
               <Button
                 data-cy="flight-back"
                 variant="outline"
@@ -194,8 +194,8 @@ const FlightReservationForm = ({
               >
                 Back
               </Button>
-            ) : null}
-            {step !== FlightWizardStep.Review ? (
+            )}
+            {step !== FlightWizardStep.Review && (
               <Button
                 data-cy="flight-next"
                 disabled={saveReservation.isPending}
@@ -203,7 +203,8 @@ const FlightReservationForm = ({
               >
                 Next: {flightWizardSteps[step + 1].label}
               </Button>
-            ) : (
+            )}
+            {step === FlightWizardStep.Review && (
               <Button
                 data-cy="flight-save"
                 disabled={saveReservation.isPending}
@@ -230,13 +231,13 @@ const FlightReservationForm = ({
         <Text as="h3" variant="title" className="mb-4">
           {flightWizardSteps[step].label}
         </Text>
-        {error ? (
+        {error && (
           <Text role="alert" color="error" className="mb-4">
             {error}
           </Text>
-        ) : null}
+        )}
 
-        {step === FlightWizardStep.Route ? (
+        {step === FlightWizardStep.Route && (
           <div className="space-y-4">
             <Text color="muted" className="text-sm">
               Enter the local date and time shown on your ticket at each
@@ -244,7 +245,7 @@ const FlightReservationForm = ({
             </Text>
             {draft.segments.map((segment, index) => (
               <div key={index}>
-                {index > 0 ? (
+                {index > 0 && (
                   <div className="mb-4 flex items-center gap-2 rounded-panel bg-secondary-container px-4 py-3 text-sm text-on-secondary-container">
                     <span className="font-semibold">
                       Layover in{' '}
@@ -252,7 +253,7 @@ const FlightReservationForm = ({
                     </span>
                     <span>· Next flight departs here</span>
                   </div>
-                ) : null}
+                )}
                 <section
                   aria-labelledby={`flight-leg-${index}`}
                   className="rounded-panel border border-outline-variant bg-surface-container-low p-5"
@@ -266,7 +267,7 @@ const FlightReservationForm = ({
                     >
                       Leg {index + 1}
                     </Text>
-                    {draft.segments.length > 1 ? (
+                    {draft.segments.length > 1 && (
                       <Button
                         size="sm"
                         variant="dangerGhost"
@@ -282,7 +283,7 @@ const FlightReservationForm = ({
                       >
                         Remove leg
                       </Button>
-                    ) : null}
+                    )}
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
@@ -306,7 +307,7 @@ const FlightReservationForm = ({
                         required
                       />
                     </div>
-                    {index === 0 ? (
+                    {index === 0 && (
                       <TextField
                         data-cy="flight-depart-airport"
                         id={`flight-depart-airport-${index}`}
@@ -322,7 +323,8 @@ const FlightReservationForm = ({
                         placeholder="SFO"
                         required
                       />
-                    ) : (
+                    )}
+                    {index !== 0 && (
                       <div className="rounded-panel px-4 py-3">
                         <Text variant="label" color="muted">
                           Departure airport
@@ -400,9 +402,9 @@ const FlightReservationForm = ({
               Add layover / next flight
             </Button>
           </div>
-        ) : null}
+        )}
 
-        {step === FlightWizardStep.Booking ? (
+        {step === FlightWizardStep.Booking && (
           <div className="grid gap-4 rounded-panel bg-surface-container-low p-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <TextField
@@ -438,9 +440,9 @@ const FlightReservationForm = ({
               />
             </label>
           </div>
-        ) : null}
+        )}
 
-        {step === FlightWizardStep.Cost ? (
+        {step === FlightWizardStep.Cost && (
           <div className="rounded-panel bg-surface-container-low p-5">
             <TextField
               data-cy="flight-cost"
@@ -453,9 +455,9 @@ const FlightReservationForm = ({
               onChange={(event) => updateDraft({ cost: event.target.value })}
             />
           </div>
-        ) : null}
+        )}
 
-        {step === FlightWizardStep.Review ? (
+        {step === FlightWizardStep.Review && (
           <article className="overflow-hidden rounded-[1.75rem_0.75rem_1.75rem_0.75rem] bg-surface-container-low">
             <div className="p-5 sm:p-6">
               <Text as="h4" variant="title">
@@ -467,19 +469,19 @@ const FlightReservationForm = ({
                   : `${draft.segments.length - 1} ${draft.segments.length === 2 ? 'layover' : 'layovers'}`}
               </Text>
               <FlightJourneyTimeline segments={draft.segments} />
-              {draft.notes ? (
+              {draft.notes && (
                 <Text
                   color="muted"
                   className="mt-3 whitespace-pre-wrap text-sm"
                 >
                   {draft.notes}
                 </Text>
-              ) : null}
+              )}
             </div>
             <div className="relative flex flex-wrap gap-x-4 gap-y-1 border-t border-dashed border-outline-variant px-5 py-4 text-sm text-on-surface-variant before:absolute before:-left-2 before:-top-2 before:size-4 before:rounded-full before:bg-surface after:absolute after:-right-2 after:-top-2 after:size-4 after:rounded-full after:bg-surface sm:px-6">
-              {draft.confirmationNumber ? (
+              {draft.confirmationNumber && (
                 <span>Confirmation: {draft.confirmationNumber}</span>
-              ) : null}
+              )}
               <span>
                 Cost:{' '}
                 {draft.cost.trim()
@@ -488,7 +490,7 @@ const FlightReservationForm = ({
               </span>
             </div>
           </article>
-        ) : null}
+        )}
       </div>
     </Modal>
   );

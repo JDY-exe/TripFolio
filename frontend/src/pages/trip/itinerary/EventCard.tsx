@@ -89,7 +89,7 @@ const EventCard = ({
       data-cy={`event-card-${event._id}`}
       className={`group relative grid ${size === 'lg' ? 'min-h-56' : 'min-h-42'} grid-cols-[minmax(7rem,34%)_minmax(0,1fr)] overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low`}
     >
-      {!readOnly && onEdit && onDelete ? (
+      {!readOnly && onEdit && onDelete && (
         <div className="absolute right-4 top-4 z-10 flex gap-1 rounded-full bg-surface-container-low/90 p-1 opacity-0 pointer-events-none shadow-sm transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 motion-reduce:transition-none sm:right-5 sm:top-5">
           <IconButton
             data-cy={`edit-event-${event._id}`}
@@ -107,7 +107,7 @@ const EventCard = ({
             onClick={() => onDelete(event)}
           />
         </div>
-      ) : null}
+      )}
 
       <div
         ref={photoRef}
@@ -134,13 +134,13 @@ const EventCard = ({
                 {event.title}
               </Text>
 
-              {event.restaurant ? (
+              {event.restaurant && (
                 <UtensilsCrossed
                   aria-label="Restaurant"
                   size={18}
                   className="shrink-0 text-primary"
                 />
-              ) : null}
+              )}
             </div>
 
             <Text
@@ -157,7 +157,7 @@ const EventCard = ({
                 {eventTime.format(new Date(event.endTime))}
               </time>
             </Text>
-            {event.restaurant ? (
+            {event.restaurant && (
               <label className="mt-3 flex items-center gap-2 text-sm text-on-surface-variant">
                 <input
                   type="checkbox"
@@ -167,9 +167,9 @@ const EventCard = ({
                 />
                 <span>Reservation made</span>
               </label>
-            ) : null}
+            )}
           </div>
-          {hasDetails ? (
+          {hasDetails && (
             <div className="mt-auto flex justify-center px-3 py-1">
               <Button
                 variant="ghost"
@@ -189,10 +189,10 @@ const EventCard = ({
                 Details
               </Button>
             </div>
-          ) : null}
+          )}
         </div>
 
-        {hasDetails ? (
+        {hasDetails && (
           <div
             id={detailsId}
             aria-hidden={!expanded}
@@ -203,12 +203,12 @@ const EventCard = ({
               <div
                 className={`border-t border-outline-variant px-4 py-4 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-standard sm:px-6 ${expanded ? 'translate-y-0' : '-translate-y-2'}`}
               >
-                {event.notes ? (
+                {event.notes && (
                   <Text color="muted" className="whitespace-pre-wrap text-sm">
                     {event.notes}
                   </Text>
-                ) : null}
-                {event.address || displayPhoto ? (
+                )}
+                {(event.address || displayPhoto) && (
                   <div
                     className={
                       event.notes
@@ -216,7 +216,7 @@ const EventCard = ({
                         : ''
                     }
                   >
-                    {event.address ? (
+                    {event.address && (
                       <Text
                         color="muted"
                         className="flex items-start gap-2 text-sm"
@@ -226,7 +226,7 @@ const EventCard = ({
                           size={16}
                           className="mt-0.5 shrink-0 text-primary"
                         />
-                        {event.placeId ? (
+                        {event.placeId && (
                           <a
                             href={placeUrl}
                             target="_blank"
@@ -235,25 +235,24 @@ const EventCard = ({
                           >
                             {event.address}
                           </a>
-                        ) : (
-                          event.address
                         )}
+                        {!event.placeId && event.address}
                       </Text>
-                    ) : null}
-                    {displayPhoto ? (
+                    )}
+                    {displayPhoto && (
                       <Text
                         color="muted"
                         variant="caption"
                         className={event.address ? 'mt-3' : ''}
                       >
-                        {displayPhoto.authorAttributions.length > 0 ? (
+                        {displayPhoto.authorAttributions.length > 0 && (
                           <>
                             Photo by{' '}
                             {displayPhoto.authorAttributions.map(
                               (author, index) => (
                                 <span key={`${author.displayName}-${index}`}>
                                   {index > 0 ? ', ' : ''}
-                                  {author.uri ? (
+                                  {author.uri && (
                                     <a
                                       href={author.uri}
                                       target="_blank"
@@ -262,15 +261,14 @@ const EventCard = ({
                                     >
                                       {author.displayName}
                                     </a>
-                                  ) : (
-                                    author.displayName
                                   )}
+                                  {!author.uri && author.displayName}
                                 </span>
                               ),
                             )}
                             {' | '}
                           </>
-                        ) : null}
+                        )}
                         <a
                           href={displayPhoto.sourceUrl}
                           target="_blank"
@@ -280,13 +278,13 @@ const EventCard = ({
                           View original on Google Maps
                         </a>
                       </Text>
-                    ) : null}
+                    )}
                   </div>
-                ) : null}
+                )}
               </div>
             </div>
           </div>
-        ) : null}
+        )}
       </div>
     </article>
   );
