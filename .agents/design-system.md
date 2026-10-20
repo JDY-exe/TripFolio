@@ -121,6 +121,7 @@ pass through; native `size` is intentionally omitted.
 | --- | --- | --- | --- |
 | `id` | `string` | Required | Connects the visible label and supporting copy. |
 | `label` | `string` | Required | Supplies the visible field label. |
+| `labelAction` | `ReactNode` | — | Places an optional help control beside the label. |
 | `hint` | `string` | — | Shows supporting text below the input. |
 | `error` | `string` | — | Shows error text and applies the invalid treatment. |
 
@@ -396,6 +397,92 @@ The pulse stops automatically for reduced-motion preferences.
 | Prop        | Type     | Purpose                                |
 | ----------- | -------- | -------------------------------------- |
 | `className` | `string` | Sets the placeholder's size and shape. |
+
+## 16. ShareWithFriends
+
+A controlled combobox with removable chips inside its outlined input surface.
+Results appear in an anchored dropdown on focus or typing, rather than a
+permanently visible list. Arrow keys navigate available friends, Enter toggles
+selection, and Escape closes results without closing a containing modal.
+Outside interaction or focus leaving also dismisses results. Selected chips
+stay visible across searches; existing participants are disabled. The dropdown
+includes loading, retry, and empty states. It loads the authenticated
+user's friends through the shared friends query; consumers send invitations.
+
+```tsx
+<ShareWithFriends
+  multiple
+  selectedFriendIds={selectedFriendIds}
+  onSelectionChange={setSelectedFriendIds}
+/>
+```
+
+| Prop | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `selectedFriendIds` | `readonly string[]` | Required | Supplies controlled selection. |
+| `onSelectionChange` | `(ids: string[]) => void` | Required | Reports selected friend IDs. |
+| `label` | `string` | `Search friends` | Supplies the search input's visible label. |
+| `description` | `string` | — | Adds a question-mark popover beside the label. |
+| `memberIds` | `readonly string[]` | `[]` | Disables existing participants. |
+| `multiple` | `boolean` | `false` | Allows toggling multiple friends; preserves selection across searches. |
+| `disabled` | `boolean` | `false` | Blocks interaction while saving. |
+| `className` | `string` | — | Adds wrapper layout classes. |
+
+## 17. Switch
+
+An MD3-style switch with a 52×32px track, a growing thumb, a 48px touch
+target, theme colors, keyboard focus, and reduced-motion support. It uses a
+native checkbox with `role="switch"`, so native form behavior is preserved.
+
+```tsx
+<Switch label="Make this trip public" checked={isPublic} onChange={(event) => setIsPublic(event.target.checked)} />
+```
+
+`label` is the required accessible name. Native checkbox props (including
+`id`, `name`, `checked`, `onChange`, and `disabled`) pass through. `className`
+styles the wrapper. Pair an external visible label with the input's `id`.
+
+## 18. InfoPopover
+
+A question-mark disclosure for short supporting text. Use it alongside a
+setting rather than hiding essential instructions or errors. The trigger
+exposes its expanded state, and the popover closes on a second click, outside
+interaction, focus leaving, or Escape. Escape does not dismiss a containing
+modal and returns focus to the trigger.
+
+```tsx
+<InfoPopover label="About public trips">
+  Any signed-in user can view a public trip.
+</InfoPopover>
+```
+
+`label` names the trigger, `children` supplies the description, and `className`
+styles the wrapper. Keep content non-interactive and brief.
+
+## 19. Chip
+
+A removable MD3 input chip for selections, following the
+[Material chip guidance](https://m3.material.io/components/chips/specs).
+The visual container is 32px tall with 8px corners, label typography, an
+optional 24px avatar, and an 18px trailing remove icon. A 48px button target
+provides keyboard access, focus indication, hover, and disabled states.
+This component represents an existing selection; it is not an action or filter chip.
+
+```tsx
+<Chip label="Alex" onRemove={removeAlex} />
+```
+
+| Prop | Type | Purpose |
+| --- | --- | --- |
+| `label` | `string` | Required visible selection name. |
+| `avatar` | `ReactNode` | Optional decorative avatar. |
+| `onRemove` | `() => void` | Required removal action. |
+| `removeLabel` | `string` | Accessible action name; defaults to `Remove ${label}`. |
+| `disabled` | `boolean` | Blocks removal. |
+| `className` | `string` | Adds button layout classes. |
+
+Other native button attributes pass through. The entire chip removes the
+selection on click, Enter, or Space; no nested buttons or checkboxes are used.
 
 ## Shared control tokens
 

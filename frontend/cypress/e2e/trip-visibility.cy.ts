@@ -77,6 +77,33 @@ describe('trip visibility settings', () => {
     cy.get('[data-cy="trip-name"]').type('Public city break');
     cy.get('[data-cy="trip-start-date"]').type('2030-04-01');
     cy.get('[data-cy="trip-end-date"]').type('2030-04-05');
+    cy.contains('Any signed-in user can view a public trip.').should(
+      'not.exist',
+    );
+    cy.contains('button', 'About public trips').click();
+    cy.contains('Any signed-in user can view a public trip.').should(
+      'be.visible',
+    );
+    cy.get('[data-cy="trip-public"]').should('not.be.checked');
+    cy.contains('button', 'About public trips').type('{esc}');
+    cy.contains('Any signed-in user can view a public trip.').should(
+      'not.exist',
+    );
+    cy.get('[data-cy="trip-name"]').should('be.visible');
+    cy.get('[data-cy="trip-public"]')
+      .should('have.attr', 'role', 'switch')
+      .check();
+    cy.get('[data-cy="trip-public"]')
+      .next()
+      .children()
+      .should('have.css', 'left', '24px')
+      .and('have.css', 'width', '24px');
+    cy.get('[data-cy="trip-public"]').uncheck();
+    cy.get('[data-cy="trip-public"]')
+      .next()
+      .children()
+      .should('have.css', 'left', '6px')
+      .and('have.css', 'width', '16px');
     cy.get('[data-cy="trip-public"]').check();
     cy.get('[data-cy="create-trip"]').click();
 

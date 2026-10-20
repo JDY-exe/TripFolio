@@ -59,6 +59,90 @@ const openTripSettings = (role: TripRole = 'owner') => {
 };
 
 describe('trip sharing', () => {
+  [false, true].forEach((rejectInvitation) => {
+    it(`creates a trip and ${rejectInvitation ? 'reports an unsent invitation without losing the trip' : 'invites selected friends'}`, () => {
+      cy.intercept('GET', '**/trip', { body: [] });
+      cy.intercept('GET', '**/users/friends', {
+        body: {
+          friends: [sharingFixture.friend, sharingFixture.member],
+          incomingRequests: [],
+          outgoingRequests: [],
+        },
+      });
+      cy.intercept('POST', '**/trip', {
+        body: { savedTrip: { _id: sharingFixture.tripId } },
+      }).as('createTrip');
+      cy.intercept('POST', '**/itinerary', {
+        body: { _id: sharingFixture.itineraryId },
+      }).as('createItinerary');
+      cy.intercept('POST', `**/trip/${sharingFixture.tripId}/share`, {
+        statusCode: rejectInvitation ? 500 : 201,
+        body: {
+          message: rejectInvitation ? 'Unavailable' : 'Trip invitation created',
+        },
+      }).as('shareTrip');
+
+      visitAsUser('/my-trips');
+      cy.get('[data-cy="new-trip"]').click();
+      cy.get('[data-cy="trip-name"]').type(sharingFixture.tripName);
+      cy.get('[data-cy="trip-start-date"]').type(
+        sharingFixture.startDate.slice(0, 10),
+      );
+      cy.get('[data-cy="trip-end-date"]').type(
+        sharingFixture.endDate.slice(0, 10),
+      );
+      cy.get('[data-cy="share-trip-dropdown"]').should('not.exist');
+      cy.get('[data-cy="share-trip-friend-search"]')
+        .focus()
+        .type('{downarrow}{enter}');
+      cy.get('[data-cy="share-trip-combobox"]')
+        .find(`[data-cy="share-trip-selected-${sharingFixture.friendId}"]`)
+        .should('be.visible');
+      cy.get(
+        `[data-cy="share-trip-friend-${sharingFixture.memberId}"]`,
+      ).click();
+      cy.get(`[data-cy="share-trip-friend-${sharingFixture.memberId}"]`)
+        .click()
+        .should('have.attr', 'aria-selected', 'false');
+      cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`)
+        .should('have.attr', 'aria-selected', 'true')
+        .and('not.have.css', 'background-color', 'rgba(0, 0, 0, 0)');
+      cy.get('[data-cy="share-trip-friend-search"]').type('no match');
+      cy.get(`[data-cy="share-trip-selected-${sharingFixture.friendId}"]`)
+        .should('be.visible')
+        .and('contain.text', sharingFixture.friend.username)
+        .click();
+      cy.get(
+        `[data-cy="share-trip-selected-${sharingFixture.friendId}"]`,
+      ).should('not.exist');
+      cy.get('[data-cy="share-trip-friend-search"]')
+        .should('be.focused')
+        .clear();
+      cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`)
+        .should('have.attr', 'aria-selected', 'false')
+        .click();
+      cy.get('[data-cy="share-trip-friend-search"]')
+        .type('{esc}')
+        .should('have.attr', 'aria-expanded', 'false');
+      cy.get('[data-cy="share-trip-dropdown"]').should('not.exist');
+      cy.get('[data-cy="trip-name"]').should('be.visible');
+      cy.get('[data-cy="create-trip"]').click();
+
+      cy.wait('@createTrip');
+      cy.wait('@createItinerary');
+      cy.wait('@shareTrip').its('request.body').should('deep.equal', {
+        recipientId: sharingFixture.friendId,
+      });
+      cy.get('[data-cy="trip-name"]').should('not.exist');
+      if (rejectInvitation) {
+        cy.get('[data-cy="toast"]').should(
+          'contain.text',
+          'Trip created with unsent invitations',
+        );
+      }
+    });
+  });
+
   it('sends an invitation to the selected existing friend', () => {
     openTripSettings();
     cy.intercept('POST', `**/trip/${sharingFixture.tripId}/share`, {
@@ -68,10 +152,14 @@ describe('trip sharing', () => {
 
     cy.get('[data-cy="share-trip-open"]').click();
     cy.get('[data-cy="share-trip-dialog"]').should('be.visible');
+    cy.get('[data-cy="share-trip-friend-search"]').focus();
     cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`)
       .should('be.enabled')
-      .click()
-      .should('have.attr', 'aria-pressed', 'true');
+      .click();
+    cy.get('[data-cy="share-trip-dropdown"]').should('not.exist');
+    cy.get(`[data-cy="share-trip-selected-${sharingFixture.friendId}"]`).should(
+      'be.visible',
+    );
     cy.get('[data-cy="share-trip-submit"]').click();
 
     cy.wait('@shareTrip')
@@ -86,6 +174,7 @@ describe('trip sharing', () => {
   it('marks existing trip members as unavailable and filters friends', () => {
     openTripSettings();
     cy.get('[data-cy="share-trip-open"]').click();
+    cy.get('[data-cy="share-trip-friend-search"]').focus();
     cy.get(`[data-cy="share-trip-friend-${sharingFixture.memberId}"]`).should(
       'be.disabled',
     );
@@ -112,6 +201,7 @@ describe('trip sharing', () => {
     }).as('shareTrip');
 
     cy.get('[data-cy="share-trip-open"]').click();
+    cy.get('[data-cy="share-trip-friend-search"]').focus();
     cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`).click();
     cy.get('[data-cy="share-trip-submit"]').click();
     cy.wait('@shareTrip');

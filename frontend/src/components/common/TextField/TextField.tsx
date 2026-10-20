@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, ReactNode } from 'react';
 import Text from '../Text/Text';
 
 export interface TextFieldProps extends Omit<
@@ -7,6 +7,7 @@ export interface TextFieldProps extends Omit<
 > {
   id: string;
   label: string;
+  labelAction?: ReactNode;
   hint?: string;
   error?: string;
 }
@@ -24,6 +25,7 @@ export interface TextFieldProps extends Omit<
  */
 function TextField({
   label,
+  labelAction,
   hint,
   error,
   id,
@@ -36,9 +38,12 @@ function TextField({
 
   return (
     <div className="grid gap-2">
-      <Text as="label" htmlFor={id} variant="label">
-        {label}
-      </Text>
+      <div className="flex items-center gap-1">
+        <Text as="label" htmlFor={id} variant="label">
+          {label}
+        </Text>
+        {labelAction}
+      </div>
       <input
         id={id}
         aria-invalid={error ? true : undefined}
