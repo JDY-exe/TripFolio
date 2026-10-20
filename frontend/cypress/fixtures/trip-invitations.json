@@ -1,0 +1,21 @@
+[
+  {
+    "_id": "507f1f77bcf86cd799439011",
+    "trip": {
+      "_id": "64b000000000000000000001",
+      "name": "Coastal weekend",
+      "startDate": "2030-04-01T00:00:00.000Z",
+      "endDate": "2030-04-05T00:00:00.000Z",
+      "isPublic": false,
+      "currentUserRole": "owner",
+      "profilePictureId": "cover-id",
+      "owner": {
+        "username": "Taylor",
+        "profile_picture": "data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"40\" height=\"40\"%3E%3Ccircle cx=\"20\" cy=\"20\" r=\"20\" fill=\"teal\"/%3E%3C/svg%3E"
+      }
+    },
+    "inviter": {
+      "username": "Alex"
+    }
+  }
+]

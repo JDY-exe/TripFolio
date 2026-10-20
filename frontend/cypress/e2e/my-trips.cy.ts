@@ -1,7 +1,41 @@
+import invitations from '../fixtures/trip-invitations.json';
 import featureFixture from '../fixtures/owned-features.json';
 import { visitAsUser } from '../support/auth';
 
 describe('My Trips', () => {
+  for (const status of ['accepted', 'declined']) {
+    it(`responds to invitations with ${status}`, () => {
+      cy.intercept({ method: 'GET', pathname: '/trip' }, { body: [] });
+      cy.intercept('GET', '**/trip/invitations', { body: invitations });
+      cy.intercept('PATCH', '**/trip/invitations/*', (request) => {
+        expect(request.body.status).to.equal(status);
+        request.reply({ invitation: { status } });
+      }).as('respond');
+      cy.intercept('GET', '**/trip/*/profile_picture*', {
+        headers: { 'content-type': 'image/svg+xml' },
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="teal"/></svg>',
+      });
+      visitAsUser('/my-trips');
+      cy.get('[data-cy="trip-invitations"]').click();
+      cy.contains(invitations[0].trip.name).should('be.visible');
+      cy.get('[data-cy="invitation-trip-picture"]').should('be.visible');
+      cy.get('[data-cy="invitation-owner-picture"]').should(
+        'have.attr',
+        'src',
+        invitations[0].trip.owner.profile_picture,
+      );
+      cy.contains(invitations[0].trip.owner.username).should('be.visible');
+      cy.intercept('GET', '**/trip/invitations', { body: [] });
+      cy.get(
+        status === 'accepted'
+          ? '[data-cy="accept-invitation"]'
+          : '[data-cy="decline-invitation"]',
+      ).click();
+      cy.wait('@respond');
+      cy.contains('No pending invitations.').should('be.visible');
+    });
+  }
+
   it('shows an empty state', () => {
     cy.intercept({ method: 'GET', pathname: '/trip' }, { body: [] });
     visitAsUser('/my-trips');

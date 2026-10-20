@@ -202,7 +202,10 @@ const getTripProfilePicture = async (req, res) => {
     }
 
     const trip = await Trip.findById(req.params.id);
-    if (!trip || !canReadTrip(trip, req.user.id) || !trip.profilePictureId) {
+    const pendingInvitation = trip && !canReadTrip(trip, req.user.id)
+      ? await TripInvitation.exists({ trip: trip._id, recipient: req.user.id, status: "pending" })
+      : false;
+    if (!trip || (!canReadTrip(trip, req.user.id) && !pendingInvitation) || !trip.profilePictureId) {
       return res.status(404).json({ message: "Trip cover not found" });
     }
 
@@ -348,7 +351,59 @@ const addUserToTrip = async (req, res) => {
   }
 };
 
+/** Lists pending invitations belonging to the authenticated recipient. */
+const getTripInvitations = async (req, res) => {
+  try {
+    const invitations = await TripInvitation.find({ recipient: req.user.id, status: "pending" })
+      .populate({ path: "trip", select: "name startDate endDate profilePictureId ownerId users",
+        populate: { path: "ownerId", select: "username profile_picture" } })
+      .populate("inviter", "username")
+      .sort({ createdAt: -1 });
+    const results = await Promise.all(invitations.filter((invitation) => invitation.trip).map(async (invitation) => {
+      const trip = invitation.trip;
+      const owner = trip.ownerId || (trip.users?.[0]
+        ? await User.findById(trip.users[0]).select("username profile_picture") : null);
+      return {
+        _id: invitation._id,
+        trip: { _id: trip._id, name: trip.name, startDate: trip.startDate,
+          endDate: trip.endDate, profilePictureId: trip.profilePictureId,
+          owner: owner ? { username: owner.username, profile_picture: owner.profile_picture } : null },
+        inviter: invitation.inviter
+      };
+    }));
+    return res.status(200).json(results);
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to load invitations" });
+  }
+};
+
+/** Records a recipient's response; acceptance adds membership without duplicates. */
+const respondToTripInvitation = async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!["accepted", "declined"].includes(status) || !mongoose.isValidObjectId(req.params.invitationId)) {
+      return res.status(400).json({ message: "Invalid invitation response" });
+    }
+    const invitation = await TripInvitation.findOne({
+      _id: req.params.invitationId, recipient: req.user.id, status: "pending"
+    });
+    if (!invitation) return res.status(404).json({ message: "Pending invitation not found" });
+    if (status === "accepted") {
+      const trip = await Trip.findByIdAndUpdate(invitation.trip,
+        { $addToSet: { users: req.user.id } }, { new: true });
+      if (!trip) return res.status(404).json({ message: "Trip no longer exists" });
+    }
+    invitation.status = status;
+    await invitation.save();
+    return res.status(200).json({ invitation });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to respond to invitation" });
+  }
+};
+
 module.exports = {
+  getTripInvitations,
+  respondToTripInvitation,
   createTrip,
   getTrips,
   getTrip,
