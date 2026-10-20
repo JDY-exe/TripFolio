@@ -9,62 +9,96 @@ const TripInvitation = require("../models/TripInvitation");
 const User = require("../models/User");
 const tripRoutes = require("../routes/tripRoutes");
 
-test("POST /trip/:id/share authorizes and creates invitations for profiles", async (t) => {
+test("POST /trip/:id/share creates an atomic batch of invitations", async (t) => {
   const previousSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = "trip-share-test-secret";
-
-  const originalMethods = {
+  const original = {
     tripFindById: Trip.findById,
-    userFindById: User.findById,
+    userFind: User.find,
     invitationFindOne: TripInvitation.findOne,
-    invitationSave: TripInvitation.prototype.save,
+    invitationInsertMany: TripInvitation.insertMany,
+    transaction: mongoose.connection.transaction
   };
-  const ids = {
-    trip: new mongoose.Types.ObjectId().toString(),
-    owner: new mongoose.Types.ObjectId().toString(),
-    editor: new mongoose.Types.ObjectId().toString(),
-    viewer: new mongoose.Types.ObjectId().toString(),
-    stranger: new mongoose.Types.ObjectId().toString(),
-    recipient: new mongoose.Types.ObjectId().toString(),
-    member: new mongoose.Types.ObjectId().toString(),
-    recipient2: new mongoose.Types.ObjectId().toString(),
-    unknownProfile: new mongoose.Types.ObjectId().toString(),
-  };
-  const trips = new Map([
+  const ids = Object.fromEntries(
     [
-      ids.trip,
-      {
-        _id: ids.trip,
-        ownerId: ids.owner,
-        users: [ids.owner, ids.editor, ids.viewer, ids.member],
-        viewerIds: [ids.viewer],
-      },
-    ],
-  ]);
-  const profiles = new Set([
-    ids.owner,
-    ids.editor,
-    ids.viewer,
-    ids.stranger,
-    ids.recipient,
-    ids.recipient2,
-    ids.member,
-  ]);
-  const invitations = [];
-
-  Trip.findById = async (tripId) => trips.get(String(tripId)) ?? null;
-  User.findById = async (userId) =>
-    profiles.has(String(userId)) ? { _id: userId } : null;
-  TripInvitation.findOne = async ({ trip, recipient, status }) =>
-    invitations.find(
-      (invitation) =>
-        String(invitation.trip) === String(trip) &&
-        String(invitation.recipient) === String(recipient) &&
-        invitation.status === status,
-    ) ?? null;
-  TripInvitation.prototype.save = async function saveInvitation() {
-    invitations.push(this);
-    return this;
+      "trip",
+      "owner",
+      "editor",
+      "viewer",
+      "stranger",
+      "recipient",
+      "member",
+      "recipient2",
+      "unknownProfile"
+    ].map((key) => [key, new mongoose.Types.ObjectId().toString()])
+  );
+  const trip = {
+    _id: ids.trip,
+    ownerId: ids.owner,
+    users: [ids.owner, ids.editor, ids.viewer, ids.member],
+    viewerIds: [ids.viewer]
+  };
+  const profiles = new Set(
+    Object.entries(ids)
+      .filter(([key]) => !["trip", "unknownProfile"].includes(key))
+      .map(([, id]) => id)
+  );
+  let invitations = [];
+  let activeSession;
+  let insertError;
+  let transactions = 0;
+  let inserts = 0;
+  // Model a session's staged writes separately from committed data. Every read
+  // and write must receive that same session for this controller contract test.
+  mongoose.connection.transaction = async (callback) => {
+    transactions += 1;
+    activeSession = { staged: [] };
+    try {
+      const result = await callback(activeSession);
+      invitations.push(...activeSession.staged);
+      return result;
+    } finally {
+      activeSession = undefined;
+    }
+  };
+  const query = (read) => ({
+    session: async (session) => {
+      assert.ok(activeSession);
+      assert.equal(session, activeSession);
+      return read();
+    }
+  });
+  Trip.findById = (tripId) =>
+    query(() => (String(tripId) === ids.trip ? trip : null));
+  User.find = ({ _id }) =>
+    query(() =>
+      _id.$in.filter((id) => profiles.has(id)).map((id) => ({ _id: id }))
+    );
+  TripInvitation.findOne = ({ trip: tripId, recipient, status }) =>
+    query(
+      () =>
+        invitations.find(
+          (invitation) =>
+            invitation.trip === tripId &&
+            recipient.$in.includes(invitation.recipient) &&
+            invitation.status === status
+        ) ?? null
+    );
+  TripInvitation.insertMany = async (documents, options) => {
+    inserts += 1;
+    assert.ok(activeSession);
+    assert.equal(options.session, activeSession);
+    assert.equal(options.ordered, true);
+    for (const document of documents) {
+      activeSession.staged.push({
+        ...document,
+        _id: new mongoose.Types.ObjectId().toString(),
+        status: "pending"
+      });
+      // Simulate a write failing after the first document was inserted.
+      if (insertError) throw insertError;
+    }
+    return activeSession.staged;
   };
 
   const app = express();
@@ -73,95 +107,161 @@ test("POST /trip/:id/share authorizes and creates invitations for profiles", asy
   const server = createServer(app);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
-  const tokenFor = (userId) => jwt.sign({ id: userId }, process.env.JWT_SECRET);
-  const send = async (tripId, userId, body) => {
+  const send = async (body, userId = ids.owner, tripId = ids.trip) => {
     const response = await fetch(`${baseUrl}/trip/${tripId}/share`, {
       method: "POST",
       headers: {
-        ...(userId ? { Authorization: `Bearer ${tokenFor(userId)}` } : {}),
-        "Content-Type": "application/json",
+        ...(userId
+          ? {
+              Authorization: `Bearer ${jwt.sign({ id: userId }, process.env.JWT_SECRET)}`
+            }
+          : {}),
+        "Content-Type": "application/json"
       },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      body: JSON.stringify(body)
     });
-    return {
-      response,
-      data: await response.json(),
-    };
+    return { response, data: await response.json() };
   };
-
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
-    Trip.findById = originalMethods.tripFindById;
-    User.findById = originalMethods.userFindById;
-    TripInvitation.findOne = originalMethods.invitationFindOne;
-    TripInvitation.prototype.save = originalMethods.invitationSave;
-    if (previousSecret === undefined) {
-      delete process.env.JWT_SECRET;
-    } else {
-      process.env.JWT_SECRET = previousSecret;
-    }
+    Trip.findById = original.tripFindById;
+    User.find = original.userFind;
+    TripInvitation.findOne = original.invitationFindOne;
+    TripInvitation.insertMany = original.invitationInsertMany;
+    mongoose.connection.transaction = original.transaction;
+    if (previousSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousSecret;
   });
 
-  await t.test("owners and editors can invite existing profiles", async () => {
-    for (const [inviterId, recipientId] of [
-      [ids.owner, ids.recipient],
-      [ids.editor, ids.recipient2],
-    ]) {
-      const { response, data } = await send(ids.trip, inviterId, {
-        recipientId,
-      });
+  await t.test("owners and editors can send the entire batch", async () => {
+    for (const inviter of [ids.owner, ids.editor]) {
+      invitations = [];
+      const { response, data } = await send(
+        { recipientIds: [ids.recipient, ids.recipient2] },
+        inviter
+      );
       assert.equal(response.status, 201);
-      assert.equal(String(data.invitation.trip), ids.trip);
-      assert.equal(String(data.invitation.recipient), recipientId);
-      assert.equal(String(data.invitation.inviter), inviterId);
-      assert.equal(data.invitation.status, "pending");
+      assert.equal(invitations.length, 2);
+      assert.deepEqual(
+        data.invitations.map((invitation) => invitation.recipient),
+        [ids.recipient, ids.recipient2]
+      );
+      for (const invitation of data.invitations) {
+        assert.equal(invitation.trip, ids.trip);
+        assert.equal(invitation.inviter, inviter);
+        assert.equal(invitation.status, "pending");
+      }
+      assert.deepEqual(trip.users, [
+        ids.owner,
+        ids.editor,
+        ids.viewer,
+        ids.member
+      ]);
     }
+    invitations = [];
   });
-
-  await t.test("viewers and non-members cannot share a trip", async () => {
-    for (const inviterId of [ids.viewer, ids.stranger]) {
-      const { response } = await send(ids.trip, inviterId, {
-        recipientId: new mongoose.Types.ObjectId().toString(),
-      });
-      assert.equal(response.status, 403);
+  await t.test(
+    "rejects malformed or duplicate recipient IDs before starting a transaction",
+    async () => {
+      const before = transactions;
+      for (const body of [
+        {},
+        { recipientId: ids.recipient },
+        { recipientIds: [] },
+        { recipientIds: ids.recipient },
+        { recipientIds: [ids.recipient, "bad-id"] },
+        { recipientIds: [null] },
+        { recipientIds: [ids.recipient, ids.recipient] },
+        { recipientIds: [ids.recipient, ids.recipient.toUpperCase()] }
+      ]) {
+        const { response } = await send(body);
+        assert.equal(response.status, 400);
+      }
+      assert.equal(transactions, before);
+      assert.equal(invitations.length, 0);
     }
-  });
-
-  await t.test(
-    "rejects missing recipient profiles and invalid recipient IDs",
-    async () => {
-      const unknownProfile = await send(ids.trip, ids.owner, {
-        recipientId: ids.unknownProfile,
-      });
-      assert.equal(unknownProfile.response.status, 404);
-
-      const invalidId = await send(ids.trip, ids.owner, {
-        recipientId: "not-an-object-id",
-      });
-      assert.equal(invalidId.response.status, 400);
-    },
   );
-
   await t.test(
-    "rejects trip members and duplicate pending invitations",
+    "rejects the entire batch if any recipient is missing or already a member",
     async () => {
-      const memberInvite = await send(ids.trip, ids.owner, {
-        recipientId: ids.member,
-      });
-      assert.equal(memberInvite.response.status, 409);
-
-      const duplicateInvite = await send(ids.trip, ids.owner, {
-        recipientId: ids.recipient,
-      });
-      assert.equal(duplicateInvite.response.status, 409);
-    },
+      for (const [recipient, status] of [
+        [ids.unknownProfile, 404],
+        [ids.member, 409]
+      ]) {
+        const { response } = await send({
+          recipientIds: [ids.recipient, recipient]
+        });
+        assert.equal(response.status, status);
+        assert.equal(invitations.length, 0);
+      }
+    }
   );
-
-  await t.test("requires authentication", async () => {
-    const { response } = await send(ids.trip, undefined, {
-      recipientId: ids.recipient,
-    });
-    assert.equal(response.status, 401);
-  });
+  await t.test(
+    "a pending invitation blocks the batch; declined history does not",
+    async () => {
+      invitations = [
+        { trip: ids.trip, recipient: ids.recipient, status: "pending" }
+      ];
+      const before = inserts;
+      const rejected = await send({
+        recipientIds: [ids.recipient2, ids.recipient]
+      });
+      assert.equal(rejected.response.status, 409);
+      assert.equal(inserts, before);
+      assert.equal(invitations.length, 1);
+      invitations[0].status = "declined";
+      const accepted = await send({
+        recipientIds: [ids.recipient, ids.recipient2]
+      });
+      assert.equal(accepted.response.status, 201);
+      assert.equal(invitations.length, 3);
+      invitations = [];
+    }
+  );
+  await t.test(
+    "write failures and racing duplicate keys abort the transaction",
+    async () => {
+      for (const code of [123, 11000]) {
+        insertError = Object.assign(new Error("Insert failed"), { code });
+        const { response } = await send({
+          recipientIds: [ids.recipient, ids.recipient2]
+        });
+        assert.equal(response.status, code === 11000 ? 409 : 500);
+        assert.equal(invitations.length, 0);
+      }
+      insertError = undefined;
+    }
+  );
+  await t.test(
+    "requires authentication, sharing permission, and an existing trip",
+    async () => {
+      for (const [user, status] of [
+        [null, 401],
+        [ids.viewer, 403],
+        [ids.stranger, 403]
+      ]) {
+        assert.equal(
+          (await send({ recipientIds: [ids.recipient] }, user)).response.status,
+          status
+        );
+      }
+      assert.equal(
+        (await send({ recipientIds: [ids.recipient] }, ids.owner, "invalid"))
+          .response.status,
+        400
+      );
+      assert.equal(
+        (
+          await send(
+            { recipientIds: [ids.recipient] },
+            ids.owner,
+            new mongoose.Types.ObjectId().toString()
+          )
+        ).response.status,
+        404
+      );
+      assert.equal(invitations.length, 0);
+    }
+  );
 });

@@ -67,13 +67,14 @@ const ItineraryFeedCard = ({ item }: { item: PublicItineraryFeedItem }) => {
     >
       <article className="overflow-hidden rounded-panel border border-outline-variant/70 bg-surface-container-low text-on-surface shadow-sm transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-surface-container hover:shadow-md motion-reduce:transition-none">
         <div className="flex items-center gap-3 p-4 sm:px-5 sm:py-4">
-          {item.owner?.profile_picture ? (
+          {item.owner?.profile_picture && (
             <img
               src={item.owner.profile_picture}
               alt=""
               className="size-10 shrink-0 rounded-full object-cover ring-2 ring-surface-container"
             />
-          ) : (
+          )}
+          {!item.owner?.profile_picture && (
             <span
               aria-hidden="true"
               className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-container text-title text-on-secondary-container"
@@ -89,15 +90,15 @@ const ItineraryFeedCard = ({ item }: { item: PublicItineraryFeedItem }) => {
               Shared {dateFormatter.format(new Date(item.createdAt))}
             </Text>
           </div>
-          {item.isFriend ? (
+          {item.isFriend && (
             <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-container px-2.5 py-1 text-xs font-medium text-on-primary-container">
               <UsersRound aria-hidden size={14} />
               Friend
             </span>
-          ) : null}
+          )}
         </div>
 
-        {coverUrl ? (
+        {coverUrl && (
           <img
             src={coverUrl}
             alt=""
@@ -106,7 +107,8 @@ const ItineraryFeedCard = ({ item }: { item: PublicItineraryFeedItem }) => {
             loading="lazy"
             className="aspect-video w-full bg-surface-container object-cover"
           />
-        ) : (
+        )}
+        {!coverUrl && (
           <div
             aria-hidden="true"
             className="aspect-video w-full bg-secondary-container/60"
@@ -117,12 +119,12 @@ const ItineraryFeedCard = ({ item }: { item: PublicItineraryFeedItem }) => {
           <Text as="h2" variant="title" className="wrap-break-word">
             {item.tripName}
           </Text>
-          {item.itinerary.title ? (
+          {item.itinerary.title && (
             <Text as="p" variant="label" color="primary" className="mt-1">
               {item.itinerary.title}
             </Text>
-          ) : null}
-          {item.itinerary.description ? (
+          )}
+          {item.itinerary.description && (
             <Text
               as="p"
               color="muted"
@@ -130,7 +132,7 @@ const ItineraryFeedCard = ({ item }: { item: PublicItineraryFeedItem }) => {
             >
               {item.itinerary.description}
             </Text>
-          ) : null}
+          )}
 
           <div className="mt-4 flex items-center gap-2 border-t border-outline-variant/50 pt-3">
             <CalendarDays

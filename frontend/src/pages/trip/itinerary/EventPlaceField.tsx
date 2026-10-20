@@ -16,7 +16,11 @@ import type { PlaceSuggestion } from '../../../queries/places';
 interface EventPlaceFieldProps {
   value: string;
   placeId: string | null;
-  onChange: (value: string, placeId: string | null, restaurant: boolean) => void;
+  onChange: (
+    value: string,
+    placeId: string | null,
+    restaurant: boolean,
+  ) => void;
 }
 
 /** Chooses a familiar visual category from a prediction's Google place types.
@@ -139,11 +143,13 @@ const EventPlaceField = ({
    * @returns Nothing.
    */
   const selectSuggestion = (suggestion: (typeof matches)[number]) => {
-    const restaurant = isRestaurantPlace(suggestion.placePrediction.types ?? []);
+    const restaurant = isRestaurantPlace(
+      suggestion.placePrediction.types ?? [],
+    );
     onChange(
       suggestion.placePrediction.text.text,
       suggestion.placePrediction.placeId,
-      restaurant
+      restaurant,
     );
     setSearchOpen(false);
     setActiveIndex(-1);
@@ -201,9 +207,9 @@ const EventPlaceField = ({
           }
         }}
       />
-      {ready ? (
+      {ready && (
         <div className="absolute inset-x-0 top-22 z-20 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-low shadow-lg">
-          {matches.length > 0 ? (
+          {matches.length > 0 && (
             <div
               id={listId}
               role="listbox"
@@ -239,7 +245,7 @@ const EventPlaceField = ({
                         {name}
                       </span>
                     </span>
-                    {location ? (
+                    {location && (
                       <span className="mt-1 flex min-w-0 items-start gap-2.5 text-sm leading-5 text-on-surface-variant">
                         <MapPin
                           aria-hidden="true"
@@ -248,12 +254,13 @@ const EventPlaceField = ({
                         />
                         <span className="min-w-0 break-words">{location}</span>
                       </span>
-                    ) : null}
+                    )}
                   </button>
                 );
               })}
             </div>
-          ) : (
+          )}
+          {!(matches.length > 0) && (
             <Text variant="caption" color="muted" className="px-3 py-2">
               {isFetching
                 ? 'Searching places…'
@@ -263,7 +270,7 @@ const EventPlaceField = ({
             </Text>
           )}
         </div>
-      ) : null}
+      )}
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSendTripInvitations } from '../../queries/trips';
 import {
   Button,
   ImageUploadField,
@@ -39,6 +40,7 @@ interface CreateTripProps {
  */
 const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
   const { setLoading } = useLoading();
+  const sendInvitations = useSendTripInvitations();
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -109,20 +111,20 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
         }
       }
 
-      const invitations = await Promise.allSettled(
-        selectedFriendIds.map((recipientId) =>
-          postToApi(`/trip/${newTrip.savedTrip._id}/share`, { recipientId }),
-        ),
-      );
-      const failedInvitations = invitations.filter(
-        (invitation) => invitation.status === 'rejected',
-      ).length;
-      if (failedInvitations) {
-        displayAlert({
-          title: 'Trip created with unsent invitations',
-          message: `${failedInvitations} invitation(s) could not be sent. You can retry from trip settings.`,
-          tone: 'warning',
-        });
+      if (selectedFriendIds.length > 0) {
+        try {
+          await sendInvitations.mutateAsync({
+            tripId: newTrip.savedTrip._id,
+            recipientIds: selectedFriendIds,
+          });
+        } catch {
+          displayAlert({
+            title: 'Trip created with unsent invitations',
+            message:
+              'The invitation batch could not be confirmed. You can retry from trip settings.',
+            tone: 'warning',
+          });
+        }
       }
 
       setIsOpen(false);
@@ -159,7 +161,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
         </>
       )}
     >
-      {error ? (
+      {error && (
         <Text
           data-cy="create-trip-error"
           color="error"
@@ -168,7 +170,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
         >
           {error}
         </Text>
-      ) : null}
+      )}
 
       <form
         id="create-trip-form"

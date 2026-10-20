@@ -55,7 +55,7 @@ const ItineraryDescription = ({
         <Text as="h3" variant="title">
           Description
         </Text>
-        {!readOnly && !isEditing ? (
+        {!readOnly && !isEditing && (
           <IconButton
             data-cy="description-edit"
             label="Edit description"
@@ -63,9 +63,9 @@ const ItineraryDescription = ({
             size="sm"
             onClick={handleEdit}
           />
-        ) : null}
+        )}
       </div>
-      {isEditing ? (
+      {isEditing && (
         <div className="mt-3 flex flex-col gap-3">
           <TextArea
             data-cy="description-input"
@@ -95,7 +95,8 @@ const ItineraryDescription = ({
             </Button>
           </div>
         </div>
-      ) : (
+      )}
+      {!isEditing && (
         <Text
           color="muted"
           className={`mt-3 whitespace-pre-wrap ${itinerary.description ? '' : 'italic'}`}

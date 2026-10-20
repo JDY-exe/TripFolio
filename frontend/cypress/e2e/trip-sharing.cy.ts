@@ -78,7 +78,9 @@ describe('trip sharing', () => {
       cy.intercept('POST', `**/trip/${sharingFixture.tripId}/share`, {
         statusCode: rejectInvitation ? 500 : 201,
         body: {
-          message: rejectInvitation ? 'Unavailable' : 'Trip invitation created',
+          message: rejectInvitation
+            ? 'Unavailable'
+            : 'Trip invitations created',
         },
       }).as('shareTrip');
 
@@ -126,13 +128,20 @@ describe('trip sharing', () => {
         .should('have.attr', 'aria-expanded', 'false');
       cy.get('[data-cy="share-trip-dropdown"]').should('not.exist');
       cy.get('[data-cy="trip-name"]').should('be.visible');
+      cy.get('[data-cy="share-trip-friend-search"]').focus();
+      cy.get(
+        `[data-cy="share-trip-friend-${sharingFixture.memberId}"]`,
+      ).click();
       cy.get('[data-cy="create-trip"]').click();
 
       cy.wait('@createTrip');
       cy.wait('@createItinerary');
-      cy.wait('@shareTrip').its('request.body').should('deep.equal', {
-        recipientId: sharingFixture.friendId,
-      });
+      cy.wait('@shareTrip')
+        .its('request.body')
+        .should('deep.equal', {
+          recipientIds: [sharingFixture.friendId, sharingFixture.memberId],
+        });
+      cy.get('@shareTrip.all').should('have.length', 1);
       cy.get('[data-cy="trip-name"]').should('not.exist');
       if (rejectInvitation) {
         cy.get('[data-cy="toast"]').should(
@@ -147,7 +156,7 @@ describe('trip sharing', () => {
     openTripSettings();
     cy.intercept('POST', `**/trip/${sharingFixture.tripId}/share`, {
       statusCode: 201,
-      body: { message: 'Trip invitation created' },
+      body: { message: 'Trip invitations created' },
     }).as('shareTrip');
 
     cy.get('[data-cy="share-trip-open"]').click();
@@ -164,9 +173,9 @@ describe('trip sharing', () => {
 
     cy.wait('@shareTrip')
       .its('request.body')
-      .should('deep.equal', { recipientId: sharingFixture.friendId });
+      .should('deep.equal', { recipientIds: [sharingFixture.friendId] });
     cy.get('[data-cy="toast"]')
-      .contains('Trip invitation created')
+      .contains('Trip invitations created')
       .should('exist');
     cy.get('[data-cy="share-trip-dialog"]').should('not.exist');
   });

@@ -60,26 +60,26 @@ const AccommodationsSection = ({
           Add accommodation
         </Button>
       </div>
-      {isPending ? (
+      {isPending && (
         <LogisticsSkeletonCard
           label="Loading accommodations"
           className="rounded-[2rem_0.75rem_2rem_0.75rem]"
         />
-      ) : null}
-      {isError ? (
+      )}
+      {isError && (
         <div className="flex flex-wrap items-center gap-3">
           <Text color="error">Could not load accommodations.</Text>
           <Button size="sm" variant="outline" onClick={() => void refetch()}>
             Retry
           </Button>
         </div>
-      ) : null}
-      {!isPending && !isError && reservations.length === 0 ? (
+      )}
+      {!isPending && !isError && reservations.length === 0 && (
         <LogisticsEmptyState
           title="No accommodations added yet."
           icon={<BedDouble size={30} />}
         />
-      ) : null}
+      )}
 
       <div className="space-y-4">
         {reservations.map((reservation) => (
@@ -154,11 +154,11 @@ const AccommodationsSection = ({
               </div>
             </dl>
 
-            {reservation.notes ? (
+            {reservation.notes && (
               <Text color="muted" className="mt-4 whitespace-pre-wrap text-sm">
                 {reservation.notes}
               </Text>
-            ) : null}
+            )}
 
             <div className="mt-3">
               <Text variant="label" color="muted">

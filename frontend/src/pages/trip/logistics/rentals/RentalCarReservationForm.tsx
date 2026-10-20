@@ -177,7 +177,7 @@ const RentalCarReservationForm = ({
             Cancel
           </Button>
           <div className="flex items-center gap-2">
-            {step === 1 ? (
+            {step === 1 && (
               <Button
                 variant="outline"
                 disabled={saveReservation.isPending}
@@ -188,12 +188,13 @@ const RentalCarReservationForm = ({
               >
                 Back
               </Button>
-            ) : null}
-            {step === 0 ? (
+            )}
+            {step === 0 && (
               <Button data-cy="rental-next" onClick={handleNext}>
                 Next: Cost
               </Button>
-            ) : (
+            )}
+            {step !== 0 && (
               <Button
                 data-cy="rental-save"
                 disabled={saveReservation.isPending}
@@ -215,13 +216,13 @@ const RentalCarReservationForm = ({
         <Text as="h3" variant="title" className="mb-4">
           {rentalSteps[step].label}
         </Text>
-        {error ? (
+        {error && (
           <Text role="alert" color="error" className="mb-4">
             {error}
           </Text>
-        ) : null}
+        )}
 
-        {step === 0 ? (
+        {step === 0 && (
           <>
             <div className="overflow-hidden rounded-[0.75rem_2rem_0.75rem_2rem] border border-outline-variant bg-surface-container-low">
               <div className="px-5 pt-5">
@@ -316,7 +317,8 @@ const RentalCarReservationForm = ({
               </div>
             </div>
           </>
-        ) : (
+        )}
+        {step !== 0 && (
           <div className="rounded-[0.75rem_2rem_0.75rem_2rem] bg-surface-container-low p-5 sm:p-6">
             <div className="mb-6 flex items-center gap-3">
               <div className="grid size-12 place-items-center rounded-2xl bg-secondary-container text-on-secondary-container">

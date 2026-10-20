@@ -50,14 +50,14 @@ const TripOverview = ({
           <time dateTime={startDate.slice(0, 10)}>
             {dateFormatter.format(new Date(startDate))}
           </time>
-          {startDate.slice(0, 10) !== endDate.slice(0, 10) ? (
+          {startDate.slice(0, 10) !== endDate.slice(0, 10) && (
             <>
               {' – '}
               <time dateTime={endDate.slice(0, 10)}>
                 {dateFormatter.format(new Date(endDate))}
               </time>
             </>
-          ) : null}
+          )}
         </Text>
       </div>
       <div className="pt-2">
@@ -73,13 +73,15 @@ const TripOverview = ({
             : `${travelers.length} ${travelers.length === 1 ? 'traveler' : 'travelers'}`}
         </Text>
         <dd className="mt-3" data-cy="trip-overview-travelers">
-          {travelersLoading ? (
+          {travelersLoading && (
             <div role="status" aria-label="Loading travelers">
               <Skeleton className="h-10 w-28 rounded-full" />
             </div>
-          ) : travelersError ? (
+          )}
+          {!travelersLoading && travelersError && (
             <Text color="muted">Could not load travelers.</Text>
-          ) : travelers.length ? (
+          )}
+          {!travelersLoading && !travelersError && travelers.length > 0 && (
             <ul aria-label="Trip travelers" className="flex -space-x-3">
               {travelers.slice(0, 4).map((traveler) => (
                 <li
@@ -87,13 +89,14 @@ const TripOverview = ({
                   title={traveler.username}
                   className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary-container text-on-secondary-container ring-2 ring-surface-container"
                 >
-                  {traveler.profile_picture ? (
+                  {traveler.profile_picture && (
                     <img
                       src={traveler.profile_picture}
                       alt={traveler.username}
                       className="size-full object-cover"
                     />
-                  ) : (
+                  )}
+                  {!traveler.profile_picture && (
                     <>
                       <UserRound aria-hidden size={20} />
                       <span className="sr-only">{traveler.username}</span>
@@ -101,7 +104,7 @@ const TripOverview = ({
                   )}
                 </li>
               ))}
-              {travelers.length > 4 ? (
+              {travelers.length > 4 && (
                 <li
                   className="relative flex size-10 items-center justify-center rounded-full bg-primary-container text-label text-on-primary-container ring-2 ring-surface-container"
                   title={travelers
@@ -117,9 +120,10 @@ const TripOverview = ({
                       .join(', ')}
                   </span>
                 </li>
-              ) : null}
+              )}
             </ul>
-          ) : (
+          )}
+          {!travelersLoading && !travelersError && !travelers.length && (
             <Text color="muted">No travelers to show.</Text>
           )}
         </dd>

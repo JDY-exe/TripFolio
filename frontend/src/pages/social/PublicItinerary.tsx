@@ -86,13 +86,13 @@ const PublicItinerary = () => {
 
       <header className="mb-8 mt-5 border-b border-outline-variant/60 pb-6">
         <div className="flex items-center gap-3">
-          {data.owner?.profile_picture ? (
+          {data.owner?.profile_picture && (
             <img
               src={data.owner.profile_picture}
               alt=""
               className="size-11 shrink-0 rounded-full object-cover"
             />
-          ) : null}
+          )}
           <Text variant="label" color="muted">
             {data.owner?.username ?? 'Traveler'}
           </Text>
@@ -122,7 +122,7 @@ const PublicItinerary = () => {
           >
             {itineraryTitle}
           </Text>
-          {days.length > 0 ? (
+          {days.length > 0 &&
             days.map((date, index) => (
               <ItineraryDaySection
                 key={date}
@@ -139,8 +139,8 @@ const PublicItinerary = () => {
                 endDate={data.itinerary.endDate}
                 readOnly
               />
-            ))
-          ) : (
+            ))}
+          {!(days.length > 0) && (
             <Text color="muted">No itinerary days are available.</Text>
           )}
         </section>

@@ -86,11 +86,11 @@ const Onboard = ({ onComplete }: OnboardProps) => {
       />
 
       <div aria-live="polite" className="mt-4 min-h-6 text-center">
-        {error ? (
+        {error && (
           <Text color="error" role="alert">
             {error}
           </Text>
-        ) : null}
+        )}
       </div>
 
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">

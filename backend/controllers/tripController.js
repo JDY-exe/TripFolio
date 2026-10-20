@@ -251,65 +251,102 @@ const getTripFromUser = async (req, res) => {
   }
 };
 
+/** Creates every requested invitation in one transaction, or saves none of them. */
 const shareTrip = async (req, res) => {
   try {
     const { id: tripId } = req.params;
-    const { recipientId } = req.body || {};
+    const { recipientIds } = req.body || {};
 
     if (!mongoose.isValidObjectId(tripId)) {
       return res.status(400).json({ message: "Invalid trip ID" });
     }
-    if (!mongoose.isValidObjectId(recipientId)) {
-      return res.status(400).json({ message: "A valid recipientId is required" });
+    if (
+      !Array.isArray(recipientIds) ||
+      recipientIds.length === 0 ||
+      recipientIds.some(
+        (id) => typeof id !== "string" || !mongoose.isValidObjectId(id)
+      )
+    ) {
+      return res
+        .status(400)
+        .json({
+          message: "A non-empty array of valid recipientIds is required"
+        });
+    }
+    const normalizedIds = recipientIds.map((id) =>
+      new mongoose.Types.ObjectId(id).toString()
+    );
+    if (new Set(normalizedIds).size !== normalizedIds.length) {
+      return res
+        .status(400)
+        .json({ message: "recipientIds must not contain duplicates" });
     }
 
-    const trip = await Trip.findById(tripId);
-    if (!trip) {
-      return res.status(404).json({ message: "Trip not found" });
-    }
-    if (!canEditTrip(trip, req.user.id)) {
-      return res.status(403).json({
-        message: "Only trip owners and editors can share this trip"
-      });
-    }
-
-    const recipient = await User.findById(recipientId);
-    if (!recipient) {
-      return res.status(404).json({ message: "Recipient profile not found" });
-    }
-    if (getTripRole(trip, recipientId)) {
-      return res.status(409).json({ message: "User is already a trip member" });
-    }
-
-    const existingInvitation = await TripInvitation.findOne({
-      trip: tripId,
-      recipient: recipientId,
-      status: "pending"
-    });
-    if (existingInvitation) {
-      return res.status(409).json({
-        message: "A pending invitation already exists for this user"
-      });
-    }
-
-    const invitation = new TripInvitation({
-      trip: tripId,
-      recipient: recipientId,
-      inviter: req.user.id
-    });
-    await invitation.save();
+    const invitations = await mongoose.connection.transaction(
+      async (session) => {
+        const trip = await Trip.findById(tripId).session(session);
+        if (!trip) {
+          throw Object.assign(new Error("Trip not found"), { status: 404 });
+        }
+        if (!canEditTrip(trip, req.user.id)) {
+          throw Object.assign(
+            new Error("Only trip owners and editors can share this trip"),
+            { status: 403 }
+          );
+        }
+        const recipients = await User.find({
+          _id: { $in: normalizedIds }
+        }).session(session);
+        if (recipients.length !== normalizedIds.length) {
+          throw Object.assign(
+            new Error("One or more recipient profiles were not found"),
+            { status: 404 }
+          );
+        }
+        if (normalizedIds.some((id) => getTripRole(trip, id))) {
+          throw Object.assign(
+            new Error("One or more recipients are already trip members"),
+            { status: 409 }
+          );
+        }
+        const existingInvitation = await TripInvitation.findOne({
+          trip: tripId,
+          recipient: { $in: normalizedIds },
+          status: "pending"
+        }).session(session);
+        if (existingInvitation) {
+          throw Object.assign(
+            new Error(
+              "A pending invitation already exists for one or more recipients"
+            ),
+            { status: 409 }
+          );
+        }
+        return TripInvitation.insertMany(
+          normalizedIds.map((recipient) => ({
+            trip: tripId,
+            recipient,
+            inviter: req.user.id
+          })),
+          { session, ordered: true }
+        );
+      }
+    );
 
     return res.status(201).json({
-      message: "Trip invitation created",
-      invitation
+      message: "Trip invitations created",
+      invitations
     });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({
-        message: "A pending invitation already exists for this user"
+        message:
+          "A pending invitation already exists for one or more recipients"
       });
     }
-    return res.status(500).json({ message: error.message });
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to send trip invitations"
+    });
   }
 };
 

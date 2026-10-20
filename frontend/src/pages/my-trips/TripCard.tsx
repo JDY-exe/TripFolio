@@ -43,7 +43,7 @@ const TripCard = ({
         className="absolute inset-0 z-10 cursor-pointer rounded-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
       />
       <div className="relative">
-        {image ? (
+        {image && (
           <img
             src={image}
             alt=""
@@ -52,9 +52,8 @@ const TripCard = ({
             loading="lazy"
             className="aspect-video w-full bg-surface-container object-cover"
           />
-        ) : (
-          <TripPlaceholderArt />
         )}
+        {!image && <TripPlaceholderArt />}
         <span className="absolute left-4 top-4 rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-on-surface">
           {status}
         </span>

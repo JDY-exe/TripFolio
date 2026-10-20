@@ -23,6 +23,12 @@ The frontend stack consists of react using vite, tailwindcss, lucide-react for i
   functions with JSDoc that explains what they do, how they work, their
   parameters, and their return value. Add inline comments only where the code
   would otherwise be hard to follow.
+- Use `condition && <Component />` for conditional JSX rendering. For alternative
+  branches, use separate guarded blocks; group multiple siblings in `<>...</>`.
+  Preserve mutually exclusive loading, error, and success states. Use explicit
+  boolean conditions (for example, `items.length > 0`) to avoid rendering `0`.
+  Ternaries for non-JSX values such as labels, classes, and props are allowed.
+  ESLint's `no-restricted-syntax` rule enforces the JSX rendering convention.
 - Keep components focused. Move substantial presentation or business logic
   into a dedicated component or hook instead of combining unrelated jobs in a
   single view.

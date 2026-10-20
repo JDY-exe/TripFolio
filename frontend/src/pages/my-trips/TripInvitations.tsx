@@ -42,16 +42,17 @@ const TripInvitations = ({
       title="Trip invitations"
       dismissDisabled={response.isPending}
     >
-      {query.isPending ? (
-        <Text>Loading invitations...</Text>
-      ) : query.isError ? (
+      {query.isPending && <Text>Loading invitations...</Text>}
+      {!query.isPending && query.isError && (
         <div>
           <Text>Unable to load invitations.</Text>
           <Button onClick={() => void query.refetch()}>Try again</Button>
         </div>
-      ) : query.data.length === 0 ? (
+      )}
+      {!query.isPending && !query.isError && query.data.length === 0 && (
         <Text color="muted">You're all caught up. No pending invitations.</Text>
-      ) : (
+      )}
+      {!query.isPending && !query.isError && query.data.length > 0 && (
         <ul className="space-y-3">
           {query.data.map(({ _id, trip }) => (
             <li
@@ -71,14 +72,15 @@ const TripInvitations = ({
                   {new Date(trip.endDate).toLocaleDateString()}
                 </Text>
                 <div className="mt-2 flex items-center gap-2">
-                  {trip.owner?.profile_picture ? (
+                  {trip.owner?.profile_picture && (
                     <img
                       data-cy="invitation-owner-picture"
                       src={trip.owner.profile_picture}
                       alt=""
                       className="size-7 rounded-full object-cover"
                     />
-                  ) : (
+                  )}
+                  {!trip.owner?.profile_picture && (
                     <span
                       aria-hidden="true"
                       className="flex size-7 items-center justify-center rounded-full bg-primary-container text-on-primary-container"

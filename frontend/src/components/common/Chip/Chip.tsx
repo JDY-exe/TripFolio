@@ -45,14 +45,14 @@ export const Chip = ({
         avatar ? 'pl-1' : 'pl-3',
       ].join(' ')}
     >
-      {avatar ? (
+      {!!avatar && (
         <span
           aria-hidden="true"
           className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-container-high [&>img]:size-full [&>img]:object-cover"
         >
           {avatar}
         </span>
-      ) : null}
+      )}
       <span className="truncate">{label}</span>
       <X aria-hidden size={18} className="shrink-0" />
     </span>

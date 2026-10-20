@@ -225,11 +225,11 @@ function Modal({
             <Text as="h2" id={titleId} variant="title">
               {title}
             </Text>
-            {description ? (
+            {!!description && (
               <Text className="mt-1 max-w-md" color="muted" id={descriptionId}>
                 {description}
               </Text>
-            ) : null}
+            )}
           </div>
         </header>
 
@@ -237,11 +237,11 @@ function Modal({
           {children}
         </div>
 
-        {footer ? (
+        {!!footer && (
           <footer className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             {typeof footer === 'function' ? footer(requestClose) : footer}
           </footer>
-        ) : null}
+        )}
       </div>
     </div>
   );

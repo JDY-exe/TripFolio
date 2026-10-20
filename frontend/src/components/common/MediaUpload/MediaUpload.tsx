@@ -254,15 +254,14 @@ function MediaUpload({
       onDrop={handleDrop}
       style={mergedStyle}
     >
-      {loading ? (
-        loadingIndicatorType === 'circular' ? (
-          <CircularProgressIndicator indeterminate label={loadingLabel} />
-        ) : (
-          <LoadingIndicator label={loadingLabel} />
-        )
-      ) : buttonOnly ? (
-        pickerButton
-      ) : (
+      {loading && loadingIndicatorType === 'circular' && (
+        <CircularProgressIndicator indeterminate label={loadingLabel} />
+      )}
+      {loading && loadingIndicatorType !== 'circular' && (
+        <LoadingIndicator label={loadingLabel} />
+      )}
+      {!loading && buttonOnly && pickerButton}
+      {!loading && !buttonOnly && (
         <>
           <div
             aria-hidden="true"
