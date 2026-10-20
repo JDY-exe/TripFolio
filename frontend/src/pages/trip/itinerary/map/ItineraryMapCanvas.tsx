@@ -93,7 +93,7 @@ const ItineraryMapCanvas = ({
           className="h-full w-full"
           aria-label="Itinerary event locations"
         />
-        {failed ? (
+        {failed && (
           <div
             role="status"
             className="absolute inset-0 grid place-items-center bg-surface-container-low p-6 text-center"
@@ -102,8 +102,8 @@ const ItineraryMapCanvas = ({
               Map unavailable. Your itinerary is still available.
             </Text>
           </div>
-        ) : null}
-        {interactive && map && selection && selection.date === activeDate ? (
+        )}
+        {interactive && map && selection && selection.date === activeDate && (
           <MapEventPopup
             key={selection.events.map((event) => event._id).join(',')}
             map={map}
@@ -113,7 +113,7 @@ const ItineraryMapCanvas = ({
             onEdit={onEdit}
             onDelete={onDelete}
           />
-        ) : null}
+        )}
       </div>
       <Text
         variant="caption"

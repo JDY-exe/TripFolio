@@ -40,13 +40,13 @@ const Profile = () => {
         <Friends />
       </section>
 
-      {isPictureModalOpen ? (
+      {isPictureModalOpen && (
         <ProfilePictureEditor
           onClose={closePictureModal}
           onSave={updateProfilePicture}
           username={user.username}
         />
-      ) : null}
+      )}
     </>
   );
 };

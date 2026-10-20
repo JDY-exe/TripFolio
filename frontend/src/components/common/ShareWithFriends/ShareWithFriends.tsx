@@ -108,11 +108,11 @@ export const ShareWithFriends = ({
         <Text as="label" htmlFor={searchId} variant="label">
           {label}
         </Text>
-        {description ? (
+        {description && (
           <InfoPopover label={`About ${label.toLocaleLowerCase()}`}>
             {description}
           </InfoPopover>
-        ) : null}
+        )}
       </div>
       <div className="relative">
         <div
@@ -127,11 +127,14 @@ export const ShareWithFriends = ({
               key={friend.id}
               label={friend.username}
               avatar={
-                friend.profile_picture ? (
-                  <img src={friend.profile_picture} alt="" />
-                ) : (
-                  <UserRound aria-hidden size={16} />
-                )
+                <>
+                  {friend.profile_picture && (
+                    <img src={friend.profile_picture} alt="" />
+                  )}
+                  {!friend.profile_picture && (
+                    <UserRound aria-hidden size={16} />
+                  )}
+                </>
               }
               disabled={disabled}
               data-cy={`share-trip-selected-${friend.id}`}
@@ -200,7 +203,7 @@ export const ShareWithFriends = ({
             value={search}
           />
         </div>
-        {expanded ? (
+        {expanded && (
           <div
             className="absolute inset-x-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-high p-2 shadow-lg"
             data-cy="share-trip-dropdown"
@@ -232,9 +235,7 @@ export const ShareWithFriends = ({
                         selected
                           ? 'bg-on-surface/8 hover:bg-on-surface/12'
                           : 'hover:bg-on-surface/8',
-                        activeFriendId === friend.id
-                          ? 'bg-on-surface/12'
-                          : '',
+                        activeFriendId === friend.id ? 'bg-on-surface/12' : '',
                       ].join(' ')}
                       onMouseDown={(event) => event.preventDefault()}
                       onPointerMove={() => {
@@ -243,13 +244,14 @@ export const ShareWithFriends = ({
                       onClick={() => toggleFriend(friend.id)}
                     >
                       <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary-container text-on-secondary-container">
-                        {friend.profile_picture ? (
+                        {friend.profile_picture && (
                           <img
                             alt=""
                             className="size-full object-cover"
                             src={friend.profile_picture}
                           />
-                        ) : (
+                        )}
+                        {!friend.profile_picture && (
                           <UserRound aria-hidden size={18} />
                         )}
                       </span>
@@ -261,7 +263,7 @@ export const ShareWithFriends = ({
                       >
                         {friend.username}
                       </Text>
-                      {isTripMember ? (
+                      {isTripMember && (
                         <Text
                           as="span"
                           className="shrink-0"
@@ -271,15 +273,16 @@ export const ShareWithFriends = ({
                         >
                           Already a participant
                         </Text>
-                      ) : null}
+                      )}
                     </button>
                   </li>
                 );
               })}
             </ul>
-            {friendsQuery.isPending ? (
+            {friendsQuery.isPending && (
               <LoadingIndicator label="Loading friends" size={36} />
-            ) : friendsQuery.isError ? (
+            )}
+            {!friendsQuery.isPending && friendsQuery.isError && (
               <div className="grid gap-2 p-2" role="alert">
                 <Text color="error">
                   {getApiErrorMessage(
@@ -295,15 +298,18 @@ export const ShareWithFriends = ({
                   Retry
                 </Button>
               </div>
-            ) : !filteredFriends.length ? (
-              <Text className="p-2" color="muted" role="status">
-                {search.trim()
-                  ? 'No friends match your search.'
-                  : 'You do not have any friends to invite yet.'}
-              </Text>
-            ) : null}
+            )}
+            {!friendsQuery.isPending &&
+              !friendsQuery.isError &&
+              !filteredFriends.length && (
+                <Text className="p-2" color="muted" role="status">
+                  {search.trim()
+                    ? 'No friends match your search.'
+                    : 'You do not have any friends to invite yet.'}
+                </Text>
+              )}
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

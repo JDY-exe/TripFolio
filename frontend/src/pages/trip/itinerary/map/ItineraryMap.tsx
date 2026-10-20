@@ -41,8 +41,7 @@ const ItineraryMap = ({
 }: ItineraryMapProps) => {
   const [expanded, setExpanded] = useState(false);
   const pendingAction = useRef<(() => void) | undefined>(undefined);
-  const { locatedEvents, isLoading } =
-    useEventLocations(events);
+  const { locatedEvents, isLoading } = useEventLocations(events);
   const dayNumber = activeDate
     ? Math.round(
         (Date.parse(activeDate) - Date.parse(startDate.slice(0, 10))) /
@@ -83,17 +82,19 @@ const ItineraryMap = ({
             disabled={!locatedEvents.length}
           />
         </header>
-        {locatedEvents.length ? (
+        {locatedEvents.length > 0 && (
           <Suspense
             fallback={<Skeleton className="h-56 w-full rounded-panel" />}
           >
             <ItineraryMapCanvas {...mapProps} />
           </Suspense>
-        ) : loading || isLoading ? (
+        )}
+        {!locatedEvents.length && (loading || isLoading) && (
           <div role="status" aria-label="Locating itinerary events">
             <Skeleton className="h-56 w-full rounded-panel" />
           </div>
-        ) : (
+        )}
+        {!locatedEvents.length && !(loading || isLoading) && (
           <Text color="muted" className="py-8 text-center">
             {events.some((event) => event.address)
               ? 'No event locations could be mapped.'
@@ -117,13 +118,13 @@ const ItineraryMap = ({
           </Button>
         }
       >
-        {expanded ? (
+        {expanded && (
           <Suspense
             fallback={<Skeleton className="h-[65dvh] w-full rounded-panel" />}
           >
             <ItineraryMapCanvas {...mapProps} interactive />
           </Suspense>
-        ) : null}
+        )}
       </Modal>
     </>
   );

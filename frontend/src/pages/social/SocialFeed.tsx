@@ -44,21 +44,23 @@ const SocialFeed = () => {
         </Text>
       </header>
 
-      {isPending ? (
+      {isPending && (
         <div
           className="flex min-h-48 items-center justify-center"
           role="status"
         >
           <LoadingIndicator size={56} label="Loading public itineraries" />
         </div>
-      ) : isError ? (
+      )}
+      {!isPending && isError && (
         <div className="flex flex-col items-center gap-4 rounded-panel bg-surface-container-low p-8 text-center">
           <ErrorDisplay message="Could not load public itineraries." />
           <Button size="sm" onClick={() => void refetch()}>
             Retry
           </Button>
         </div>
-      ) : items.length === 0 ? (
+      )}
+      {!isPending && !isError && items.length === 0 && (
         <div className="rounded-panel bg-surface-container-low px-6 py-12 text-center">
           <Text as="h2" variant="title">
             No public itineraries yet
@@ -67,7 +69,8 @@ const SocialFeed = () => {
             Public trips will show up here when they are shared.
           </Text>
         </div>
-      ) : (
+      )}
+      {!isPending && !isError && items.length > 0 && (
         <div className="flex flex-col gap-6">
           {items.map((item) => (
             <ItineraryFeedCard key={item.tripId} item={item} />
@@ -77,15 +80,15 @@ const SocialFeed = () => {
             className="flex min-h-16 items-center justify-center"
             role={isFetchingNextPage ? 'status' : undefined}
           >
-            {isFetchingNextPage ? (
+            {isFetchingNextPage && (
               <LoadingIndicator size={40} label="Loading more itineraries" />
-            ) : null}
+            )}
           </div>
-          {!hasNextPage ? (
+          {!hasNextPage && (
             <Text color="muted" variant="caption" className="pb-4 text-center">
               You are all caught up.
             </Text>
-          ) : null}
+          )}
         </div>
       )}
     </section>

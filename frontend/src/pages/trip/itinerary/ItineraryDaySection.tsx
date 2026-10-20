@@ -83,20 +83,20 @@ const ItineraryDaySection = ({
           <Text as="h3" variant="title">
             {weekday}
           </Text>
-          {eventsLoading ? (
-            <Skeleton className="mt-2 h-3 w-16" />
-          ) : (
+          {eventsLoading && <Skeleton className="mt-2 h-3 w-16" />}
+          {!eventsLoading && (
             <Text color="muted" variant="caption" className="mt-1">
               {events.length} {events.length === 1 ? 'event' : 'events'}
             </Text>
           )}
         </div>
       </div>
-      {eventsLoading ? (
+      {eventsLoading && (
         <div className="mt-6">
           <EventSkeletonCard />
         </div>
-      ) : events.length > 0 ? (
+      )}
+      {!eventsLoading && events.length > 0 && (
         <div className="mt-6 flex flex-col gap-4">
           {events.map((event) => (
             <EventCard
@@ -108,8 +108,8 @@ const ItineraryDaySection = ({
             />
           ))}
         </div>
-      ) : null}
-      {!readOnly && eventBeingEdited ? (
+      )}
+      {!readOnly && eventBeingEdited && (
         <AddNewEventCard
           key={eventBeingEdited._id}
           itineraryId={itineraryId}
@@ -120,8 +120,8 @@ const ItineraryDaySection = ({
           onClose={() => setEventBeingEdited(null)}
           onCreated={() => onEventSaved?.()}
         />
-      ) : null}
-      {!readOnly && !eventsLoading ? (
+      )}
+      {!readOnly && !eventsLoading && (
         <AddNewEventCard
           itineraryId={itineraryId}
           startDate={startDate}
@@ -129,7 +129,7 @@ const ItineraryDaySection = ({
           date={date}
           onCreated={() => onEventSaved?.()}
         />
-      ) : null}
+      )}
     </section>
   );
 };

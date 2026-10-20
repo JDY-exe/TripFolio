@@ -118,20 +118,21 @@ const ItineraryView = () => {
           >
             Itinerary
           </Text>
-          {tripName ? (
+          {tripName && (
             <Text as="span" variant="display" className="min-w-0 break-words">
               {tripName}
             </Text>
-          ) : null}
+          )}
         </header>
-        {eventsError && events.length === 0 ? (
+        {eventsError && events.length === 0 && (
           <div className="flex flex-col items-center gap-4 rounded-panel bg-surface-container-low p-8 text-center">
             <ErrorDisplay message="Could not load itinerary events." />
             <Button size="sm" onClick={() => void refetchEvents()}>
               Retry
             </Button>
           </div>
-        ) : (
+        )}
+        {!(eventsError && events.length === 0) &&
           days.map((date, index) => (
             <ItineraryDaySection
               key={date}
@@ -156,8 +157,7 @@ const ItineraryView = () => {
                 })
               }
             />
-          ))
-        )}
+          ))}
       </section>
       <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-8 lg:self-start">
         <ItineraryDescription itinerary={itinerary} tripId={id} />
@@ -181,7 +181,7 @@ const ItineraryView = () => {
           }}
         />
       </aside>
-      {mapEventBeingEdited ? (
+      {mapEventBeingEdited && (
         <AddNewEventCard
           key={mapEventBeingEdited._id}
           event={mapEventBeingEdited}
@@ -196,8 +196,8 @@ const ItineraryView = () => {
             })
           }
         />
-      ) : null}
-      {eventToDelete ? (
+      )}
+      {eventToDelete && (
         <Modal
           data-cy="delete-event-dialog"
           open={deleteModalOpen}
@@ -230,7 +230,7 @@ const ItineraryView = () => {
         >
           <Text>This event will be removed from your itinerary.</Text>
         </Modal>
-      ) : null}
+      )}
     </>
   );
 };

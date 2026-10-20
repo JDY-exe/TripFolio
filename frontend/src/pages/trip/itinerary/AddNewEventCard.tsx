@@ -148,7 +148,7 @@ const AddNewEventCard = ({
 
   return (
     <>
-      {event ? null : (
+      {!event && (
         <button
           data-cy={`add-event-${date}`}
           type="button"
@@ -205,7 +205,7 @@ const AddNewEventCard = ({
               updateDraft({ address, placeId, restaurant })
             }
           />
-          {draft.restaurant ? (
+          {draft.restaurant && (
             <label className="flex items-center gap-2 text-sm font-medium">
               <input
                 type="checkbox"
@@ -217,7 +217,7 @@ const AddNewEventCard = ({
               />
               <span>Reservation made</span>
             </label>
-          ) : null}
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               data-cy="event-start"
@@ -258,11 +258,11 @@ const AddNewEventCard = ({
               rows={3}
             />
           </label>
-          {error ? (
+          {error && (
             <p role="alert" className="text-sm text-error">
               {error}
             </p>
-          ) : null}
+          )}
         </div>
       </Modal>
     </>

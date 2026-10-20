@@ -72,11 +72,11 @@ const Toast = ({ alert, onDismiss }: ToastProps) => {
         <ToneIcon aria-hidden size={21} strokeWidth={2.25} />
       </span>
       <div className="min-w-0 flex-1">
-        {alert.title ? (
+        {alert.title && (
           <Text as="h2" variant="label">
             {alert.title}
           </Text>
-        ) : null}
+        )}
         <Text
           color={alert.title ? 'muted' : 'default'}
           className={alert.title ? 'mt-1 text-sm' : 'text-sm'}

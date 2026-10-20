@@ -27,11 +27,11 @@ function Trip() {
       <div
         className={`mt-10 grid gap-5 ${section === 'settings' ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
       >
-        {section === 'itinerary' ? <ItineraryView /> : null}
-        {section === 'ledger' ? <LedgerView /> : null}
-        {section === 'logistics' ? <LogisticsView /> : null}
-        {section === 'album' ? <AlbumView /> : null}
-        {section === 'settings' ? <TripSettings /> : null}
+        {section === 'itinerary' && <ItineraryView />}
+        {section === 'ledger' && <LedgerView />}
+        {section === 'logistics' && <LogisticsView />}
+        {section === 'album' && <AlbumView />}
+        {section === 'settings' && <TripSettings />}
       </div>
 
       <BottomNav

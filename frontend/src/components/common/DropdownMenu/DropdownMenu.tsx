@@ -203,36 +203,35 @@ const DropdownMenu = ({ label, icon, items, className }: DropdownMenuProps) => {
           }
         }}
       />
-      {isOpen
-        ? createPortal(
-            <div
-              ref={menuRef}
-              id={menuId}
-              role="menu"
-              aria-label={label}
-              onKeyDown={handleMenuKeyDown}
-              className="invisible fixed z-[100] max-h-[calc(100dvh-1rem)] min-w-40 max-w-[calc(100vw-1rem)] origin-top-right overflow-y-auto rounded-3xl border border-outline-variant bg-surface-container-high p-1 shadow-raised motion-safe:animate-[menu-enter_120ms_var(--ease-standard)]"
-            >
-              {items.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => selectItem(item)}
-                  className={`flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-full px-3 text-left text-label outline-none transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
-                    item.tone === 'danger'
-                      ? 'text-error hover:bg-error/10 focus-visible:bg-error/10'
-                      : 'text-on-surface hover:bg-primary/8 focus-visible:bg-primary/8'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </button>
-              ))}
-            </div>,
-            document.body,
-          )
-        : null}
+      {isOpen &&
+        createPortal(
+          <div
+            ref={menuRef}
+            id={menuId}
+            role="menu"
+            aria-label={label}
+            onKeyDown={handleMenuKeyDown}
+            className="invisible fixed z-[100] max-h-[calc(100dvh-1rem)] min-w-40 max-w-[calc(100vw-1rem)] origin-top-right overflow-y-auto rounded-3xl border border-outline-variant bg-surface-container-high p-1 shadow-raised motion-safe:animate-[menu-enter_120ms_var(--ease-standard)]"
+          >
+            {items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                role="menuitem"
+                onClick={() => selectItem(item)}
+                className={`flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-full px-3 text-left text-label outline-none transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
+                  item.tone === 'danger'
+                    ? 'text-error hover:bg-error/10 focus-visible:bg-error/10'
+                    : 'text-on-surface hover:bg-primary/8 focus-visible:bg-primary/8'
+                }`}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

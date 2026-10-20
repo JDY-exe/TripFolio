@@ -50,14 +50,15 @@ const ProfileInfo = ({
           onClick={onPictureClick}
           type="button"
         >
-          {showPicture ? (
+          {showPicture && (
             <img
               alt={`${username}'s profile picture`}
               className="size-full rounded-full object-cover"
               onError={handlePictureError}
               src={pictureUrl}
             />
-          ) : (
+          )}
+          {!showPicture && (
             <UserRound aria-hidden size={36} strokeWidth={1.5} />
           )}
           <span className="sr-only">Set profile picture</span>

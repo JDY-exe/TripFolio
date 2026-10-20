@@ -56,15 +56,16 @@ const MyTrips = () => {
           </div>
         </header>
 
-        {isPending ? (
-          <p className="mt-8">Loading trips...</p>
-        ) : isError ? (
+        {isPending && <p className="mt-8">Loading trips...</p>}
+        {!isPending && isError && (
           <p className="mt-8">Unable to load trips. Please try again.</p>
-        ) : (
+        )}
+        {!isPending && !isError && (
           <div className="mt-8 grid gap-6 md:grid-cols-2">
-            {trips.length === 0 ? (
+            {trips.length === 0 && (
               <EmptyTrips onCreate={() => setIsCreateOpen(true)} />
-            ) : (
+            )}
+            {trips.length > 0 &&
               trips.map((trip) => (
                 <TripCard
                   key={trip._id}
@@ -79,8 +80,7 @@ const MyTrips = () => {
                       : undefined
                   }
                 />
-              ))
-            )}
+              ))}
           </div>
         )}
       </section>
@@ -89,12 +89,12 @@ const MyTrips = () => {
         open={isInvitationsOpen}
         onClose={() => setIsInvitationsOpen(false)}
       />
-      {isCreateOpen ? (
+      {isCreateOpen && (
         <CreateTrip
           onClose={() => setIsCreateOpen(false)}
           onCreated={handleTripCreated}
         />
-      ) : null}
+      )}
     </>
   );
 };

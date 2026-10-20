@@ -29,15 +29,14 @@ interface FriendIdentityProps {
 const FriendIdentity = ({ user }: FriendIdentityProps) => (
   <div className="flex min-w-0 items-center gap-3">
     <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary-container text-on-secondary-container">
-      {user.profile_picture ? (
+      {user.profile_picture && (
         <img
           alt=""
           className="size-full object-cover"
           src={user.profile_picture}
         />
-      ) : (
-        <UserRound aria-hidden size={20} />
       )}
+      {!user.profile_picture && <UserRound aria-hidden size={20} />}
     </span>
     <Text className="truncate" variant="label">
       {user.username}
@@ -143,9 +142,10 @@ const Friends = () => {
             </Text>
           </header>
 
-          {isPending ? (
+          {isPending && (
             <LoadingIndicator label="Loading friend requests" size={36} />
-          ) : isError ? (
+          )}
+          {!isPending && isError && (
             <div className="flex flex-wrap items-center gap-3" role="alert">
               <Text color="error">
                 {getApiErrorMessage(error, 'Could not load your friends.')}
@@ -158,7 +158,8 @@ const Friends = () => {
                 Retry
               </Button>
             </div>
-          ) : friends?.incomingRequests.length ? (
+          )}
+          {!isPending && !isError && !!friends?.incomingRequests.length && (
             <ul className="divide-y divide-outline-variant">
               {friends.incomingRequests.map((request) => (
                 <li
@@ -187,7 +188,8 @@ const Friends = () => {
                 </li>
               ))}
             </ul>
-          ) : (
+          )}
+          {!isPending && !isError && !friends?.incomingRequests.length && (
             <Text color="muted">No new requests.</Text>
           )}
         </section>
@@ -212,29 +214,36 @@ const Friends = () => {
             value={searchText}
           />
 
-          {searchQuery.length > 0 && searchQuery.length < 2 ? (
+          {searchQuery.length > 0 && searchQuery.length < 2 && (
             <Text className="mt-3" color="muted" variant="caption">
               Enter at least two characters.
             </Text>
-          ) : null}
-          {searchQuery.length >= 2 && isPending ? (
+          )}
+          {searchQuery.length >= 2 && isPending && (
             <Text className="mt-3" color="muted">
               Checking your relationships before search.
             </Text>
-          ) : null}
-          {searchQuery.length >= 2 && isError ? (
+          )}
+          {searchQuery.length >= 2 && isError && (
             <Text className="mt-3" color="error" role="alert">
               Load your friends before searching.
             </Text>
-          ) : null}
-          {searchQuery.length >= 2 && !isPending && !isError ? (
-            isSearchPending ? (
+          )}
+          {searchQuery.length >= 2 &&
+            !isPending &&
+            !isError &&
+            isSearchPending && (
               <LoadingIndicator
                 className="mt-4"
                 label="Searching people"
                 size={36}
               />
-            ) : isSearchError ? (
+            )}
+          {searchQuery.length >= 2 &&
+            !isPending &&
+            !isError &&
+            !isSearchPending &&
+            isSearchError && (
               <div
                 className="mt-3 flex flex-wrap items-center gap-3"
                 role="alert"
@@ -253,7 +262,13 @@ const Friends = () => {
                   Retry
                 </Button>
               </div>
-            ) : searchResults.length ? (
+            )}
+          {searchQuery.length >= 2 &&
+            !isPending &&
+            !isError &&
+            !isSearchPending &&
+            !isSearchError &&
+            searchResults.length > 0 && (
               <ul className="mt-3 divide-y divide-outline-variant">
                 {searchResults.map((result) => {
                   const relationship = classifyFriendRelationship(
@@ -271,7 +286,7 @@ const Friends = () => {
                       key={result.id}
                     >
                       <FriendIdentity user={result} />
-                      {relationship === 'none' ? (
+                      {relationship === 'none' && (
                         <Button
                           data-cy={`add-friend-${result.id}`}
                           disabled={isRelationshipPending}
@@ -282,48 +297,63 @@ const Friends = () => {
                         >
                           Add friend
                         </Button>
-                      ) : relationship === 'incoming' && incomingRequest ? (
-                        <Button
-                          disabled={isRelationshipPending}
-                          leadingIcon={<Check aria-hidden size={17} />}
-                          onClick={() =>
-                            void handleAcceptRequest(incomingRequest.id)
-                          }
-                          size="sm"
-                        >
-                          Accept
-                        </Button>
-                      ) : (
-                        <Text
-                          className="inline-flex items-center gap-1.5"
-                          color="muted"
-                          variant="caption"
-                        >
-                          {relationship === 'self' ? (
-                            'You'
-                          ) : relationship === 'friend' ? (
-                            <>
-                              <Check aria-hidden size={15} /> Friends
-                            </>
-                          ) : relationship === 'incoming' ? (
-                            'Request received'
-                          ) : (
-                            <>
-                              <Clock3 aria-hidden size={15} /> Request sent
-                            </>
-                          )}
-                        </Text>
                       )}
+                      {relationship !== 'none' &&
+                        relationship === 'incoming' &&
+                        incomingRequest && (
+                          <Button
+                            disabled={isRelationshipPending}
+                            leadingIcon={<Check aria-hidden size={17} />}
+                            onClick={() =>
+                              void handleAcceptRequest(incomingRequest.id)
+                            }
+                            size="sm"
+                          >
+                            Accept
+                          </Button>
+                        )}
+                      {relationship !== 'none' &&
+                        !(relationship === 'incoming' && incomingRequest) && (
+                          <Text
+                            className="inline-flex items-center gap-1.5"
+                            color="muted"
+                            variant="caption"
+                          >
+                            {relationship === 'self' && 'You'}
+                            {relationship !== 'self' &&
+                              relationship === 'friend' && (
+                                <>
+                                  <Check aria-hidden size={15} /> Friends
+                                </>
+                              )}
+                            {relationship !== 'self' &&
+                              relationship !== 'friend' &&
+                              relationship === 'incoming' &&
+                              'Request received'}
+                            {relationship !== 'self' &&
+                              relationship !== 'friend' &&
+                              relationship !== 'incoming' && (
+                                <>
+                                  <Clock3 aria-hidden size={15} /> Request sent
+                                </>
+                              )}
+                          </Text>
+                        )}
                     </li>
                   );
                 })}
               </ul>
-            ) : (
+            )}
+          {searchQuery.length >= 2 &&
+            !isPending &&
+            !isError &&
+            !isSearchPending &&
+            !isSearchError &&
+            !searchResults.length && (
               <Text className="mt-3" color="muted">
                 No accounts found.
               </Text>
-            )
-          ) : null}
+            )}
         </section>
 
         <section aria-labelledby="sent-requests-heading">
@@ -335,7 +365,7 @@ const Friends = () => {
           >
             Sent requests
           </Text>
-          {friends?.outgoingRequests.length ? (
+          {!!friends?.outgoingRequests.length && (
             <ul className="divide-y divide-outline-variant">
               {friends.outgoingRequests.map((request) => (
                 <li
@@ -349,7 +379,8 @@ const Friends = () => {
                 </li>
               ))}
             </ul>
-          ) : (
+          )}
+          {!friends?.outgoingRequests.length && (
             <Text color="muted">No sent requests.</Text>
           )}
         </section>
@@ -363,7 +394,7 @@ const Friends = () => {
           >
             Your friends
           </Text>
-          {friends?.friends.length ? (
+          {!!friends?.friends.length && (
             <ul className="divide-y divide-outline-variant">
               {friends.friends.map((friend) => (
                 <li className="py-3 first:pt-1" key={friend.id}>
@@ -371,7 +402,8 @@ const Friends = () => {
                 </li>
               ))}
             </ul>
-          ) : (
+          )}
+          {!friends?.friends.length && (
             <Text color="muted">Your friends will appear here.</Text>
           )}
         </section>
