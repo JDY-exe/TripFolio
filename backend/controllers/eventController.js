@@ -1,3 +1,5 @@
+const { updateVersioned, deleteVersioned, mutationError, sendMutationError } = require('../utils/documentVersion');
+const { withTripWrite } = require('../utils/tripWrite');
 const Event = require('../models/event');
 const Itinerary = require('../models/itinerary');
 const Trip = require('../models/trip');
@@ -45,10 +47,10 @@ const createEvent = async (req, res) => {
       reservationMade: false || reservationMade
     });
 
-    await newEvent.save()
+    await withTripWrite(trip._id, req.user.id, (session) => newEvent.save({ session }))
     res.status(201).json(newEvent);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating event', error: error.message });
+    sendMutationError(res, error);
   }
 };
 
@@ -152,28 +154,22 @@ const updateEvent = async (req, res) => {
       return denyTripAccess(res, trip, req.user.id);
     }
 
-    const changes = { ...req.body };
-    // Re-resolve when the selected place or custom address changes.
-    delete changes.lat;
-    delete changes.lng;
+    const allowed = ['title', 'placeId', 'address', 'startTime', 'endTime', 'notes', 'restaurant', 'reservationMade'];
+    const changes = Object.fromEntries(allowed.filter((field) => req.body[field] !== undefined).map((field) => [field, req.body[field]]));
     if ((changes.address !== undefined && changes.address !== event.address)
       || (changes.placeId !== undefined && changes.placeId !== event.placeId)) {
       changes.lat = null;
       changes.lng = null;
       Object.assign(changes, await tryPlaceCoordinates(changes.placeId !== undefined ? changes.placeId : event.placeId));
     }
-    const updatedEvent = await Event.findByIdAndUpdate(
-      id,
-      { $set: changes },
-      { returnDocument: 'after', runValidators: true }
-    );
-
-    if (!updatedEvent) {
-      return res.status(400).json({ message: 'Event not found' });
-    }
+    const updatedEvent = await withTripWrite(trip._id, req.user.id, async (session) => {
+      const current = await Event.findById(id, null, { session });
+      if (!current) throw mutationError(404, 'Event not found');
+      return updateVersioned(current, req.body.expectedVersion, changes, session);
+    });
     res.status(200).json(updatedEvent);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating event', error: error.message });
+    sendMutationError(res, error);
   }
 };
 
@@ -192,14 +188,14 @@ const deleteEvent = async (req, res) => {
       return denyTripAccess(res, trip, req.user.id);
     }
 
-    const deletedEvent = await Event.findByIdAndDelete(id);
-
-    if (!deletedEvent) {
-      return res.status(400).json({ message: 'Event not found' });
-    }
+    await withTripWrite(trip._id, req.user.id, async (session) => {
+      const current = await Event.findById(id, null, { session });
+      if (!current) throw mutationError(404, 'Event not found');
+      await deleteVersioned(current, req.body?.expectedVersion, session);
+    });
     res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting event', error: error.message });
+    sendMutationError(res, error);
   }
 };
 

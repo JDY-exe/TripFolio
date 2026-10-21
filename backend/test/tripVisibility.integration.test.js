@@ -1,3 +1,4 @@
+require('./helpers/mockTripWrites');
 const assert = require('node:assert/strict');
 const { createServer } = require('node:http');
 const test = require('node:test');

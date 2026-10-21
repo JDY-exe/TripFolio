@@ -14,6 +14,7 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
   process.env.JWT_SECRET = "trip-share-test-secret";
   const original = {
     tripFindById: Trip.findById,
+    tripUpdateOne: Trip.updateOne,
     userFind: User.find,
     invitationFindOne: TripInvitation.findOne,
     invitationInsertMany: TripInvitation.insertMany,
@@ -70,6 +71,7 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
   });
   Trip.findById = (tripId) =>
     query(() => (String(tripId) === ids.trip ? trip : null));
+  Trip.updateOne = async (filter, update, options) => { assert.equal(options.session, activeSession); };
   User.find = ({ _id }) =>
     query(() =>
       _id.$in.filter((id) => profiles.has(id)).map((id) => ({ _id: id }))
@@ -126,6 +128,7 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
     Trip.findById = original.tripFindById;
+    Trip.updateOne = original.tripUpdateOne;
     User.find = original.userFind;
     TripInvitation.findOne = original.invitationFindOne;
     TripInvitation.insertMany = original.invitationInsertMany;

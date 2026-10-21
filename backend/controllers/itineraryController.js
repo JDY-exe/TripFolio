@@ -1,3 +1,5 @@
+const { updateVersioned, sendMutationError } = require('../utils/documentVersion');
+const { withTripWrite } = require('../utils/tripWrite');
 const Itinerary = require ('../models/itinerary');
 const Trip = require('../models/trip');
 const mongoose = require('mongoose');
@@ -30,10 +32,10 @@ const createItinerary = async (req, res) => {
       endDate
     });
 
-    await newItinerary.save();
+    await withTripWrite(tripId, req.user.id, (session) => newItinerary.save({ session }));
     res.status(201).json(newItinerary);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating itinerary', error: error.message });
+    sendMutationError(res, error);
   }
 };
 
@@ -61,12 +63,17 @@ const getItinerary = async (req, res) => {
         return res.status(404).json({ message: 'Itinerary not found' });
       }
 
-      itinerary = await Itinerary.create({
+      itinerary = await withTripWrite(trip._id, req.user.id, async (session) => {
+        const existing = await Itinerary.findOne({ tripId }, null, { session });
+        if (existing) return existing;
+        const [created] = await Itinerary.create([{
         tripId: trip._id,
         title: 'Blank Itinerary',
         description: '',
         startDate: trip.startDate,
         endDate: trip.endDate
+      }], { session });
+        return created;
       });
     }
 
@@ -93,18 +100,15 @@ const updateItinerary = async (req, res) => {
       return denyTripAccess(res, trip, req.user.id);
     }
     
-    const updatedItinerary = await Itinerary.findByIdAndUpdate(
-      id,
-      { title, description },
-      { returnDocument: 'after' }
-    );
-
-    if (!updatedItinerary) {
-      return res.status(404).json({ message: 'Itinerary not found' });
-    }
+    const changes = Object.fromEntries(Object.entries({ title, description }).filter(([, value]) => value !== undefined));
+    const updatedItinerary = await withTripWrite(itinerary.tripId, req.user.id, async (session) => {
+      const current = await Itinerary.findById(id, null, { session });
+      if (!current) throw Object.assign(new Error('Itinerary not found'), { status: 404 });
+      return updateVersioned(current, req.body.expectedVersion, changes, session);
+    });
     res.status(200).json(updatedItinerary);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating itinerary', error: error.message });
+    sendMutationError(res, error);
   }
 };
 

@@ -1,3 +1,5 @@
+const { checkVersion, updateVersioned, deleteVersioned, sendMutationError } = require('../utils/documentVersion');
+const { withTripWrite } = require('../utils/tripWrite');
 const Trip = require("../models/trip");
 const Itinerary = require("../models/itinerary");
 const Event = require("../models/event");
@@ -58,7 +60,7 @@ const getTrips = async (req, res) => {
       .select("username profile_picture").lean();
     const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
     res.status(200).json(trips.map((trip) => ({
-      ...(typeof trip.toObject === 'function' ? trip.toObject() : trip),
+      ...serializeTripForUser(trip, req.user.id),
       travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
         .map((id) => travelersById.get(id))
         .filter(Boolean)
@@ -107,11 +109,11 @@ const updateTripVisibility = async (req, res) => {
       return res.status(403).json({ message: "Only the trip owner can change visibility" });
     }
 
-    trip.isPublic = req.body.isPublic;
-    await trip.save();
-    return res.status(200).json(serializeTripForUser(trip, req.user.id));
+    const updated = await withTripWrite(trip._id, req.user.id,
+      (session, current) => updateVersioned(current, req.body.expectedVersion, { isPublic: req.body.isPublic }, session), true);
+    return res.status(200).json(serializeTripForUser(updated, req.user.id));
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return sendMutationError(res, error);
   }
 };
 
@@ -126,7 +128,8 @@ const deleteTrip = async (req, res) => {
       return res.status(403).json({ message: 'Only the trip owner can delete it' });
     }
 
-    const deletedTrip = await Trip.findByIdAndDelete(req.params.id);
+    const deletedTrip = await withTripWrite(trip._id, req.user.id,
+      (session, current) => deleteVersioned(current, req.body?.expectedVersion, session), true);
     if (!deletedTrip) {
       return res.status(404).json({ message: 'Trip not found' });
     }
@@ -140,7 +143,7 @@ const deleteTrip = async (req, res) => {
 
     return res.status(200).json({ message: 'Trip successfully deleted' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting trip', error: error.message });
+    return sendMutationError(res, error);
   }
 };
 
@@ -165,6 +168,10 @@ const updateTripProfilePicture = async (req, res) => {
       });
     }
 
+    const expectedVersion = req.body?.expectedVersion === undefined
+      ? undefined
+      : /^(0|[1-9]\d*)$/.test(req.body.expectedVersion) ? Number(req.body.expectedVersion) : NaN;
+    checkVersion(trip, expectedVersion);
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
       bucketName: "tripProfilePictures"
     });
@@ -172,15 +179,26 @@ const updateTripProfilePicture = async (req, res) => {
       metadata: { contentType: req.file.mimetype }
     });
 
-    await new Promise((resolve, reject) => {
-      uploadStream.once("error", reject);
-      uploadStream.once("finish", resolve);
-      uploadStream.end(req.file.buffer);
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        uploadStream.once("error", reject);
+        uploadStream.once("finish", resolve);
+        uploadStream.end(req.file.buffer);
+      });
+    } catch (error) {
+      await uploadStream.abort().catch(() => undefined);
+      throw error;
+    }
 
     const previousPictureId = trip.profilePictureId;
-    trip.profilePictureId = uploadStream.id;
-    await trip.save();
+    let updated;
+    try {
+      updated = await withTripWrite(trip._id, req.user.id,
+        (session, current) => updateVersioned(current, expectedVersion, { profilePictureId: uploadStream.id }, session), true);
+    } catch (error) {
+      await bucket.delete(uploadStream.id).catch(() => undefined);
+      throw error;
+    }
 
     if (previousPictureId) {
       await bucket.delete(previousPictureId).catch(() => undefined);
@@ -188,10 +206,10 @@ const updateTripProfilePicture = async (req, res) => {
 
     return res.status(200).json({
       message: "Trip cover updated successfully",
-      trip
+      trip: serializeTripForUser(updated, req.user.id)
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return sendMutationError(res, error);
   }
 };
 
@@ -294,6 +312,7 @@ const shareTrip = async (req, res) => {
             { status: 403 }
           );
         }
+        await Trip.updateOne({ _id: tripId }, { $inc: { __v: 1 } }, { session, timestamps: false });
         const recipients = await User.find({
           _id: { $in: normalizedIds }
         }).session(session);
@@ -367,14 +386,14 @@ const addUserToTrip = async (req, res) => {
       });
     }
 
-    const update = {
-      $addToSet: {
-        users: userId,
-        ...(role === "viewer" ? { viewerIds: userId } : {})
-      },
-      ...(role === "editor" ? { $pull: { viewerIds: userId } } : {})
-    };
-    const trip = await Trip.findByIdAndUpdate(tripId, update, { new: true });
+    const trip = await withTripWrite(tripId, req.user.id, async (session, current) => {
+      checkVersion(current, req.body.expectedVersion);
+      const users = [...new Set(current.users.map(String).concat(String(userId)))];
+      const viewerIds = role === 'viewer'
+        ? [...new Set(current.viewerIds.map(String).concat(String(userId)))]
+        : current.viewerIds.map(String).filter(id => id !== String(userId));
+      return updateVersioned(current, req.body.expectedVersion, { users, viewerIds }, session);
+    }, true);
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
@@ -384,7 +403,7 @@ const addUserToTrip = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    return sendMutationError(res, error);
   }
 };
 
@@ -426,15 +445,28 @@ const respondToTripInvitation = async (req, res) => {
     });
     if (!invitation) return res.status(404).json({ message: "Pending invitation not found" });
     if (status === "accepted") {
-      const trip = await Trip.findByIdAndUpdate(invitation.trip,
-        { $addToSet: { users: req.user.id } }, { new: true });
+      const trip = await Trip.findById(invitation.trip);
       if (!trip) return res.status(404).json({ message: "Trip no longer exists" });
     }
-    invitation.status = status;
-    await invitation.save();
+    await mongoose.connection.transaction(async (session) => {
+      const current = await TripInvitation.findOne({ _id: invitation._id, recipient: req.user.id, status: 'pending' }).session(session);
+      if (!current) throw Object.assign(new Error('Pending invitation not found'), { status: 404 });
+      if (status === 'accepted') {
+        const trip = await Trip.findById(invitation.trip, null, { session });
+        if (!trip) throw Object.assign(new Error('Trip no longer exists'), { status: 404 });
+        if (!trip.users.some(id => String(id) === String(req.user.id))) {
+          await Trip.updateOne({ _id: trip._id }, { $addToSet: { users: req.user.id }, $inc: { version: 1 } }, { session });
+        } else {
+          await Trip.updateOne({ _id: trip._id }, { $inc: { __v: 1 } }, { session, timestamps: false });
+        }
+      }
+      current.status = status;
+      await current.save({ session });
+      invitation.status = status;
+    });
     return res.status(200).json({ invitation });
   } catch (error) {
-    return res.status(500).json({ message: "Unable to respond to invitation" });
+    return sendMutationError(res, error);
   }
 };
 

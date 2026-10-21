@@ -11,6 +11,7 @@ type TripRole = 'owner' | 'viewer';
  */
 const openTripSettings = (role: TripRole = 'owner') => {
   const trip = {
+    version: 0,
     _id: sharingFixture.tripId,
     name: sharingFixture.tripName,
     startDate: sharingFixture.startDate,
@@ -30,6 +31,7 @@ const openTripSettings = (role: TripRole = 'owner') => {
       body: {
         _id: sharingFixture.itineraryId,
         tripId: sharingFixture.tripId,
+        version: 0,
         title: 'Weekend itinerary',
         description: '',
         startDate: sharingFixture.startDate,
@@ -38,6 +40,10 @@ const openTripSettings = (role: TripRole = 'owner') => {
     },
   );
   cy.intercept({ method: 'GET', pathname: '/event' }, { body: [] });
+  cy.intercept(
+    { method: 'GET', pathname: '/logistics/*' },
+    { body: { reservations: [] } },
+  );
   cy.intercept(
     { method: 'GET', pathname: '/users/friends' },
     {

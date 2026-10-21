@@ -1,3 +1,4 @@
+require('./helpers/mockTripWrites');
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const Event = require('../models/event');

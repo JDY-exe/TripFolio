@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const itinerarySchema = new mongoose.Schema({
+  version: { type: Number, default: 0, min: 0, validate: Number.isSafeInteger },
   tripId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Trip',

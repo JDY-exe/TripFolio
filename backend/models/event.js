@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema({
+  version: { type: Number, default: 0, min: 0, validate: Number.isSafeInteger },
   itineraryID: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Itinerary',

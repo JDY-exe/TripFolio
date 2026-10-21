@@ -294,6 +294,8 @@ has four equally rounded corners, and opening and closing fade over 200 ms.
 | `onClose` | `() => void` | Required | Handles Close, Escape, and backdrop dismissal. |
 | `onExited` | `() => void` | — | Runs after a controlled close finishes fading out. |
 | `dismissDisabled` | `boolean` | `false` | Blocks dismissal while a save or delete is pending. |
+| `status` | `ReactNode` | — | Shows local refresh or validation feedback beneath the heading. |
+| `contentDisabled` | `boolean` | `false` | Disables content controls through a native fieldset during submission. |
 | `children` | `ReactNode` | Required | Supplies the main modal content. |
 | `footer` | `ReactNode \| ((requestClose: () => void) => ReactNode)` | — | Supplies the responsive action row; use the callback to animate footer dismissal before an owning parent unmounts. |
 | `panelClassName` | `string` | — | Sets panel layout classes, including a wider maximum width when a form needs columns. |

@@ -1,6 +1,7 @@
+import TripEditingProvider from './editing/TripEditingProvider';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import BottomNav from '../../components/navigation/BottomNav';
 import {
   tripNavItems,
@@ -13,40 +14,43 @@ import LogisticsView from './logistics/LogisticsView';
 import TripSettings from './TripSettings';
 
 /**
- * Presents the placeholder detail view for an individual trip.
+ * Presents the detail view for an individual trip.
  * It switches sections locally, giving Logistics and Album the full content width.
  *
  * @returns The trip detail page.
  */
-function Trip() {
+const Trip = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [section, setSection] = useState<TripSection>('itinerary');
 
   return (
-    <section>
-      <div
-        className={`mt-10 grid gap-5 ${section === 'settings' ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
-      >
-        {section === 'itinerary' && <ItineraryView />}
-        {section === 'ledger' && <LedgerView />}
-        {section === 'logistics' && <LogisticsView />}
-        {section === 'album' && <AlbumView />}
-        {section === 'settings' && <TripSettings />}
-      </div>
+    <TripEditingProvider key={id}>
+      <section>
+        <div
+          className={`mt-10 grid gap-5 ${section === 'settings' ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
+        >
+          {section === 'itinerary' && <ItineraryView />}
+          {section === 'ledger' && <LedgerView />}
+          {section === 'logistics' && <LogisticsView />}
+          {section === 'album' && <AlbumView />}
+          {section === 'settings' && <TripSettings />}
+        </div>
 
-      <BottomNav
-        label="Trip navigation"
-        items={tripNavItems}
-        value={section}
-        onChange={(value) => setSection(value as TripSection)}
-        leadingAction={{
-          icon: ArrowLeft,
-          label: 'My Trips',
-          onClick: () => navigate('/my-trips'),
-        }}
-      />
-    </section>
+        <BottomNav
+          label="Trip navigation"
+          items={tripNavItems}
+          value={section}
+          onChange={(value) => setSection(value as TripSection)}
+          leadingAction={{
+            icon: ArrowLeft,
+            label: 'My Trips',
+            onClick: () => navigate('/my-trips'),
+          }}
+        />
+      </section>
+    </TripEditingProvider>
   );
-}
+};
 
 export default Trip;

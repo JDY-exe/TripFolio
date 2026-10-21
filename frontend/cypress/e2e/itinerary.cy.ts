@@ -3,17 +3,25 @@ import { visitOwnedTrip } from '../support/ownedTrip';
 
 describe('trip itinerary', () => {
   it('shows trip days and saves an edited description', () => {
+    let savedItinerary = { ...featureFixture.itinerary };
     cy.intercept(
       {
         method: 'PATCH',
         pathname: `/itinerary/${featureFixture.itinerary._id}`,
       },
-      (request) =>
-        request.reply({
-          body: { ...featureFixture.itinerary, ...request.body },
-        }),
+      (request) => {
+        savedItinerary = {
+          ...featureFixture.itinerary,
+          ...request.body,
+          version: 1,
+        };
+        request.reply({ body: savedItinerary });
+      },
     ).as('saveDescription');
     visitOwnedTrip();
+    cy.intercept({ method: 'GET', pathname: '/itinerary' }, (request) =>
+      request.reply({ body: savedItinerary }),
+    );
     cy.get('[data-cy="trip-section-itinerary"]').should(
       'contain.text',
       'Itinerary',

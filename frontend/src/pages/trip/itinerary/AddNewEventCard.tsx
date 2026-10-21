@@ -1,7 +1,13 @@
+import TripRefreshStatus from '../editing/TripRefreshStatus';
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button, Modal, TextArea, TextField } from '../../../components/common';
-import { patchToApi, postToApi } from '../../../utils/api';
+import { getApiErrorMessage } from '../../../utils/api';
+import { useSaveEvent } from '../../../queries/events';
+import {
+  TripWriteCancelled,
+  useTripEditing,
+} from '../../../queries/tripEditing';
 import type { EventData } from '../../../queries/events';
 import EventPlaceField from './EventPlaceField';
 
@@ -63,6 +69,8 @@ const AddNewEventCard = ({
   event,
   onClose,
 }: AddNewEventCardProps) => {
+  const editing = useTripEditing();
+  const saveMutation = useSaveEvent();
   const [isOpen, setIsOpen] = useState(Boolean(event));
   const [draft, setDraft] = useState<EventDraft>(() => createEventDraft(event));
   const [error, setError] = useState('');
@@ -99,8 +107,9 @@ const AddNewEventCard = ({
    * @returns A promise that settles after saving.
    */
   const saveEvent = async () => {
-    const start = new Date(`${date}T${draft.startTime}:00.000Z`);
-    const end = new Date(`${date}T${draft.finishTime}:00.000Z`);
+    const eventDate = event?.startTime.slice(0, 10) ?? date;
+    const start = new Date(`${eventDate}T${draft.startTime}:00.000Z`);
+    const end = new Date(`${eventDate}T${draft.finishTime}:00.000Z`);
     if (draft.finishNextDay) end.setUTCDate(end.getUTCDate() + 1);
     const tripStart = new Date(startDate);
     const tripEnd = new Date(endDate);
@@ -130,17 +139,27 @@ const AddNewEventCard = ({
         restaurant: draft.restaurant,
         reservationMade: draft.reservationMade,
       };
-      const savedEvent = event
-        ? await patchToApi<EventData>(`/event/${event._id}`, payload)
-        : await postToApi<EventData>('/event', {
-            itineraryID: itineraryId,
-            ...payload,
-          });
+      const savedEvent = await saveMutation.mutateAsync({
+        itineraryId,
+        values: payload,
+        baseline: event,
+      });
       onCreated(savedEvent);
       setIsOpen(false);
       setDraft(createEventDraft());
-    } catch {
-      setError('Failed to save event. Please try again.');
+    } catch (error) {
+      if (error instanceof TripWriteCancelled) {
+        if (error.discarded) setIsOpen(false);
+        return;
+      }
+      setError(
+        getApiErrorMessage(
+          error,
+          error instanceof Error
+            ? error.message
+            : 'Failed to save event. Please try again.',
+        ),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -152,7 +171,12 @@ const AddNewEventCard = ({
         <button
           data-cy={`add-event-${date}`}
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={() =>
+            void editing?.prepare(() => {
+              setDraft(createEventDraft());
+              setIsOpen(true);
+            })
+          }
           className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-transparent py-4 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
         >
           <Plus size={20} />
@@ -163,6 +187,8 @@ const AddNewEventCard = ({
         open={isOpen}
         title={event ? 'Edit Event' : 'Add an Event'}
         dismissDisabled={isSaving}
+        contentDisabled={isSaving}
+        status={<TripRefreshStatus kind="event" baseline={event} />}
         onClose={() => {
           if (!isSaving) setIsOpen(false);
         }}

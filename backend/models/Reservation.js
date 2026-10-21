@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const reservationSchema = new mongoose.Schema(
     {
+  version: { type: Number, default: 0, min: 0, validate: Number.isSafeInteger },
         type: {
             type: String,
             enum: ["flights", "accommodations", "rentals"],

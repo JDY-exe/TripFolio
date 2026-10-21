@@ -6,7 +6,11 @@ import { useProtectedImage } from './useProtectedImage';
  * @param props - Invited trip with its optional cover identifier.
  * @returns A compact cover thumbnail or SVG placeholder.
  */
-const InvitationCover = ({ trip }: { trip: Trip }) => {
+const InvitationCover = ({
+  trip,
+}: {
+  trip: Pick<Trip, '_id' | 'profilePictureId'>;
+}) => {
   const image = useProtectedImage(
     trip.profilePictureId
       ? `/trip/${trip._id}/profile_picture?v=${trip.profilePictureId}`

@@ -1,8 +1,10 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useTripEditing } from './tripEditing';
+import { useMutation, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { EventData } from './events';
-import { getFromApi } from '../utils/api';
+import { getFromApi, patchToApi } from '../utils/api';
 
 export interface Itinerary {
+  version: number;
   _id: string;
   title: string;
   description: string;
@@ -101,4 +103,32 @@ export const useItinerary = (tripId?: string) => {
   });
 
   return { itinerary, isPending, isError, refetch };
+};
+
+/** Saves itinerary text against the version captured when the editor opened.
+ * @returns A mutation preserving drafts when another user saved the itinerary first.
+ */
+export const useSaveItinerary = () => {
+  const editing = useTripEditing();
+  return useMutation({
+    mutationFn: async ({
+      baseline,
+      description,
+    }: {
+      baseline: Itinerary;
+      description: string;
+    }) => {
+      if (!editing) throw new Error('Trip editing is unavailable.');
+      return editing.write({
+        kind: 'itinerary',
+        baseline,
+        draft: { description },
+        send: (expectedVersion) =>
+          patchToApi<Itinerary>(`/itinerary/${baseline._id}`, {
+            description,
+            expectedVersion,
+          }),
+      });
+    },
+  });
 };

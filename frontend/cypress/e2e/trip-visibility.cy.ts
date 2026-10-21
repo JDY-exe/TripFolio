@@ -11,6 +11,7 @@ type TripRole = 'owner' | 'viewer';
  */
 const openTripSettings = (role: TripRole) => {
   const trip = {
+    version: 0,
     _id: tripFixture.tripId,
     name: tripFixture.tripName,
     startDate: tripFixture.startDate,
@@ -25,6 +26,7 @@ const openTripSettings = (role: TripRole) => {
       body: {
         _id: tripFixture.itineraryId,
         tripId: tripFixture.tripId,
+        version: 0,
         title: 'Weekend itinerary',
         description: '',
         startDate: tripFixture.startDate,
@@ -33,6 +35,10 @@ const openTripSettings = (role: TripRole) => {
     },
   );
   cy.intercept({ method: 'GET', pathname: '/event' }, { body: [] });
+  cy.intercept(
+    { method: 'GET', pathname: '/logistics/*' },
+    { body: { reservations: [] } },
+  );
   cy.intercept('GET', '**/trip', { body: [trip] }).as('tripList');
   cy.intercept('GET', `**/trip/${tripFixture.tripId}`, { body: trip });
   visitAsUser('/my-trips', role);
@@ -116,18 +122,34 @@ describe('trip visibility settings', () => {
 
   it('lets the owner make a trip public', () => {
     openTripSettings('owner');
-    cy.intercept('PATCH', `**/trip/${tripFixture.tripId}/visibility`, {
-      body: {
-        _id: tripFixture.tripId,
-        isPublic: true,
-        currentUserRole: 'owner',
+    const savedTrip = {
+      _id: tripFixture.tripId,
+      name: tripFixture.tripName,
+      startDate: tripFixture.startDate,
+      endDate: tripFixture.endDate,
+      isPublic: true,
+      currentUserRole: 'owner',
+      version: 1,
+    };
+    let saved = false;
+    cy.intercept('GET', `**/trip/${tripFixture.tripId}`, (request) =>
+      request.reply({
+        body: { ...savedTrip, isPublic: saved, version: saved ? 1 : 0 },
+      }),
+    );
+    cy.intercept(
+      'PATCH',
+      `**/trip/${tripFixture.tripId}/visibility`,
+      (request) => {
+        saved = true;
+        request.reply({ body: savedTrip });
       },
-    }).as('setVisibility');
+    ).as('setVisibility');
 
     cy.get('[data-cy="trip-visibility"]').check();
     cy.wait('@setVisibility')
       .its('request.body')
-      .should('deep.equal', { isPublic: true });
+      .should('deep.equal', { isPublic: true, expectedVersion: 0 });
     cy.get('[data-cy="trip-visibility"]').should('be.checked');
     cy.contains(
       'Only trip owners and members can access confidential information such as flights and hotels.',

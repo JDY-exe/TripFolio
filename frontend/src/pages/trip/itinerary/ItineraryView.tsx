@@ -1,10 +1,19 @@
+import TripRefreshStatus from '../editing/TripRefreshStatus';
+import {
+  TripWriteCancelled,
+  useTripEditing,
+} from '../../../queries/tripEditing';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { Button, Modal, Text, displayAlert } from '../../../components/common';
 import { useAuth } from '../../../contexts/AuthContext';
-import { deleteFromApi, getApiErrorMessage } from '../../../utils/api';
-import { eventsQueryKey, useEvents } from '../../../queries/events';
+import { getApiErrorMessage } from '../../../utils/api';
+import {
+  eventsQueryKey,
+  useEvents,
+  useDeleteEvent,
+} from '../../../queries/events';
 import { useTrips } from '../../../queries/trips';
 import { useItinerary } from '../../../queries/itineraries';
 import ItineraryDaySection from './ItineraryDaySection';
@@ -21,6 +30,8 @@ import { getItineraryDays } from './itineraryDays';
  * @returns The itinerary date, chronological event list, and sidebar details.
  */
 const ItineraryView = () => {
+  const editing = useTripEditing();
+  const deleteEvent = useDeleteEvent();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -55,12 +66,16 @@ const ItineraryView = () => {
     if (!eventToDelete || isDeletingEvent) return;
     setIsDeletingEvent(true);
     try {
-      await deleteFromApi(`/event/${eventToDelete._id}`);
+      await deleteEvent.mutateAsync(eventToDelete);
       await queryClient.invalidateQueries({
         queryKey: eventsQueryKey(itinerary?._id ?? ''),
       });
       setDeleteModalOpen(false);
     } catch (error) {
+      if (error instanceof TripWriteCancelled) {
+        if (error.discarded) setDeleteModalOpen(false);
+        return;
+      }
       displayAlert({
         message: getApiErrorMessage(error, 'Could not delete the event.'),
         tone: 'error',
@@ -68,6 +83,16 @@ const ItineraryView = () => {
     } finally {
       setIsDeletingEvent(false);
     }
+  };
+
+  /** Opens the selected event immediately; refreshes cannot replace the draft baseline. */
+  const openEvent = (event: EventData, deleting = false) => {
+    void editing?.prepare(() => {
+      if (deleting) {
+        setEventToDelete(event);
+        setDeleteModalOpen(true);
+      } else setMapEventBeingEdited(event);
+    });
   };
 
   if (!id)
@@ -148,8 +173,7 @@ const ItineraryView = () => {
               startDate={itinerary.startDate}
               endDate={itinerary.endDate}
               onDeleteEvent={(event) => {
-                setEventToDelete(event);
-                setDeleteModalOpen(true);
+                openEvent(event, true);
               }}
               onEventSaved={() =>
                 void queryClient.invalidateQueries({
@@ -174,10 +198,9 @@ const ItineraryView = () => {
           activeDate={activeDate}
           startDate={itinerary.startDate}
           loading={eventsLoading}
-          onEdit={setMapEventBeingEdited}
+          onEdit={openEvent}
           onDelete={(event) => {
-            setEventToDelete(event);
-            setDeleteModalOpen(true);
+            openEvent(event, true);
           }}
         />
       </aside>
@@ -207,6 +230,7 @@ const ItineraryView = () => {
           }}
           onExited={() => setEventToDelete(null)}
           dismissDisabled={isDeletingEvent}
+          status={<TripRefreshStatus kind="event" baseline={eventToDelete} />}
           footer={(requestClose) => (
             <>
               <Button

@@ -1,3 +1,5 @@
+import TripRefreshStatus from '../../editing/TripRefreshStatus';
+import { TripWriteCancelled } from '../../../../queries/tripEditing';
 import { CalendarDays, MapPin, NotebookPen, ReceiptText } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -121,13 +123,20 @@ const AccommodationReservationForm = ({
         type: ReservationType.Accommodations,
         values,
         id: reservation?._id,
+        baseline: reservation,
       });
       setIsOpen(false);
     } catch (cause) {
+      if (cause instanceof TripWriteCancelled) {
+        if (cause.discarded) setIsOpen(false);
+        return;
+      }
       setError(
         getApiErrorMessage(
           cause,
-          'Could not save the accommodation. Please try again.',
+          cause instanceof Error
+            ? cause.message
+            : 'Could not save the accommodation. Please try again.',
         ),
       );
       contentRef.current?.scrollIntoView({ block: 'start' });
@@ -144,6 +153,8 @@ const AccommodationReservationForm = ({
       }}
       onExited={onClose}
       dismissDisabled={saveReservation.isPending}
+      contentDisabled={saveReservation.isPending}
+      status={<TripRefreshStatus kind="reservation" baseline={reservation} />}
       panelClassName="flex h-[min(48rem,calc(100dvh_-_2rem))] flex-col sm:h-[min(48rem,calc(100dvh_-_4rem))] sm:max-w-2xl"
       contentClassName="min-h-0 flex-1 overflow-y-auto"
       footer={(requestClose) => (

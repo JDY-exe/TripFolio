@@ -1,3 +1,5 @@
+const { checkVersion, updateVersioned, deleteVersioned, mutationError, sendMutationError } = require('../utils/documentVersion');
+const { withTripWrite } = require('../utils/tripWrite');
 const express = require("express");
 const mongoose = require("mongoose");
 const Reservation = require("../models/Reservation");
@@ -114,8 +116,7 @@ const sendServerError = (res, error) => {
     if (error.name === "ValidationError") {
         return res.status(400).json({ message: error.message });
     }
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    return sendMutationError(res, error);
 };
 
 for (const [path, { type, fields, requiredFields = fields, label, missingMessage }] of Object.entries(categories)) {
@@ -154,8 +155,11 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
             const trip = await findTripWithAccess(req, res, tripId, true);
             if (!trip) return;
             const journey = isFlight ? flightJourneyFields(details.segments) : null;
-            const reservation = await Reservation.create({ type, trip: tripId, name: name.trim(), startTime, endTime, confirmationNumber, cost, notes, [type]: details, ...journey });
-            await Trip.updateOne({ _id: tripId }, { $addToSet: { reservations: reservation._id } });
+            const reservation = await withTripWrite(tripId, req.user.id, async (session) => {
+                const [created] = await Reservation.create([{ type, trip: tripId, name: name.trim(), startTime, endTime, confirmationNumber, cost, notes, [type]: details, ...journey }], { session });
+                await Trip.updateOne({ _id: tripId }, { $addToSet: { reservations: created._id }, $inc: { version: 1 } }, { session });
+                return created;
+            });
             return res.status(201).json({
                 message: `${label} reservation created successfully`,
                 reservation,
@@ -172,6 +176,7 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
             if (!reservation || reservation.type !== type) return res.status(404).json({ message: "Reservation not found" });
             const trip = await findTripWithAccess(req, res, reservation.trip, true);
             if (!trip) return;
+            checkVersion(reservation, req.body.expectedVersion);
             const isJourneyUpdate = type === "flights" && req.body.flights?.segments !== undefined;
             if (type === "flights" && !isJourneyUpdate &&
                 (req.body.flights || req.body.startTime !== undefined || req.body.endTime !== undefined)) {
@@ -205,10 +210,16 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
                 !hasJourneySegments || (type !== "flights" && !hasValidDates(reservation.startTime, reservation.endTime))) {
                 return res.status(400).json({ message: "Complete all required fields and enter valid dates" });
             }
-            await reservation.save();
+            const changes = Object.fromEntries(['name', 'startTime', 'endTime', 'confirmationNumber', 'cost', 'notes', type]
+                .filter(field => req.body[field] !== undefined || (isJourneyUpdate && ['startTime', 'endTime', 'flights'].includes(field))).map(field => [field, reservation[field]]));
+            const saved = await withTripWrite(trip._id, req.user.id, async (session) => {
+                const current = await Reservation.findById(req.params.id, null, { session });
+                if (!current) throw mutationError(404, 'Reservation not found');
+                return updateVersioned(current, req.body.expectedVersion, changes, session);
+            });
             return res.json({
                 message: `${label} reservation updated successfully`,
-                reservation,
+                reservation: saved,
             });
         } catch (error) {
             return sendServerError(res, error);
@@ -222,8 +233,12 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
             if (!reservation || reservation.type !== type) return res.status(404).json({ message: "Reservation not found" });
             const trip = await findTripWithAccess(req, res, reservation.trip, true);
             if (!trip) return;
-            await reservation.deleteOne();
-            await Trip.updateOne({ _id: trip._id }, { $pull: { reservations: reservation._id } });
+            await withTripWrite(trip._id, req.user.id, async (session) => {
+                const current = await Reservation.findById(req.params.id, null, { session });
+                if (!current) throw mutationError(404, 'Reservation not found');
+                await deleteVersioned(current, req.body?.expectedVersion, session);
+                await Trip.updateOne({ _id: trip._id }, { $pull: { reservations: reservation._id }, $inc: { version: 1 } }, { session });
+            });
             return res.json({ message: "Reservation deleted" });
         } catch (error) {
             return sendServerError(res, error);

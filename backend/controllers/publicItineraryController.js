@@ -107,6 +107,7 @@ const getPublicItineraryFeed = async (req, res) => {
             },
             itinerary: {
               _id: "$itinerary._id",
+              version: "$itinerary.version",
               title: {
                 $cond: [
                   {
