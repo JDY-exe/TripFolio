@@ -5,34 +5,34 @@ const tripInvitationSchema = new mongoose.Schema(
     trip: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Trip",
-      required: true
+      required: true,
     },
     recipient: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true
+      required: true,
     },
     inviter: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true
+      required: true,
     },
     status: {
       type: String,
       enum: ["pending", "accepted", "declined"],
       default: "pending",
-      required: true
-    }
+      required: true,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 tripInvitationSchema.index(
   { trip: 1, recipient: 1 },
   {
     unique: true,
-    partialFilterExpression: { status: "pending" }
-  }
+    partialFilterExpression: { status: "pending" },
+  },
 );
 tripInvitationSchema.index({ recipient: 1, status: 1 });
 
