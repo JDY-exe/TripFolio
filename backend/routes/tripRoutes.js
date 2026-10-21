@@ -52,6 +52,6 @@ router.patch('/:id/profile_picture', parseTripPicture, updateTripProfilePicture)
 router.get('/:id/profile_picture', getTripProfilePicture);
 router.delete('/:id', deleteTrip);
 router.patch('/user', addUserToTrip);
-router.patch('/vote', modifyGlobalVotes);
+router.patch('/votes', modifyGlobalVotes);
 
 module.exports = router;

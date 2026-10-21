@@ -1,9 +1,9 @@
-import { CalendarDays, UsersRound } from 'lucide-react';
+import { CalendarDays, UsersRound, ArrowBigUp, ArrowBigDown } from 'lucide-react';
 import { Link } from 'react-router';
 import { useEffect, useState } from 'react';
 import { Text } from '../../components/common';
 import type { PublicItineraryFeedItem } from '../../queries/itineraries';
-import { getBlobFromApi } from '../../utils/api';
+import { getBlobFromApi, patchToApi } from '../../utils/api';
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
@@ -31,6 +31,38 @@ const ItineraryFeedCard = ({ item }: { item: PublicItineraryFeedItem }) => {
     path: string;
     url: string;
   }>();
+  const [votes, setVotes] = useState(item.votes ?? 0);
+  const [hasUpvoted, setHasUpvoted] = useState(
+    item.hasUpvoted ?? false,
+  );
+  const [hasDownvoted, setHasDownvoted] = useState(
+    item.hasDownvoted ?? false,
+  );
+  const [voting, setVoting] = useState(false);
+  const handleVote = async (isUpvote: boolean) => {
+    if (voting) return;
+
+    setVoting(true);
+
+    try {
+      const result = await patchToApi<{
+        trip: { votes: number };
+        hasUpvoted: boolean;
+        hasDownvoted: boolean;
+      }>('/trip/votes', {
+        tripId: item.tripId,
+        isUpvote,
+      });
+
+      setVotes(result.trip.votes);
+      setHasUpvoted(result.hasUpvoted);
+      setHasDownvoted(result.hasDownvoted);
+    } catch (error) {
+      console.error('Failed to update trip vote:', error);
+    } finally {
+      setVoting(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -60,12 +92,12 @@ const ItineraryFeedCard = ({ item }: { item: PublicItineraryFeedItem }) => {
   const coverUrl = coverImage?.path === coverPath ? coverImage.url : undefined;
 
   return (
-    <Link
-      to={`/public-itinerary/${item.tripId}`}
-      aria-label={`View ${item.tripName} itinerary`}
-      className="group block rounded-panel focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-    >
-      <article className="overflow-hidden rounded-panel border border-outline-variant/70 bg-surface-container-low text-on-surface shadow-sm transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-surface-container hover:shadow-md motion-reduce:transition-none">
+    <article className="overflow-hidden rounded-panel border border-outline-variant/70 bg-surface-container-low text-on-surface shadow-sm transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-surface-container hover:shadow-md motion-reduce:transition-none">
+      <Link
+        to={`/public-itinerary/${item.tripId}`}
+        aria-label={`View ${item.tripName} itinerary`}
+        className="group block rounded-panel focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+      >
         <div className="flex items-center gap-3 p-4 sm:px-5 sm:py-4">
           {item.owner?.profile_picture && (
             <img
@@ -133,20 +165,70 @@ const ItineraryFeedCard = ({ item }: { item: PublicItineraryFeedItem }) => {
               {item.itinerary.description}
             </Text>
           )}
-
-          <div className="mt-4 flex items-center gap-2 border-t border-outline-variant/50 pt-3">
-            <CalendarDays
-              aria-hidden
-              size={16}
-              className="shrink-0 text-primary"
-            />
-            <Text as="span" variant="caption" color="muted">
-              {formatTripDateRange(item.tripStartDate, item.tripEndDate)}
-            </Text>
-          </div>
         </div>
-      </article>
-    </Link>
+      </Link>
+      <div className="mt-4 flex items-center gap-2 border-t border-outline-variant/50 pt-3">
+        <CalendarDays
+          aria-hidden
+          size={16}
+          className="shrink-0 text-primary"
+        />
+
+        <Text as="span" variant="caption" color="muted">
+          {formatTripDateRange(item.tripStartDate, item.tripEndDate)}
+        </Text>
+
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            aria-label="Upvote itinerary"
+            aria-pressed={hasUpvoted}
+            disabled={voting}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void handleVote(true);
+            }}
+            className="rounded-full p-1.5 text-on-surface-variant transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+          >
+            <ArrowBigUp
+              size={20}
+              strokeWidth={2}
+              fill={hasUpvoted ? 'currentColor' : 'none'}
+              className={hasUpvoted ? 'text-primary' : ''}
+            />
+          </button>
+
+          <Text
+            as="span"
+            variant="label"
+            className="min-w-6 text-center tabular-nums"
+          >
+            {votes}
+          </Text>
+
+          <button
+            type="button"
+            aria-label="Downvote itinerary"
+            aria-pressed={hasDownvoted}
+            disabled={voting}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void handleVote(false);
+            }}
+            className="rounded-full p-1.5 text-on-surface-variant transition-colors hover:bg-error/10 hover:text-error disabled:opacity-50"
+          >
+            <ArrowBigDown
+              size={20}
+              strokeWidth={2}
+              fill={hasDownvoted ? 'currentColor' : 'none'}
+              className={hasDownvoted ? 'text-error' : ''}
+            />
+          </button>
+        </div>
+      </div>
+    </article >
   );
 };
 

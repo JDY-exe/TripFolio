@@ -25,6 +25,9 @@ export interface PublicItineraryFeedItem {
   createdAt: string;
   owner: PublicItineraryOwner | null;
   itinerary: Itinerary;
+  votes?: number;
+  hasUpvoted?: boolean;
+  hasDownvoted?: boolean;
 }
 
 export interface PublicItineraryFeedPage {

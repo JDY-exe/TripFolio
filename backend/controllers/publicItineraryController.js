@@ -33,7 +33,7 @@ const getPublicItineraryFeed = async (req, res) => {
     const pageSize = Math.min(requestedPageSize, MAX_PAGE_SIZE);
     const userId = req.user.id;
     const [user, friendships] = await Promise.all([
-      User.findById(userId).select("friends"),
+      User.findById(userId).select("friends upvotedTrips downvotedTrips"),
       Friendship.find({
         status: "accepted",
         $or: [{ requester: userId }, { recipient: userId }],
@@ -54,6 +54,14 @@ const getPublicItineraryFeed = async (req, res) => {
     const friendObjectIds = [...friendIds]
       .filter(mongoose.isValidObjectId)
       .map((id) => new mongoose.Types.ObjectId(id));
+
+    const upvotedTripIds = new Set(
+      (user.upvotedTrips || []).map(String)
+    );
+
+    const downvotedTripIds = new Set(
+      (user.downvotedTrips || []).map(String)
+    );
     const [records] = await Promise.all([
       Trip.aggregate([
         { $match: { isPublic: true } },
@@ -100,6 +108,7 @@ const getPublicItineraryFeed = async (req, res) => {
             tripEndDate: "$endDate",
             isFriend: 1,
             createdAt: "$itinerary.createdAt",
+            votes: { $ifNull: ["$votes", 0] },
             owner: {
               id: "$owner._id",
               username: "$owner.username",
@@ -143,8 +152,13 @@ const getPublicItineraryFeed = async (req, res) => {
     ]);
 
     const hasMore = records.length > pageSize;
+    const items = hasMore ? records.slice(0, pageSize) : records;
     return res.status(200).json({
-      items: hasMore ? records.slice(0, pageSize) : records,
+      items: items.map((item) => ({
+        ...item,
+        hasUpvoted: upvotedTripIds.has(String(item.tripId)),
+        hasDownvoted: downvotedTripIds.has(String(item.tripId)),
+      })),
       nextPage: hasMore ? page + 1 : null,
     });
   } catch (error) {
@@ -191,10 +205,10 @@ const getPublicItinerary = async (req, res) => {
       },
       owner: owner
         ? {
-            id: owner._id,
-            username: owner.username,
-            profile_picture: owner.profile_picture,
-          }
+          id: owner._id,
+          username: owner.username,
+          profile_picture: owner.profile_picture,
+        }
         : null,
       itinerary,
       events,
