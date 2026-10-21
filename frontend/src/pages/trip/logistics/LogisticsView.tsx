@@ -59,12 +59,15 @@ const LogisticsView = () => {
 
   /** Opens the selected booking immediately while pulling unseen changes in the background. */
   const openReservation = (reservation: Reservation, deleting = false) => {
-    void editingCoordinator?.prepare(() => {
-      if (deleting) {
-        setReservationToDelete(reservation);
-        setDeleteModalOpen(true);
-      } else setEditing(reservation);
-    });
+    void editingCoordinator?.prepare(
+      () => {
+        if (deleting) {
+          setReservationToDelete(reservation);
+          setDeleteModalOpen(true);
+        } else setEditing(reservation);
+      },
+      { kind: 'reservation', id: reservation._id, type: reservation.type },
+    );
   };
 
   if (!tripId) return <Text>Trip not found.</Text>;

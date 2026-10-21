@@ -2,10 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import {
   changedValues,
-  findEditingDocument,
-  refreshTripEditingData,
+  refreshEditingDocument,
 } from '../../src/queries/tripEditing';
-import type { TripEditingData } from '../../src/queries/tripEditing';
 import { getFromApi } from '../../src/utils/api';
 
 vi.mock('../../src/utils/api', () => ({
@@ -52,71 +50,147 @@ const records = {
       endTime: '2030-01-02',
     },
   ],
-} satisfies TripEditingData;
+} as const;
 
 afterEach(() => vi.resetAllMocks());
 describe('trip editing refresh', () => {
-  it('fetches every existing endpoint even when queries are inactive and cached data is fresh', async () => {
+  it('refreshes only the itinerary even when its cached query is fresh and inactive', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { staleTime: Infinity } },
     });
-    client.setQueryData(['trip-settings', 'trip'], {
-      ...records.trip,
+    client.setQueryData(['itinerary', 'trip'], {
+      ...records.itinerary,
       version: 0,
     });
-    client.setQueryData(['trips', 'user'], [records.trip]);
-    vi.mocked(getFromApi).mockImplementation(async (url) => {
-      if (url === '/trip/trip') return records.trip;
-      if (url === '/itinerary?id=trip') return records.itinerary;
-      if (url === '/event?itinerary_id=itinerary') return records.events;
-      return {
-        reservations: url === '/logistics/hotels' ? records.reservations : [],
-      };
-    });
-    const result = await refreshTripEditingData(client, 'trip');
-    expect(getFromApi).toHaveBeenCalledTimes(6);
-    expect(result).toEqual(records);
-    expect(client.getQueryData(['trip-settings', 'trip'])).toEqual(
-      records.trip,
+    client.setQueryData(['events', 'itinerary'], records.events);
+    vi.mocked(getFromApi).mockResolvedValue(records.itinerary);
+    expect(
+      await refreshEditingDocument(client, 'trip', {
+        kind: 'itinerary',
+        id: 'itinerary',
+      }),
+    ).toEqual(records.itinerary);
+    expect(getFromApi).toHaveBeenCalledExactlyOnceWith('/itinerary?id=trip');
+    expect(client.getQueryData(['events', 'itinerary'])).toEqual(
+      records.events,
     );
     expect(client.getQueryData(['itinerary', 'trip'])).toEqual(
       records.itinerary,
     );
-    expect(client.getQueryData(['events', 'itinerary'])).toEqual(
-      records.events,
+    client.clear();
+  });
+
+  it('updates the trip detail and list caches without reading child endpoints', async () => {
+    const client = new QueryClient();
+    client.setQueryData(['trips', 'user'], [{ ...records.trip, version: 0 }]);
+    vi.mocked(getFromApi).mockResolvedValue(records.trip);
+    await refreshEditingDocument(client, 'trip', { kind: 'trip', id: 'trip' });
+    expect(getFromApi).toHaveBeenCalledExactlyOnceWith('/trip/trip');
+    expect(client.getQueryData(['trip-settings', 'trip'])).toEqual(
+      records.trip,
     );
+    expect(client.getQueryData(['trips', 'user'])).toEqual([records.trip]);
+    client.clear();
+  });
+
+  it('requests only the edited event and preserves its siblings in the cache', async () => {
+    const client = new QueryClient();
+    const sibling = { ...records.events[0], _id: 'sibling' };
+    client.setQueryData(['itinerary', 'trip'], records.itinerary);
+    client.setQueryData(
+      ['events', 'itinerary'],
+      [{ ...records.events[0], version: 0 }, sibling],
+    );
+    vi.mocked(getFromApi).mockResolvedValue(records.events);
+    expect(
+      await refreshEditingDocument(client, 'trip', {
+        kind: 'event',
+        id: 'event',
+      }),
+    ).toEqual(records.events[0]);
+    expect(getFromApi).toHaveBeenCalledExactlyOnceWith(
+      '/event?itinerary_id=itinerary&id=event',
+    );
+    expect(client.getQueryData(['events', 'itinerary'])).toEqual([
+      records.events[0],
+      sibling,
+    ]);
+    client.clear();
+  });
+
+  it('refreshes one reservation category and document without touching other categories', async () => {
+    const client = new QueryClient();
+    const sibling = { ...records.reservations[0], _id: 'sibling' };
+    client.setQueryData(['reservations', 'trip', 'accommodations'], [sibling]);
+    client.setQueryData(['reservations', 'trip', 'flights'], []);
+    vi.mocked(getFromApi).mockResolvedValue({
+      reservations: records.reservations,
+    });
+    await refreshEditingDocument(client, 'trip', {
+      kind: 'reservation',
+      id: 'hotel',
+      type: 'accommodations',
+    });
+    expect(getFromApi).toHaveBeenCalledExactlyOnceWith('/logistics/hotels', {
+      params: { tripId: 'trip', id: 'hotel' },
+    });
     expect(
       client.getQueryData(['reservations', 'trip', 'accommodations']),
-    ).toEqual(records.reservations);
+    ).toEqual([sibling, records.reservations[0]]);
+    expect(client.getQueryData(['reservations', 'trip', 'flights'])).toEqual(
+      [],
+    );
     client.clear();
   });
 
-  it('does not partially replace caches when one endpoint fails', async () => {
+  it('removes only the deleted document from its collection', async () => {
     const client = new QueryClient();
-    const original = { ...records.trip, version: 0 };
-    client.setQueryData(['trip-settings', 'trip'], original);
-    vi.mocked(getFromApi).mockImplementation(async (url) => {
-      if (url === '/trip/trip') return records.trip;
-      if (url === '/itinerary?id=trip') return records.itinerary;
-      if (url === '/event?itinerary_id=itinerary')
-        throw new Error('Unavailable');
-      return { reservations: [] };
-    });
-    await expect(refreshTripEditingData(client, 'trip')).rejects.toThrow(
-      'Unavailable',
-    );
-    expect(client.getQueryData(['trip-settings', 'trip'])).toEqual(original);
+    const sibling = { ...records.events[0], _id: 'sibling' };
+    client.setQueryData(['itinerary', 'trip'], records.itinerary);
+    client.setQueryData(['events', 'itinerary'], [...records.events, sibling]);
+    vi.mocked(getFromApi).mockResolvedValue([]);
+    expect(
+      await refreshEditingDocument(client, 'trip', {
+        kind: 'event',
+        id: 'event',
+      }),
+    ).toBeUndefined();
+    expect(client.getQueryData(['events', 'itinerary'])).toEqual([sibling]);
     client.clear();
   });
 
-  it('finds the exact document without substituting another booking', () => {
-    expect(findEditingDocument(records, 'event', 'event')?.version).toBe(4);
-    expect(findEditingDocument(records, 'reservation', 'hotel')?.version).toBe(
-      5,
-    );
+  it('does not create a partial collection cache from a single-document response', async () => {
+    const client = new QueryClient();
+    vi.mocked(getFromApi).mockResolvedValue({
+      reservations: records.reservations,
+    });
     expect(
-      findEditingDocument(records, 'reservation', 'deleted'),
+      await refreshEditingDocument(client, 'trip', {
+        kind: 'reservation',
+        id: 'hotel',
+        type: 'accommodations',
+      }),
+    ).toEqual(records.reservations[0]);
+    expect(
+      client.getQueryData(['reservations', 'trip', 'accommodations']),
     ).toBeUndefined();
+    client.clear();
+  });
+
+  it('preserves the cached document when its refresh fails', async () => {
+    const client = new QueryClient();
+    client.setQueryData(['itinerary', 'trip'], records.itinerary);
+    vi.mocked(getFromApi).mockRejectedValue(new Error('Unavailable'));
+    await expect(
+      refreshEditingDocument(client, 'trip', {
+        kind: 'itinerary',
+        id: 'itinerary',
+      }),
+    ).rejects.toThrow('Unavailable');
+    expect(client.getQueryData(['itinerary', 'trip'])).toEqual(
+      records.itinerary,
+    );
+    client.clear();
   });
 
   it('omits unchanged draft fields while retaining explicit clears', () => {

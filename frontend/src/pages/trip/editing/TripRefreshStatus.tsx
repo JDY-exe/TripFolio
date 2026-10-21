@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useCachedQuery } from '../../../queries/useCachedQuery';
 import { useParams } from 'react-router';
 import { Button, Text } from '../../../components/common';
-import { useTripEditing } from '../../../queries/tripEditing';
+import { editingTargetKey, useTripEditing } from '../../../queries/tripEditing';
 import type {
   DocumentKind,
   VersionedDocument,
@@ -31,7 +31,15 @@ interface TripRefreshStatusProps {
 const TripRefreshStatus = ({ kind, baseline }: TripRefreshStatusProps) => {
   const editing = useTripEditing();
   const { id } = useParams();
-  const refreshing = editing?.isRefreshing ?? false;
+  const target =
+    kind && baseline
+      ? { kind, id: baseline._id, type: baseline.type }
+      : undefined;
+  const refreshState = target
+    ? editing?.refreshStates[editingTargetKey(target)]
+    : undefined;
+  const refreshing = refreshState?.isRefreshing ?? false;
+  const refreshError = refreshState?.refreshError;
   const [showPending, setShowPending] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(
@@ -57,7 +65,7 @@ const TripRefreshStatus = ({ kind, baseline }: TripRefreshStatusProps) => {
     baseline && current && current.version !== baseline.version,
   );
   const deleted = Boolean(
-    baseline && kind && !current && !refreshing && !editing?.refreshError,
+    baseline && kind && !current && !refreshing && !refreshError,
   );
 
   return (
@@ -74,24 +82,24 @@ const TripRefreshStatus = ({ kind, baseline }: TripRefreshStatusProps) => {
             : 'Checking for updates… You can keep editing.'}
         </Text>
       )}
-      {!refreshing && editing?.refreshError && (
+      {!refreshing && refreshError && (
         <div className="flex flex-wrap items-center gap-2">
           <Text data-cy="trip-refresh-error" variant="caption" color="error">
-            {editing.refreshError} You can keep editing; save will check again.
+            {refreshError} You can keep editing; save will check again.
           </Text>
           <Button
             data-cy="trip-refresh-retry"
             variant="ghost"
             size="sm"
             onClick={() => {
-              void editing.refresh().catch(() => undefined);
+              if (target) void editing?.refresh(target).catch(() => undefined);
             }}
           >
             Retry
           </Button>
         </div>
       )}
-      {!refreshing && !editing?.refreshError && changed && (
+      {!refreshing && !refreshError && changed && (
         <Text data-cy="trip-refresh-changed" variant="caption" color="muted">
           Newer changes are available. Your draft is unchanged; review them when
           you save.

@@ -87,12 +87,15 @@ const ItineraryView = () => {
 
   /** Opens the selected event immediately; refreshes cannot replace the draft baseline. */
   const openEvent = (event: EventData, deleting = false) => {
-    void editing?.prepare(() => {
-      if (deleting) {
-        setEventToDelete(event);
-        setDeleteModalOpen(true);
-      } else setMapEventBeingEdited(event);
-    });
+    void editing?.prepare(
+      () => {
+        if (deleting) {
+          setEventToDelete(event);
+          setDeleteModalOpen(true);
+        } else setMapEventBeingEdited(event);
+      },
+      { kind: 'event', id: event._id },
+    );
   };
 
   if (!id)

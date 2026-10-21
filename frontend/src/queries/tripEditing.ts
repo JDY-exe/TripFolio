@@ -14,26 +14,28 @@ export interface VersionedDocument {
   _id: string;
   version: number;
 }
-export interface TripEditingData {
-  trip: Trip;
-  itinerary: Itinerary;
-  events: EventData[];
-  reservations: Reservation[];
-}
 export type DocumentKind = 'trip' | 'itinerary' | 'event' | 'reservation';
+export interface EditingTarget {
+  kind: DocumentKind;
+  id: string;
+  type?: ReservationType;
+}
+export interface RefreshState {
+  isRefreshing: boolean;
+  refreshError: string | null;
+}
 export interface TripWriteOptions<T> {
   kind: DocumentKind;
-  baseline: VersionedDocument;
+  baseline: VersionedDocument & { type?: ReservationType };
   draft: Record<string, unknown>;
   deleting?: boolean;
   send: (expectedVersion: number) => Promise<T>;
 }
 export interface TripEditing {
   busy: boolean;
-  isRefreshing: boolean;
-  refreshError: string | null;
-  refresh: () => Promise<TripEditingData>;
-  prepare: (open: () => void) => Promise<void>;
+  refreshStates: Record<string, RefreshState>;
+  refresh: (target: EditingTarget) => Promise<VersionedDocument | undefined>;
+  prepare: (open: () => void, target?: EditingTarget) => Promise<void>;
   write: <T>(options: TripWriteOptions<T>) => Promise<T>;
 }
 export const TripEditingContext = createContext<TripEditing | null>(null);
@@ -52,82 +54,79 @@ export class TripWriteCancelled extends Error {
   }
 }
 
-/** Finds an edited document in freshly fetched entity collections.
- * @param data - Latest trip data.
- * @param kind - Entity collection to inspect.
- * @param id - Target identifier.
- * @returns The current document, if it still exists.
+/** Identifies refresh state and in-flight reads for one document.
+ * @param target - Document to refresh.
+ * @returns A stable key shared by its editor and save action.
  */
-export const findEditingDocument = (
-  data: TripEditingData,
-  kind: DocumentKind,
-  id: string,
-): VersionedDocument | undefined => {
-  if (kind === 'trip') return data.trip._id === id ? data.trip : undefined;
-  if (kind === 'itinerary')
-    return data.itinerary._id === id ? data.itinerary : undefined;
-  return (kind === 'event' ? data.events : data.reservations).find(
-    (item) => item._id === id,
-  );
-};
+export const editingTargetKey = (target: EditingTarget) =>
+  JSON.stringify([target.kind, target.id, target.type]);
 
-/** Fetches existing endpoints directly, then replaces entity caches after all succeed.
+/** Pulls only the edited document and merges it into the relevant entity cache.
  * @param client - Shared React Query cache.
- * @param tripId - Trip whose unseen changes should be pulled.
- * @returns Fresh trip entities, independent of query staleness or mount state.
+ * @param tripId - Trip owning the document.
+ * @param target - Document and, for reservations, its category.
+ * @returns Its latest saved version, or undefined when it was deleted.
  */
-export const refreshTripEditingData = async (
+export const refreshEditingDocument = async (
   client: QueryClient,
   tripId: string,
-): Promise<TripEditingData> => {
-  const keys = [
-    ['trip-settings', tripId],
-    itineraryQueryKey(tripId),
-    ['reservations', tripId],
-    ['events'],
-  ];
-  await Promise.all(keys.map((queryKey) => client.cancelQueries({ queryKey })));
-  const [trip, itinerary, flights, accommodations, rentals] = await Promise.all(
-    [
-      getFromApi<Trip>(`/trip/${tripId}`),
-      getFromApi<Itinerary>(`/itinerary?id=${tripId}`),
-      getFromApi<{ reservations: Reservation[] }>('/logistics/flights', {
-        params: { tripId },
-      }),
-      getFromApi<{ reservations: Reservation[] }>('/logistics/hotels', {
-        params: { tripId },
-      }),
-      getFromApi<{ reservations: Reservation[] }>('/logistics/rental_cars', {
-        params: { tripId },
-      }),
-    ],
-  );
-  const events = await getFromApi<EventData[]>(
-    `/event?itinerary_id=${itinerary._id}`,
-  );
-  client.setQueryData(['trip-settings', tripId], trip);
-  client.setQueryData(itineraryQueryKey(tripId), itinerary);
-  client.setQueryData(eventsQueryKey(itinerary._id), events);
-  for (const [type, records] of [
-    [ReservationType.Flights, flights.reservations],
-    [ReservationType.Accommodations, accommodations.reservations],
-    [ReservationType.Rentals, rentals.reservations],
-  ] as const) {
-    client.setQueryData(reservationsQueryKey(tripId, type), records);
+  target: EditingTarget,
+): Promise<VersionedDocument | undefined> => {
+  if (target.kind === 'trip') {
+    const queryKey = ['trip-settings', tripId];
+    await client.cancelQueries({ queryKey, exact: true });
+    const trip = await getFromApi<Trip>(`/trip/${tripId}`);
+    client.setQueryData(queryKey, trip);
+    client.setQueriesData<Trip[]>({ queryKey: ['trips'] }, (current) =>
+      current?.map((item) =>
+        item._id === tripId ? { ...item, ...trip } : item,
+      ),
+    );
+    return trip._id === target.id ? trip : undefined;
   }
-  client.setQueriesData<Trip[]>({ queryKey: ['trips'] }, (current) =>
-    current?.map((item) => (item._id === tripId ? { ...item, ...trip } : item)),
-  );
-  return {
-    trip,
-    itinerary,
-    events,
-    reservations: [
-      ...flights.reservations,
-      ...accommodations.reservations,
-      ...rentals.reservations,
-    ],
+  if (target.kind === 'itinerary') {
+    const queryKey = itineraryQueryKey(tripId);
+    await client.cancelQueries({ queryKey, exact: true });
+    const itinerary = await getFromApi<Itinerary>(`/itinerary?id=${tripId}`);
+    client.setQueryData(queryKey, itinerary);
+    return itinerary._id === target.id ? itinerary : undefined;
+  }
+  const itinerary = client.getQueryData<Itinerary>(itineraryQueryKey(tripId));
+  if (target.kind === 'event' && !itinerary)
+    throw new Error('The itinerary must be loaded before editing an event.');
+  if (target.kind === 'reservation' && !target.type)
+    throw new Error('The reservation category is required.');
+  const queryKey =
+    target.kind === 'event'
+      ? eventsQueryKey(itinerary!._id)
+      : reservationsQueryKey(tripId, target.type);
+  await client.cancelQueries({ queryKey, exact: true });
+  const paths = {
+    [ReservationType.Flights]: 'flights',
+    [ReservationType.Accommodations]: 'hotels',
+    [ReservationType.Rentals]: 'rental_cars',
   };
+  const records =
+    target.kind === 'event'
+      ? await getFromApi<EventData[]>(
+          `/event?itinerary_id=${itinerary!._id}&id=${target.id}`,
+        )
+      : (
+          await getFromApi<{ reservations: Reservation[] }>(
+            `/logistics/${paths[target.type!]}`,
+            { params: { tripId, id: target.id } },
+          )
+        ).reservations;
+  const document = records.find((item) => item._id === target.id);
+  // A single-record response must not replace its siblings or invent a partial list.
+  client.setQueryData<(EventData | Reservation)[]>(queryKey, (current) => {
+    if (!current) return current;
+    if (!document) return current.filter((item) => item._id !== target.id);
+    if (!current.some((item) => item._id === target.id))
+      return [...current, document];
+    return current.map((item) => (item._id === target.id ? document : item));
+  });
+  return document;
 };
 
 /** Keeps only fields whose serialized draft values differ from the original document.

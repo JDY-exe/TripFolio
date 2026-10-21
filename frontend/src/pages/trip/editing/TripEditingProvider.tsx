@@ -8,15 +8,22 @@ import { Button, Modal } from '../../../components/common';
 import {
   TripEditingContext,
   TripWriteCancelled,
-  findEditingDocument,
-  refreshTripEditingData,
+  editingTargetKey,
+  refreshEditingDocument,
 } from '../../../queries/tripEditing';
 import type {
-  TripEditingData,
+  EditingTarget,
+  RefreshState,
   TripWriteOptions,
   VersionedDocument,
 } from '../../../queries/tripEditing';
 import { getApiErrorMessage } from '../../../utils/api';
+import {
+  itineraryQueryKey,
+  type Itinerary,
+} from '../../../queries/itineraries';
+import { eventsQueryKey } from '../../../queries/events';
+import { reservationsQueryKey } from '../../../queries/reservations';
 import ConflictComparison from './ConflictComparison';
 
 type Choice = 'saved' | 'draft' | 'edit';
@@ -35,9 +42,12 @@ const TripEditingProvider = ({ children }: { children: ReactNode }) => {
   const client = useQueryClient();
   const { setLoading } = useLoading();
   const [busy, setBusy] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
-  const inFlight = useRef<Promise<TripEditingData> | null>(null);
+  const [refreshStates, setRefreshStates] = useState<
+    Record<string, RefreshState>
+  >({});
+  const inFlight = useRef(
+    new Map<string, Promise<VersionedDocument | undefined>>(),
+  );
   const [conflict, setConflict] = useState<Conflict | null>(null);
   const resolve = useRef<((choice: Choice) => void) | null>(null);
   const active = useRef(false);
@@ -49,34 +59,51 @@ const TripEditingProvider = ({ children }: { children: ReactNode }) => {
     [setLoading],
   );
 
-  /** Shares an in-flight refresh without blocking the editor or changing its draft. */
-  const refresh = (): Promise<TripEditingData> => {
-    if (inFlight.current) return inFlight.current;
-    setIsRefreshing(true);
-    setRefreshError(null);
-    const request = refreshTripEditingData(client, id)
+  /** Shares a pending read only with actions targeting the same document. */
+  const refresh = (
+    target: EditingTarget,
+  ): Promise<VersionedDocument | undefined> => {
+    const key = editingTargetKey(target);
+    const pending = inFlight.current.get(key);
+    if (pending) return pending;
+    setRefreshStates((states) => ({
+      ...states,
+      [key]: { isRefreshing: true, refreshError: null },
+    }));
+    const request = refreshEditingDocument(client, id, target)
+      .then((document) => {
+        setRefreshStates((states) => ({
+          ...states,
+          [key]: { isRefreshing: false, refreshError: null },
+        }));
+        return document;
+      })
       .catch((error: unknown) => {
-        setRefreshError(
-          getApiErrorMessage(
-            error,
-            'Could not check for updates. Your draft is safe.',
-          ),
-        );
+        setRefreshStates((states) => ({
+          ...states,
+          [key]: {
+            isRefreshing: false,
+            refreshError: getApiErrorMessage(
+              error,
+              'Could not check for updates. Your draft is safe.',
+            ),
+          },
+        }));
         throw error;
       })
       .finally(() => {
-        inFlight.current = null;
-        setIsRefreshing(false);
+        inFlight.current.delete(key);
       });
-    inFlight.current = request;
+    inFlight.current.set(key, request);
     return request;
   };
 
-  /** Opens from the clicked record immediately, then revalidates server caches in the background. */
-  const prepare = async (open: () => void) => {
+  /** Opens immediately and revalidates an existing document without replacing its draft. */
+  const prepare = async (open: () => void, target?: EditingTarget) => {
     open();
+    if (!target) return;
     try {
-      await refresh();
+      await refresh(target);
     } catch {
       /* The dialog shows a persistent retry action; retain the open draft. */
     }
@@ -114,8 +141,8 @@ const TripEditingProvider = ({ children }: { children: ReactNode }) => {
     setBusy(true);
     let expectedVersion = baseline.version;
     try {
-      const data = await refresh();
-      let current = findEditingDocument(data, kind, baseline._id);
+      const target = { kind, id: baseline._id, type: baseline.type };
+      let current = await refresh(target);
       if (!current)
         throw new Error(
           'This item has been deleted. Your draft has been kept.',
@@ -124,7 +151,7 @@ const TripEditingProvider = ({ children }: { children: ReactNode }) => {
       for (;;) {
         if (serverConflict || current.version !== expectedVersion) {
           const choice = await ask(current, draft, deleting);
-          if (choice === 'saved') await refresh();
+          if (choice === 'saved') await refresh(target);
           if (choice !== 'draft')
             throw new TripWriteCancelled(choice === 'saved');
           expectedVersion = current.version;
@@ -141,16 +168,26 @@ const TripEditingProvider = ({ children }: { children: ReactNode }) => {
           }
           if (deleting && kind === 'trip')
             client.removeQueries({ queryKey: ['trip-settings', baseline._id] });
-          await Promise.all(
-            [
-              'trips',
-              'trip-settings',
-              'itinerary',
-              'events',
+          const itinerary = client.getQueryData<Itinerary>(
+            itineraryQueryKey(id),
+          );
+          const keys: (readonly unknown[])[] = [];
+          if (kind === 'trip') keys.push(['trips'], ['trip-settings', id]);
+          if (kind === 'itinerary') keys.push(itineraryQueryKey(id));
+          if (kind === 'event') keys.push(eventsQueryKey(itinerary?._id));
+          if (kind === 'reservation') {
+            keys.push(reservationsQueryKey(id, baseline.type));
+            if (deleting) keys.push(['trips'], ['trip-settings', id]);
+          }
+          if (kind !== 'reservation')
+            keys.push(['public-itinerary', id], ['public-itinerary-feed']);
+          if (kind === 'trip' && deleting)
+            keys.push(itineraryQueryKey(id), eventsQueryKey(itinerary?._id), [
               'reservations',
-              'public-itinerary',
-              'public-itinerary-feed',
-            ].map((key) => client.invalidateQueries({ queryKey: [key] })),
+              id,
+            ]);
+          await Promise.all(
+            keys.map((queryKey) => client.invalidateQueries({ queryKey })),
           );
           return result;
         } catch (error) {
@@ -176,7 +213,7 @@ const TripEditingProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <TripEditingContext.Provider
-      value={{ busy, isRefreshing, refreshError, refresh, prepare, write }}
+      value={{ busy, refreshStates, refresh, prepare, write }}
     >
       {children}
       <Modal

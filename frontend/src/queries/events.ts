@@ -114,7 +114,6 @@ export const useSaveEvent = () => {
             }),
         });
       }
-      await editing.refresh();
       return postToApi<EventData>('/event', {
         itineraryID: itineraryId,
         ...values,

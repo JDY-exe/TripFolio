@@ -32,6 +32,44 @@ const openDescription = () => {
 };
 
 describe('document version conflicts', () => {
+  it('edits and saves an event without calling unrelated refresh endpoints', () => {
+    let event = { ...feature.event };
+    visitOwnedTrip(undefined, { events: () => [event] });
+    cy.get(`[data-cy="event-card-${event._id}"]`).should('exist');
+    cy.intercept(
+      { method: 'GET', pathname: '/itinerary' },
+      { statusCode: 503 },
+    ).as('unrelatedItinerary');
+    cy.intercept(
+      { method: 'GET', pathname: '/logistics/*' },
+      { statusCode: 503 },
+    ).as('unrelatedReservations');
+    cy.intercept(
+      { method: 'GET', pathname: `/trip/${feature.trip._id}` },
+      { statusCode: 503 },
+    ).as('unrelatedTrip');
+    cy.intercept({ method: 'GET', pathname: '/event' }, (request) => {
+      request.reply({ body: [event] });
+    }).as('eventRead');
+    cy.intercept(
+      { method: 'PATCH', pathname: `/event/${event._id}` },
+      (request) => {
+        expect(request.body.expectedVersion).to.eq(event.version);
+        event = { ...event, ...request.body, version: event.version + 1 };
+        request.reply({ body: event });
+      },
+    ).as('targetedSave');
+    cy.get(`[data-cy="edit-event-${event._id}"]`).click({ force: true });
+    cy.wait('@eventRead').its('request.query.id').should('eq', event._id);
+    cy.get('[data-cy="event-title"]').clear().type(fixture.draftTitle);
+    cy.get('[data-cy="event-save"]').click();
+    cy.wait('@targetedSave');
+    cy.get('[data-cy="event-title"]').should('not.exist');
+    cy.get('@unrelatedItinerary.all').should('have.length', 0);
+    cy.get('@unrelatedReservations.all').should('have.length', 0);
+    cy.get('@unrelatedTrip.all').should('have.length', 0);
+  });
+
   it('opens from cached values and preserves the baseline when unseen changes arrive', () => {
     visitOwnedTrip();
     cy.get('[data-cy="description-edit"]').should('be.visible');
@@ -71,11 +109,11 @@ describe('document version conflicts', () => {
     visitOwnedTrip(undefined, { events: () => [feature.event] });
     cy.get(`[data-cy="event-card-${feature.event._id}"]`).should('exist');
     cy.intercept(
-      { method: 'GET', pathname: '/itinerary' },
+      { method: 'GET', pathname: '/event' },
       (request) =>
         new Promise<void>((resolve) => {
           release = () => {
-            request.reply({ body: feature.itinerary });
+            request.reply({ body: [feature.event] });
             resolve();
           };
         }),
@@ -135,16 +173,16 @@ describe('document version conflicts', () => {
     let reads = 0;
     visitOwnedTrip(undefined, { events: () => [event] });
     cy.get(`[data-cy="event-card-${feature.event._id}"]`).should('exist');
-    cy.intercept({ method: 'GET', pathname: '/itinerary' }, (request) => {
+    cy.intercept({ method: 'GET', pathname: '/event' }, (request) => {
       reads++;
       if (!opening) {
-        request.reply({ body: feature.itinerary });
+        request.reply({ body: [event] });
         return;
       }
       return new Promise<void>((resolve) => {
         release = () => {
           opening = false;
-          request.reply({ body: feature.itinerary });
+          request.reply({ body: [feature.event] });
           resolve();
         };
       });
@@ -176,7 +214,7 @@ describe('document version conflicts', () => {
     visitOwnedTrip(undefined, { events: () => [feature.event] });
     cy.get(`[data-cy="event-card-${feature.event._id}"]`).should('exist');
     cy.intercept(
-      { method: 'GET', pathname: '/itinerary' },
+      { method: 'GET', pathname: '/event' },
       { statusCode: 503, body: { message: 'Refresh unavailable' } },
     );
     cy.get(`[data-cy="edit-event-${feature.event._id}"]`).click({
@@ -188,8 +226,8 @@ describe('document version conflicts', () => {
     );
     cy.get('[data-cy="event-title"]').clear().type(fixture.draftTitle);
     cy.intercept(
-      { method: 'GET', pathname: '/itinerary' },
-      { body: feature.itinerary },
+      { method: 'GET', pathname: '/event' },
+      { body: [feature.event] },
     ).as('retryRefresh');
     cy.get('[data-cy="trip-refresh-retry"]').click();
     cy.wait('@retryRefresh');

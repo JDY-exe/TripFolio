@@ -149,7 +149,6 @@ export const useSaveReservation = (tripId: string) => {
         return response.reservation;
       }
       if (id) throw new Error('The original reservation is required.');
-      await editing.refresh();
       const response = await postToApi<{ reservation: Reservation }>(url, {
         ...values,
         tripId,

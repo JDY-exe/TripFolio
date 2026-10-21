@@ -108,7 +108,10 @@ const ItineraryDaySection = ({
                 readOnly
                   ? undefined
                   : (event) => {
-                      void editing?.prepare(() => setEventBeingEdited(event));
+                      void editing?.prepare(() => setEventBeingEdited(event), {
+                        kind: 'event',
+                        id: event._id,
+                      });
                     }
               }
               onDelete={onDeleteEvent}

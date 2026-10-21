@@ -17,6 +17,7 @@
     "start": "node server.js",
     "start:test": "dotenv -e .env.test -- node server.js",
     "dev": "nodemon server.js",
+    "format": "prettier --write .",
     "test": "node --test"
   }
 }

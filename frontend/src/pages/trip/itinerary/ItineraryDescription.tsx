@@ -39,11 +39,14 @@ const ItineraryDescription = ({
 
   /** Opens the editor with the current description. */
   const handleEdit = () => {
-    void editing?.prepare(() => {
-      setBaseline(itinerary);
-      setDraft(itinerary.description);
-      setIsEditing(true);
-    });
+    void editing?.prepare(
+      () => {
+        setBaseline(itinerary);
+        setDraft(itinerary.description);
+        setIsEditing(true);
+      },
+      { kind: 'itinerary', id: itinerary._id },
+    );
   };
 
   /** Saves the description and updates the cached itinerary.

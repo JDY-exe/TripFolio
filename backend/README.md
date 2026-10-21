@@ -41,8 +41,12 @@ user-facing content version. Child writes and cascading deletion use transaction
 to prevent orphaned records. Trip deletion intentionally deletes its child records;
 its version precondition protects the reviewed Trip document, not each child.
 
-The frontend opens write dialogs immediately from cached records and refetches
-the existing trip, itinerary, event, and logistics endpoints in the background.
+The frontend opens write dialogs immediately from cached records. Editors refresh
+only the document being changed, both on opening and before saving.
+Event and reservation collection GETs accept an optional `id` filter; filtered
+responses retain their usual array shape and only that record is merged into the
+frontend cache. Creates skip revalidation because no existing document is being
+changed. Post-save invalidation targets the affected entities and related views.
 Background reads never replace the draft or its original version. Slow refreshes
 and failures show local status and retry feedback inside the editor. Submissions
 await revalidation and retain server-side version checks. No snapshot endpoint is added.

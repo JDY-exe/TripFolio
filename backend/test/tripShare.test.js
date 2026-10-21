@@ -18,7 +18,7 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
     userFind: User.find,
     invitationFindOne: TripInvitation.findOne,
     invitationInsertMany: TripInvitation.insertMany,
-    transaction: mongoose.connection.transaction
+    transaction: mongoose.connection.transaction,
   };
   const ids = Object.fromEntries(
     [
@@ -30,19 +30,19 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
       "recipient",
       "member",
       "recipient2",
-      "unknownProfile"
-    ].map((key) => [key, new mongoose.Types.ObjectId().toString()])
+      "unknownProfile",
+    ].map((key) => [key, new mongoose.Types.ObjectId().toString()]),
   );
   const trip = {
     _id: ids.trip,
     ownerId: ids.owner,
     users: [ids.owner, ids.editor, ids.viewer, ids.member],
-    viewerIds: [ids.viewer]
+    viewerIds: [ids.viewer],
   };
   const profiles = new Set(
     Object.entries(ids)
       .filter(([key]) => !["trip", "unknownProfile"].includes(key))
-      .map(([, id]) => id)
+      .map(([, id]) => id),
   );
   let invitations = [];
   let activeSession;
@@ -67,14 +67,16 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
       assert.ok(activeSession);
       assert.equal(session, activeSession);
       return read();
-    }
+    },
   });
   Trip.findById = (tripId) =>
     query(() => (String(tripId) === ids.trip ? trip : null));
-  Trip.updateOne = async (filter, update, options) => { assert.equal(options.session, activeSession); };
+  Trip.updateOne = async (filter, update, options) => {
+    assert.equal(options.session, activeSession);
+  };
   User.find = ({ _id }) =>
     query(() =>
-      _id.$in.filter((id) => profiles.has(id)).map((id) => ({ _id: id }))
+      _id.$in.filter((id) => profiles.has(id)).map((id) => ({ _id: id })),
     );
   TripInvitation.findOne = ({ trip: tripId, recipient, status }) =>
     query(
@@ -83,8 +85,8 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
           (invitation) =>
             invitation.trip === tripId &&
             recipient.$in.includes(invitation.recipient) &&
-            invitation.status === status
-        ) ?? null
+            invitation.status === status,
+        ) ?? null,
     );
   TripInvitation.insertMany = async (documents, options) => {
     inserts += 1;
@@ -95,7 +97,7 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
       activeSession.staged.push({
         ...document,
         _id: new mongoose.Types.ObjectId().toString(),
-        status: "pending"
+        status: "pending",
       });
       // Simulate a write failing after the first document was inserted.
       if (insertError) throw insertError;
@@ -115,12 +117,12 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
       headers: {
         ...(userId
           ? {
-              Authorization: `Bearer ${jwt.sign({ id: userId }, process.env.JWT_SECRET)}`
+              Authorization: `Bearer ${jwt.sign({ id: userId }, process.env.JWT_SECRET)}`,
             }
           : {}),
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
     return { response, data: await response.json() };
   };
@@ -142,13 +144,13 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
       invitations = [];
       const { response, data } = await send(
         { recipientIds: [ids.recipient, ids.recipient2] },
-        inviter
+        inviter,
       );
       assert.equal(response.status, 201);
       assert.equal(invitations.length, 2);
       assert.deepEqual(
         data.invitations.map((invitation) => invitation.recipient),
-        [ids.recipient, ids.recipient2]
+        [ids.recipient, ids.recipient2],
       );
       for (const invitation of data.invitations) {
         assert.equal(invitation.trip, ids.trip);
@@ -159,7 +161,7 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
         ids.owner,
         ids.editor,
         ids.viewer,
-        ids.member
+        ids.member,
       ]);
     }
     invitations = [];
@@ -176,51 +178,51 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
         { recipientIds: [ids.recipient, "bad-id"] },
         { recipientIds: [null] },
         { recipientIds: [ids.recipient, ids.recipient] },
-        { recipientIds: [ids.recipient, ids.recipient.toUpperCase()] }
+        { recipientIds: [ids.recipient, ids.recipient.toUpperCase()] },
       ]) {
         const { response } = await send(body);
         assert.equal(response.status, 400);
       }
       assert.equal(transactions, before);
       assert.equal(invitations.length, 0);
-    }
+    },
   );
   await t.test(
     "rejects the entire batch if any recipient is missing or already a member",
     async () => {
       for (const [recipient, status] of [
         [ids.unknownProfile, 404],
-        [ids.member, 409]
+        [ids.member, 409],
       ]) {
         const { response } = await send({
-          recipientIds: [ids.recipient, recipient]
+          recipientIds: [ids.recipient, recipient],
         });
         assert.equal(response.status, status);
         assert.equal(invitations.length, 0);
       }
-    }
+    },
   );
   await t.test(
     "a pending invitation blocks the batch; declined history does not",
     async () => {
       invitations = [
-        { trip: ids.trip, recipient: ids.recipient, status: "pending" }
+        { trip: ids.trip, recipient: ids.recipient, status: "pending" },
       ];
       const before = inserts;
       const rejected = await send({
-        recipientIds: [ids.recipient2, ids.recipient]
+        recipientIds: [ids.recipient2, ids.recipient],
       });
       assert.equal(rejected.response.status, 409);
       assert.equal(inserts, before);
       assert.equal(invitations.length, 1);
       invitations[0].status = "declined";
       const accepted = await send({
-        recipientIds: [ids.recipient, ids.recipient2]
+        recipientIds: [ids.recipient, ids.recipient2],
       });
       assert.equal(accepted.response.status, 201);
       assert.equal(invitations.length, 3);
       invitations = [];
-    }
+    },
   );
   await t.test(
     "write failures and racing duplicate keys abort the transaction",
@@ -228,13 +230,13 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
       for (const code of [123, 11000]) {
         insertError = Object.assign(new Error("Insert failed"), { code });
         const { response } = await send({
-          recipientIds: [ids.recipient, ids.recipient2]
+          recipientIds: [ids.recipient, ids.recipient2],
         });
         assert.equal(response.status, code === 11000 ? 409 : 500);
         assert.equal(invitations.length, 0);
       }
       insertError = undefined;
-    }
+    },
   );
   await t.test(
     "requires authentication, sharing permission, and an existing trip",
@@ -242,29 +244,29 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
       for (const [user, status] of [
         [null, 401],
         [ids.viewer, 403],
-        [ids.stranger, 403]
+        [ids.stranger, 403],
       ]) {
         assert.equal(
           (await send({ recipientIds: [ids.recipient] }, user)).response.status,
-          status
+          status,
         );
       }
       assert.equal(
         (await send({ recipientIds: [ids.recipient] }, ids.owner, "invalid"))
           .response.status,
-        400
+        400,
       );
       assert.equal(
         (
           await send(
             { recipientIds: [ids.recipient] },
             ids.owner,
-            new mongoose.Types.ObjectId().toString()
+            new mongoose.Types.ObjectId().toString(),
           )
         ).response.status,
-        404
+        404,
       );
       assert.equal(invitations.length, 0);
-    }
+    },
   );
 });

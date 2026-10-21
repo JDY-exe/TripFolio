@@ -25,13 +25,17 @@ function getFriendRequestError({
   requesterId,
   recipientId,
   requesterFriends,
-  existingFriendship
+  existingFriendship,
 }) {
   if (String(requesterId) === String(recipientId)) {
     return "You cannot send a friend request to yourself";
   }
 
-  if (requesterFriends.some((friendId) => String(friendId) === String(recipientId))) {
+  if (
+    requesterFriends.some(
+      (friendId) => String(friendId) === String(recipientId),
+    )
+  ) {
     return "You are already friends with this user";
   }
 

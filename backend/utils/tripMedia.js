@@ -21,5 +21,5 @@ function validateTripProfilePicture(file) {
 
 module.exports = {
   MAX_TRIP_PICTURE_SIZE_BYTES,
-  validateTripProfilePicture
+  validateTripProfilePicture,
 };

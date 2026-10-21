@@ -137,7 +137,7 @@ const TripSettings = () => {
   const sendInvitation = async () => {
     if (!id || !selectedFriendId) return;
     try {
-      await editing?.refresh();
+      await editing?.refresh({ kind: 'trip', id });
       const response = await shareMutation.mutateAsync({
         tripId: id,
         recipientIds: [selectedFriendId],
@@ -204,11 +204,14 @@ const TripSettings = () => {
               data-cy="trip-picture-open"
               className="mt-4"
               onClick={() =>
-                void editing?.prepare(() => {
-                  setBaseline(trip);
-                  setPictureFile(undefined);
-                  setPictureModalOpen(true);
-                })
+                void editing?.prepare(
+                  () => {
+                    setBaseline(trip);
+                    setPictureFile(undefined);
+                    setPictureModalOpen(true);
+                  },
+                  { kind: 'trip', id: trip._id },
+                )
               }
             >
               {profilePictureId ? 'Change trip picture' : 'Add a trip picture'}
@@ -226,7 +229,10 @@ const TripSettings = () => {
             <Button
               data-cy="share-trip-open"
               onClick={() =>
-                void editing?.prepare(() => setShareModalOpen(true))
+                void editing?.prepare(() => setShareModalOpen(true), {
+                  kind: 'trip',
+                  id: trip._id,
+                })
               }
             >
               Share trip
@@ -271,10 +277,13 @@ const TripSettings = () => {
               data-cy="delete-trip-open"
               variant="danger"
               onClick={() =>
-                void editing?.prepare(() => {
-                  setBaseline(trip);
-                  setDeleteModalOpen(true);
-                })
+                void editing?.prepare(
+                  () => {
+                    setBaseline(trip);
+                    setDeleteModalOpen(true);
+                  },
+                  { kind: 'trip', id: trip._id },
+                )
               }
             >
               Delete trip
@@ -331,7 +340,7 @@ const TripSettings = () => {
           setSelectedFriendId(undefined);
         }}
         dismissDisabled={shareMutation.isPending}
-        status={<TripRefreshStatus />}
+        status={<TripRefreshStatus kind="trip" baseline={trip} />}
         footer={(requestClose) => (
           <>
             <Button
