@@ -392,8 +392,10 @@ const addUserToTrip = async (req, res) => {
 const getTripInvitations = async (req, res) => {
   try {
     const invitations = await TripInvitation.find({ recipient: req.user.id, status: "pending" })
-      .populate({ path: "trip", select: "name startDate endDate profilePictureId ownerId users",
-        populate: { path: "ownerId", select: "username profile_picture" } })
+      .populate({
+        path: "trip", select: "name startDate endDate profilePictureId ownerId users",
+        populate: { path: "ownerId", select: "username profile_picture" }
+      })
       .populate("inviter", "username")
       .sort({ createdAt: -1 });
     const results = await Promise.all(invitations.filter((invitation) => invitation.trip).map(async (invitation) => {
@@ -402,9 +404,11 @@ const getTripInvitations = async (req, res) => {
         ? await User.findById(trip.users[0]).select("username profile_picture") : null);
       return {
         _id: invitation._id,
-        trip: { _id: trip._id, name: trip.name, startDate: trip.startDate,
+        trip: {
+          _id: trip._id, name: trip.name, startDate: trip.startDate,
           endDate: trip.endDate, profilePictureId: trip.profilePictureId,
-          owner: owner ? { username: owner.username, profile_picture: owner.profile_picture } : null },
+          owner: owner ? { username: owner.username, profile_picture: owner.profile_picture } : null
+        },
         inviter: invitation.inviter
       };
     }));
@@ -438,50 +442,99 @@ const respondToTripInvitation = async (req, res) => {
   }
 };
 
-/** Modifies a trips votes */
 const modifyGlobalVotes = async (req, res) => {
   try {
-    const {tripId, isUpvote} = req.body;
-    const user = req.user.id;
+    const { tripId, isUpvote } = req.body;
+    const userId = req.user.id;
+
+    // Validate the requested vote
+    if (typeof isUpvote !== "boolean") {
+      return res.status(400).json({
+        message: "isUpvote must be a boolean"
+      });
+    }
+
     const trip = await Trip.findById(tripId);
     if (!trip) {
-      return res.status(404).json({ message: "Trip not found"})
+      return res.status(404).json({
+        message: "Trip not found"
+      });
     }
-    let reset = false;
-    if (user.upvotedTrips.contains(tripId)) {
-      reset = true;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found"
+      });
     }
-    // trip.votes = trip.votes ? trip.votes + 1 : 1;
-    if (trip.votes) {
-      if (reset) {
-        if (isUpvote) {
-          //The trip vote is reseting the upvote so subtracting one
-          trip.votes = trip.votes - 1;
-        } else {
-          trip.votes = trip.votes + 1;
-        }
+
+    // Check the user's existing vote
+    const hasUpvoted = user.upvotedTrips.some(
+      id => id.equals(trip._id)
+    );
+
+    const hasDownvoted = user.downvotedTrips.some(
+      id => id.equals(trip._id)
+    );
+
+    // Initialize the aggregate vote count
+    trip.votes ??= 0;
+
+    if (isUpvote) {
+      if (hasUpvoted) {
+        // Remove the existing upvote
+        user.upvotedTrips.pull(trip._id);
+        trip.votes -= 1;
       } else {
-        //Not reseting so follow logic
-        if (isUpvote) {
-          trip.votes = trip.votes + 1;
-        } else {
-          trip.votes = trip.votes - 1;
+        // Remove an existing downvote, if present
+        if (hasDownvoted) {
+          user.downvotedTrips.pull(trip._id);
+          trip.votes += 1;
         }
+
+        // Add the upvote
+        user.upvotedTrips.addToSet(trip._id);
+        trip.votes += 1;
       }
     } else {
-      // No trip votes
-      if (isUpvote) {
-        trip.votes = 1;
+      if (hasDownvoted) {
+        // Remove the existing downvote
+        user.downvotedTrips.pull(trip._id);
+        trip.votes += 1;
       } else {
-        trip.votes = -1;
+        // Remove an existing upvote, if present
+        if (hasUpvoted) {
+          user.upvotedTrips.pull(trip._id);
+          trip.votes -= 1;
+        }
+
+        // Add the downvote
+        user.downvotedTrips.addToSet(trip._id);
+        trip.votes -= 1;
       }
     }
-    await trip.save();
-    return res.status(200).json({ trip });
+
+    await Promise.all([
+      trip.save(),
+      user.save()
+    ]);
+
+    return res.status(200).json({
+      trip,
+      hasUpvoted: user.upvotedTrips.some(
+        id => id.equals(trip._id)
+      ),
+      hasDownvoted: user.downvotedTrips.some(
+        id => id.equals(trip._id)
+      )
+    });
   } catch (error) {
-    return res.status(500).json({ message: "Server Error"});
+    console.error("Error modifying trip votes:", error);
+    return res.status(500).json({
+      message: "Server Error"
+    });
   }
-}
+};
 
 module.exports = {
   getTripInvitations,

@@ -21,17 +21,23 @@ const userSchema = new mongoose.Schema(
     },
 
     profile_picture: {
-        type: String,
-        required: false
+      type: String,
+      required: false
     },
 
     friends: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User"
-        }
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      }
     ],
     upvotedTrips: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Trip"
+      }
+    ],
+    downvotedTrips: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Trip"
