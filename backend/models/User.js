@@ -30,6 +30,12 @@ const userSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
         }
+    ],
+    upvotedTrips: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Trip"
+      }
     ]
   },
   {

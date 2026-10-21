@@ -442,15 +442,39 @@ const respondToTripInvitation = async (req, res) => {
 const modifyGlobalVotes = async (req, res) => {
   try {
     const {tripId, isUpvote} = req.body;
+    const user = req.user.id;
     const trip = await Trip.findById(tripId);
     if (!trip) {
       return res.status(404).json({ message: "Trip not found"})
     }
-    if (isUpvote) {
-      trip.votes = trip.votes ? trip.votes + 1 : 1;
+    let reset = false;
+    if (user.upvotedTrips.contains(tripId)) {
+      reset = true;
     }
-    else {
-      trip.votes = trip.votes ? trip.votes - 1 : -1;
+    // trip.votes = trip.votes ? trip.votes + 1 : 1;
+    if (trip.votes) {
+      if (reset) {
+        if (isUpvote) {
+          //The trip vote is reseting the upvote so subtracting one
+          trip.votes = trip.votes - 1;
+        } else {
+          trip.votes = trip.votes + 1;
+        }
+      } else {
+        //Not reseting so follow logic
+        if (isUpvote) {
+          trip.votes = trip.votes + 1;
+        } else {
+          trip.votes = trip.votes - 1;
+        }
+      }
+    } else {
+      // No trip votes
+      if (isUpvote) {
+        trip.votes = 1;
+      } else {
+        trip.votes = -1;
+      }
     }
     await trip.save();
     return res.status(200).json({ trip });
