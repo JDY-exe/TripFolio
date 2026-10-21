@@ -34,6 +34,11 @@ const tripSchema = new mongoose.Schema({
     type: Date,
     required: [true, "End date is required"]
   },
+  votes: {
+    type: Number,
+    required: false,
+    default: 0
+  },
   users: [
     {
       type: mongoose.Schema.Types.ObjectId,

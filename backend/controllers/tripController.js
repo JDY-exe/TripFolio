@@ -438,6 +438,27 @@ const respondToTripInvitation = async (req, res) => {
   }
 };
 
+/** Modifies a trips votes */
+const modifyGlobalVotes = async (req, res) => {
+  try {
+    const {tripId, isUpvote} = req.body;
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found"})
+    }
+    if (isUpvote) {
+      trip.votes = trip.votes ? trip.votes + 1 : 1;
+    }
+    else {
+      trip.votes = trip.votes ? trip.votes - 1 : -1;
+    }
+    await trip.save();
+    return res.status(200).json({ trip });
+  } catch (error) {
+    return res.status(500).json({ message: "Server Error"});
+  }
+}
+
 module.exports = {
   getTripInvitations,
   respondToTripInvitation,
@@ -450,5 +471,6 @@ module.exports = {
   getTripProfilePicture,
   getTripFromUser,
   shareTrip,
-  addUserToTrip
+  addUserToTrip,
+  modifyGlobalVotes
 };
