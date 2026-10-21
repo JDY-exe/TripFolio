@@ -21,6 +21,9 @@ committed; requests are not automatically retried.
 
 # Concurrent trip editing
 
+For helper APIs and a walkthrough of connecting a new backend/frontend entity,
+see [Adding an entity to concurrent trip editing](../docs/versioned-entities.md).
+
 Trip, Itinerary, Event, and Reservation records expose one server-owned integer
 `version`, starting at `0`. PATCH requests send editable changes and
 `expectedVersion`. DELETE requests send `{ "expectedVersion": 0 }` in their JSON
