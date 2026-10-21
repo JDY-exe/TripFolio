@@ -16,18 +16,18 @@ const getTripRole = (trip, userId) => {
 
   const currentUserId = toId(userId);
   const ownerId = toId(trip.ownerId);
-  if (ownerId === currentUserId) return "owner";
+  if (ownerId === currentUserId) return 'owner';
 
   const users = Array.isArray(trip.users) ? trip.users : [];
-  if (!ownerId && toId(users[0]) === currentUserId) return "owner";
+  if (!ownerId && toId(users[0]) === currentUserId) return 'owner';
 
   const viewerIds = Array.isArray(trip.viewerIds) ? trip.viewerIds : [];
   if (viewerIds.some((memberId) => toId(memberId) === currentUserId)) {
-    return "viewer";
+    return 'viewer';
   }
 
   if (users.some((memberId) => toId(memberId) === currentUserId)) {
-    return "editor";
+    return 'editor';
   }
 
   return null;
@@ -52,7 +52,7 @@ const canReadTrip = (trip, userId) =>
  */
 const canEditTrip = (trip, userId) => {
   const role = getTripRole(trip, userId);
-  return role === "owner" || role === "editor";
+  return role === 'owner' || role === 'editor';
 };
 
 module.exports = { getTripRole, canReadTrip, canEditTrip };

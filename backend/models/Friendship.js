@@ -5,26 +5,26 @@ const friendshipSchema = new mongoose.Schema(
     requester: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: true
     },
     recipient: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: true
     },
     pairKey: {
       type: String,
       required: true,
-      unique: true,
+      unique: true
     },
     status: {
       type: String,
       enum: ["pending", "accepted"],
       default: "pending",
-      required: true,
-    },
+      required: true
+    }
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Friendship", friendshipSchema);

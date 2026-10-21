@@ -3,22 +3,21 @@ const getDestinations = async (req, res) => {
     const { query_term, session_token } = req.query;
 
     // Do not process if search box is empty
-    if (!query_term || query_term.trim() === "") {
+    if (!query_term || query_term.trim() === '') {
       return res.status(200).json({ suggestions: [] });
     }
-
-    const url = "https://places.googleapis.com/v1/places:autocomplete";
+    
+    const url = 'https://places.googleapis.com/v1/places:autocomplete';
     const response = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": process.env.GOOGLE_API_KEY,
-        "X-Goog-FieldMask":
-          "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat,suggestions.placePrediction.types",
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': process.env.GOOGLE_API_KEY,
+        'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat,suggestions.placePrediction.types',
       },
       body: JSON.stringify({
         input: query_term,
-        sessionToken: session_token,
+        sessionToken: session_token
       }),
     });
 
@@ -28,11 +27,10 @@ const getDestinations = async (req, res) => {
 
     const data = await response.json();
     res.status(200).json(data);
+  
   } catch (error) {
-    console.error("Destination Lookup Error:", error.message);
-    res
-      .status(500)
-      .json({ message: "Error fetching destinations", error: error.message });
+    console.error('Destination Lookup Error:', error.message);
+    res.status(500).json({ message: 'Error fetching destinations', error: error.message })
   }
 };
 

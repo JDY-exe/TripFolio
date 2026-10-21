@@ -22,10 +22,7 @@ test("public itinerary endpoints expose only public read data", async (t) => {
     itineraryFindOne: Itinerary.findOne,
     eventFind: Event.find,
     userFindById: User.findById,
-    gridFSBucketDescriptor: Object.getOwnPropertyDescriptor(
-      mongoose.mongo,
-      "GridFSBucket",
-    ),
+    gridFSBucketDescriptor: Object.getOwnPropertyDescriptor(mongoose.mongo, "GridFSBucket"),
   };
   const userId = new mongoose.Types.ObjectId();
   const friendId = new mongoose.Types.ObjectId();
@@ -36,28 +33,22 @@ test("public itinerary endpoints expose only public read data", async (t) => {
   const privatePictureId = new mongoose.Types.ObjectId();
   const itineraryId = new mongoose.Types.ObjectId();
   const tripRecords = new Map([
-    [
-      String(publicTripId),
-      {
-        _id: publicTripId,
-        ownerId,
-        isPublic: true,
-        profilePictureId: publicPictureId,
-        name: "Coastal weekend",
-        startDate: new Date("2026-08-01"),
-        endDate: new Date("2026-08-03"),
-      },
-    ],
-    [
-      String(privateTripId),
-      {
-        _id: privateTripId,
-        ownerId,
-        isPublic: false,
-        profilePictureId: privatePictureId,
-        name: "Private weekend",
-      },
-    ],
+    [String(publicTripId), {
+      _id: publicTripId,
+      ownerId,
+      isPublic: true,
+      profilePictureId: publicPictureId,
+      name: "Coastal weekend",
+      startDate: new Date("2026-08-01"),
+      endDate: new Date("2026-08-03"),
+    }],
+    [String(privateTripId), {
+      _id: privateTripId,
+      ownerId,
+      isPublic: false,
+      profilePictureId: privatePictureId,
+      name: "Private weekend",
+    }],
   ]);
   const itinerary = {
     _id: itineraryId,
@@ -86,10 +77,7 @@ test("public itinerary endpoints expose only public read data", async (t) => {
         tripName: "Another public trip",
         isFriend: false,
         owner: { username: "traveler" },
-        itinerary: {
-          _id: new mongoose.Types.ObjectId(),
-          title: "Another plan",
-        },
+        itinerary: { _id: new mongoose.Types.ObjectId(), title: "Another plan" },
       },
     ];
   };
@@ -112,33 +100,27 @@ test("public itinerary endpoints expose only public read data", async (t) => {
   User.findById = (id) => ({
     select: async (fields) => {
       const isCurrentUser = String(id) === String(userId);
-      assert.equal(
-        fields,
-        isCurrentUser ? "friends" : "username profile_picture",
-      );
+      assert.equal(fields, isCurrentUser ? "friends" : "username profile_picture");
       return isCurrentUser
         ? { friends: [] }
         : { _id: ownerId, username: "coastfriend", profile_picture: null };
     },
   });
-  Object.defineProperty(mongoose.mongo, "GridFSBucket", {
-    configurable: true,
-    value: class {
-      find(filter) {
-        assert.equal(String(filter._id), String(publicPictureId));
-        return {
-          toArray: async () => [{ metadata: { contentType: "image/jpeg" } }],
-        };
-      }
+  Object.defineProperty(mongoose.mongo, "GridFSBucket", { configurable: true, value: class {
+    find(filter) {
+      assert.equal(String(filter._id), String(publicPictureId));
+      return {
+        toArray: async () => [{ metadata: { contentType: "image/jpeg" } }],
+      };
+    }
 
-      openDownloadStream(id) {
-        assert.equal(String(id), String(publicPictureId));
-        const stream = new PassThrough();
-        queueMicrotask(() => stream.end(Buffer.from("trip-cover")));
-        return stream;
-      }
-    },
-  });
+    openDownloadStream(id) {
+      assert.equal(String(id), String(publicPictureId));
+      const stream = new PassThrough();
+      queueMicrotask(() => stream.end(Buffer.from("trip-cover")));
+      return stream;
+    }
+  } });
 
   const app = express();
   app.use(express.json());
@@ -147,26 +129,19 @@ test("public itinerary endpoints expose only public read data", async (t) => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   const token = jwt.sign({ id: String(userId) }, process.env.JWT_SECRET);
-  const send = (path) =>
-    fetch(`${baseUrl}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  const send = (path) => fetch(`${baseUrl}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
   t.after(async () => {
-    await new Promise((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     Trip.aggregate = originalMethods.aggregate;
     Trip.findById = originalMethods.findById;
     Friendship.find = originalMethods.friendshipFind;
     Itinerary.findOne = originalMethods.itineraryFindOne;
     Event.find = originalMethods.eventFind;
     User.findById = originalMethods.userFindById;
-    Object.defineProperty(
-      mongoose.mongo,
-      "GridFSBucket",
-      originalMethods.gridFSBucketDescriptor,
-    );
+    Object.defineProperty(mongoose.mongo, "GridFSBucket", originalMethods.gridFSBucketDescriptor);
     if (previousSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = previousSecret;
   });
@@ -219,22 +194,15 @@ test("public itinerary endpoints expose only public read data", async (t) => {
   assert.equal(publicResponse.status, 200);
   assert.equal(publicDetails.trip.name, "Coastal weekend");
   assert.equal(publicDetails.owner.username, "coastfriend");
-  assert.deepEqual(publicDetails.events, [
-    { _id: String(events[0]._id), title: "Harbor walk" },
-  ]);
+  assert.deepEqual(publicDetails.events, [{ _id: String(events[0]._id), title: "Harbor walk" }]);
 
   const coverResponse = await send(`/api/itineraries/${publicTripId}/cover`);
   assert.equal(coverResponse.status, 200, await coverResponse.clone().text());
   assert.equal(coverResponse.headers.get("content-type"), "image/jpeg");
-  assert.equal(
-    coverResponse.headers.get("cache-control"),
-    "public, max-age=3600",
-  );
+  assert.equal(coverResponse.headers.get("cache-control"), "public, max-age=3600");
   assert.equal(await coverResponse.text(), "trip-cover");
 
-  const privateCoverResponse = await send(
-    `/api/itineraries/${privateTripId}/cover`,
-  );
+  const privateCoverResponse = await send(`/api/itineraries/${privateTripId}/cover`);
   assert.equal(privateCoverResponse.status, 404);
 
   const previousLookupCount = itineraryLookupCount;
