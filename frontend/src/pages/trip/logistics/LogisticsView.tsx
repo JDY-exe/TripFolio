@@ -1,3 +1,8 @@
+import TripRefreshStatus from '../editing/TripRefreshStatus';
+import {
+  TripWriteCancelled,
+  useTripEditing,
+} from '../../../queries/tripEditing';
 import { useState } from 'react';
 import { useParams } from 'react-router';
 import { Button, Modal, Text, displayAlert } from '../../../components/common';
@@ -21,13 +26,14 @@ import RentalCarsSection from './rentals/RentalCarsSection';
  * @returns The Logistics view with live reservation lists and editing.
  */
 const LogisticsView = () => {
+  const editingCoordinator = useTripEditing();
   const { id: tripId } = useParams<{ id: string }>();
   const [addingType, setAddingType] = useState<ReservationType | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
   const [reservationToDelete, setReservationToDelete] =
     useState<Reservation | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const deleteReservation = useDeleteReservation(tripId ?? '');
+  const deleteReservation = useDeleteReservation();
 
   /**
    * Removes the confirmed reservation and reports API failures.
@@ -40,11 +46,28 @@ const LogisticsView = () => {
       setDeleteModalOpen(false);
       displayAlert('Reservation deleted.');
     } catch (error) {
+      if (error instanceof TripWriteCancelled) {
+        if (error.discarded) setDeleteModalOpen(false);
+        return;
+      }
       displayAlert({
         message: getApiErrorMessage(error, 'Could not delete the reservation.'),
         tone: 'error',
       });
     }
+  };
+
+  /** Opens the selected booking immediately while pulling unseen changes in the background. */
+  const openReservation = (reservation: Reservation, deleting = false) => {
+    void editingCoordinator?.prepare(
+      () => {
+        if (deleting) {
+          setReservationToDelete(reservation);
+          setDeleteModalOpen(true);
+        } else setEditing(reservation);
+      },
+      { kind: 'reservation', id: reservation._id, type: reservation.type },
+    );
   };
 
   if (!tripId) return <Text>Trip not found.</Text>;
@@ -71,31 +94,40 @@ const LogisticsView = () => {
         <div className="min-w-0 space-y-10 lg:col-start-1 lg:row-start-1">
           <FlightsSection
             tripId={tripId}
-            onAdd={() => setAddingType(ReservationType.Flights)}
-            onEdit={setEditing}
+            onAdd={() =>
+              void editingCoordinator?.prepare(() =>
+                setAddingType(ReservationType.Flights),
+              )
+            }
+            onEdit={openReservation}
             onDelete={(reservation) => {
-              setReservationToDelete(reservation);
-              setDeleteModalOpen(true);
+              openReservation(reservation, true);
             }}
           />
 
           <AccommodationsSection
             tripId={tripId}
-            onAdd={() => setAddingType(ReservationType.Accommodations)}
-            onEdit={setEditing}
+            onAdd={() =>
+              void editingCoordinator?.prepare(() =>
+                setAddingType(ReservationType.Accommodations),
+              )
+            }
+            onEdit={openReservation}
             onDelete={(reservation) => {
-              setReservationToDelete(reservation);
-              setDeleteModalOpen(true);
+              openReservation(reservation, true);
             }}
           />
 
           <RentalCarsSection
             tripId={tripId}
-            onAdd={() => setAddingType(ReservationType.Rentals)}
-            onEdit={setEditing}
+            onAdd={() =>
+              void editingCoordinator?.prepare(() =>
+                setAddingType(ReservationType.Rentals),
+              )
+            }
+            onEdit={openReservation}
             onDelete={(reservation) => {
-              setReservationToDelete(reservation);
-              setDeleteModalOpen(true);
+              openReservation(reservation, true);
             }}
           />
         </div>
@@ -110,6 +142,12 @@ const LogisticsView = () => {
           }}
           onExited={() => setReservationToDelete(null)}
           dismissDisabled={deleteReservation.isPending}
+          status={
+            <TripRefreshStatus
+              kind="reservation"
+              baseline={reservationToDelete}
+            />
+          }
           footer={(requestClose) => (
             <>
               <Button

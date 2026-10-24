@@ -1,5 +1,6 @@
+import { useTripEditing } from './tripEditing';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { getFromApi, patchToApi, postToApi } from '../utils/api';
+import { deleteFromApi, getFromApi, patchToApi, postToApi } from '../utils/api';
 
 export interface TripTraveler {
   id: string;
@@ -8,12 +9,16 @@ export interface TripTraveler {
 }
 
 export interface Trip {
+  version: number;
   _id: string;
   name: string;
   startDate: string;
   endDate: string;
   profilePictureId?: string;
   travelers?: TripTraveler[];
+  isPublic: boolean;
+  currentUserRole: 'owner' | 'editor' | 'viewer' | null;
+  users?: string[];
 }
 
 /** Creates the cache key for a user's trips. */
@@ -45,7 +50,10 @@ export const useTrips = (userId?: string) => {
 
 export interface TripInvitation {
   _id: string;
-  trip: Trip & {
+  trip: Pick<
+    Trip,
+    '_id' | 'name' | 'startDate' | 'endDate' | 'profilePictureId'
+  > & {
     owner?: { username: string; profile_picture?: string | null } | null;
   };
   inviter: { username: string } | null;
@@ -113,3 +121,90 @@ export const useSendTripInvitations = () =>
       ),
     retry: 0,
   });
+
+/** Loads trip settings through the shared entity cache.
+ * @param tripId - Trip to load.
+ * @returns The trip and its loading and error state.
+ */
+export const useTrip = (tripId?: string) =>
+  useQuery({
+    queryKey: ['trip-settings', tripId],
+    queryFn: () => getFromApi<Trip>(`/trip/${tripId}`),
+    enabled: Boolean(tripId),
+  });
+
+/** Saves trip visibility against the version captured before the write action.
+ * @returns A mutation accepting the original trip and desired visibility.
+ */
+export const useSaveTripVisibility = () => {
+  const editing = useTripEditing();
+  return useMutation({
+    mutationFn: async ({
+      baseline,
+      isPublic,
+    }: {
+      baseline: Trip;
+      isPublic: boolean;
+    }) => {
+      if (!editing) throw new Error('Trip editing is unavailable.');
+      return editing.write({
+        kind: 'trip',
+        baseline,
+        draft: { isPublic },
+        send: (expectedVersion) =>
+          patchToApi<Trip>(`/trip/${baseline._id}/visibility`, {
+            isPublic,
+            expectedVersion,
+          }),
+      });
+    },
+  });
+};
+
+/** Replaces a trip cover with version protection and retains the selected file on conflict.
+ * @returns A mutation accepting the original trip and cropped image file.
+ */
+export const useSaveTripPicture = () => {
+  const editing = useTripEditing();
+  return useMutation({
+    mutationFn: async ({ baseline, file }: { baseline: Trip; file: File }) => {
+      if (!editing) throw new Error('Trip editing is unavailable.');
+      return editing.write({
+        kind: 'trip',
+        baseline,
+        draft: { profilePictureId: file },
+        send: (expectedVersion) => {
+          const image = new FormData();
+          image.append('image', file);
+          image.append('expectedVersion', String(expectedVersion));
+          return patchToApi<{ trip: Trip }>(
+            `/trip/${baseline._id}/profile_picture`,
+            image,
+          );
+        },
+      });
+    },
+  });
+};
+
+/** Deletes the reviewed trip and clears its settings cache after success.
+ * @returns A mutation requiring the version shown in the confirmation flow.
+ */
+export const useDeleteTrip = () => {
+  const editing = useTripEditing();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (baseline: Trip) => {
+      if (!editing) throw new Error('Trip editing is unavailable.');
+      await editing.write({
+        kind: 'trip',
+        baseline,
+        draft: {},
+        deleting: true,
+        send: (expectedVersion) =>
+          deleteFromApi(`/trip/${baseline._id}`, { data: { expectedVersion } }),
+      });
+      client.removeQueries({ queryKey: ['trip-settings', baseline._id] });
+    },
+  });
+};

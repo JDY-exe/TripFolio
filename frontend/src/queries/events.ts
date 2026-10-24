@@ -1,7 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
-import { getFromApi } from '../utils/api';
+import { changedValues, useTripEditing } from './tripEditing';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { deleteFromApi, getFromApi, patchToApi, postToApi } from '../utils/api';
 
 export interface EventData {
+  version: number;
   _id: string;
   title: string;
   placeId?: string | null;
@@ -70,4 +72,82 @@ export const useEventPhoto = (
   });
 
   return { photo: data?.photo ?? null, isPending };
+};
+
+/** Saves an event through the trip coordinator and refreshes all event consumers.
+ * @returns A mutation accepting editable values and the editor's original event.
+ */
+export const useSaveEvent = () => {
+  const editing = useTripEditing();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      itineraryId,
+      values,
+      baseline,
+    }: {
+      itineraryId: string;
+      values: Omit<EventData, '_id' | 'version' | 'lat' | 'lng'>;
+      baseline?: EventData;
+    }) => {
+      if (!editing) throw new Error('Trip editing is unavailable.');
+      if (baseline) {
+        const patch = changedValues(
+          {
+            ...baseline,
+            notes: baseline.notes ?? '',
+            restaurant: baseline.restaurant ?? false,
+            reservationMade: baseline.reservationMade ?? false,
+            placeId: baseline.placeId ?? null,
+            address: baseline.address ?? '',
+          },
+          values,
+        );
+        return editing.write({
+          kind: 'event',
+          baseline,
+          draft: patch,
+          send: (expectedVersion) =>
+            patchToApi<EventData>(`/event/${baseline._id}`, {
+              ...patch,
+              expectedVersion,
+            }),
+        });
+      }
+      return postToApi<EventData>('/event', {
+        itineraryID: itineraryId,
+        ...values,
+      });
+    },
+    onSuccess: async (_event, variables) => {
+      if (variables.baseline) return;
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['events'] }),
+        client.invalidateQueries({ queryKey: ['public-itinerary'] }),
+        client.invalidateQueries({ queryKey: ['public-itinerary-feed'] }),
+      ]);
+    },
+  });
+};
+
+/** Deletes the reviewed event with document version protection.
+ * @returns A mutation that prompts again when the event changed after confirmation opened.
+ */
+export const useDeleteEvent = () => {
+  const editing = useTripEditing();
+  return useMutation({
+    mutationFn: async (baseline: EventData) => {
+      if (!editing) throw new Error('Trip editing is unavailable.');
+      return editing.write({
+        kind: 'event',
+        baseline,
+        draft: {},
+        deleting: true,
+        send: (expectedVersion) =>
+          deleteFromApi(`/event/${baseline._id}`, {
+            data: { expectedVersion },
+          }),
+      });
+    },
+  });
 };

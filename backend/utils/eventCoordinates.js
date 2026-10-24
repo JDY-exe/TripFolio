@@ -3,9 +3,12 @@
  * @returns {{lat: number, lng: number} | null} Usable coordinates.
  */
 const getEventCoordinates = (event) =>
-  Number.isFinite(event.lat) && Number.isFinite(event.lng)
-    && Math.abs(event.lat) <= 90 && Math.abs(event.lng) <= 180
-    ? { lat: event.lat, lng: event.lng } : null;
+  Number.isFinite(event.lat) &&
+  Number.isFinite(event.lng) &&
+  Math.abs(event.lat) <= 90 &&
+  Math.abs(event.lng) <= 180
+    ? { lat: event.lat, lng: event.lng }
+    : null;
 
 /** Fetches only coordinates for a selected Google place, without address matching.
  * @param {string} placeId - Selected Google place identifier.
@@ -13,18 +16,26 @@ const getEventCoordinates = (event) =>
  */
 const lookupPlaceCoordinates = async (placeId) => {
   if (!placeId) return null;
-  if (!process.env.GOOGLE_API_KEY) throw new Error('Google Places is not configured');
-  const id = placeId.replace(/^places\//, '');
-  const response = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`, {
-    headers: {
-      'X-Goog-Api-Key': process.env.GOOGLE_API_KEY,
-      'X-Goog-FieldMask': 'location',
+  if (!process.env.GOOGLE_API_KEY)
+    throw new Error("Google Places is not configured");
+  const id = placeId.replace(/^places\//, "");
+  const response = await fetch(
+    `https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`,
+    {
+      headers: {
+        "X-Goog-Api-Key": process.env.GOOGLE_API_KEY,
+        "X-Goog-FieldMask": "location",
+      },
+      signal: AbortSignal.timeout(8000),
     },
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!response.ok) throw new Error(`Google place lookup returned ${response.status}`);
+  );
+  if (!response.ok)
+    throw new Error(`Google place lookup returned ${response.status}`);
   const { location } = await response.json();
-  return getEventCoordinates({ lat: location?.latitude, lng: location?.longitude });
+  return getEventCoordinates({
+    lat: location?.latitude,
+    lng: location?.longitude,
+  });
 };
 
 /** Looks up selected-place coordinates during saving without blocking event creation on failure.
@@ -39,4 +50,8 @@ const tryPlaceCoordinates = async (placeId) => {
   }
 };
 
-module.exports = { getEventCoordinates, lookupPlaceCoordinates, tryPlaceCoordinates };
+module.exports = {
+  getEventCoordinates,
+  lookupPlaceCoordinates,
+  tryPlaceCoordinates,
+};

@@ -1,3 +1,5 @@
+import TripRefreshStatus from '../../editing/TripRefreshStatus';
+import { TripWriteCancelled } from '../../../../queries/tripEditing';
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -144,13 +146,20 @@ const FlightReservationForm = ({
         type: ReservationType.Flights,
         values,
         id: reservation?._id,
+        baseline: reservation,
       });
       setIsOpen(false);
     } catch (cause) {
+      if (cause instanceof TripWriteCancelled) {
+        if (cause.discarded) setIsOpen(false);
+        return;
+      }
       setError(
         getApiErrorMessage(
           cause,
-          'Could not save the flight. Please try again.',
+          cause instanceof Error
+            ? cause.message
+            : 'Could not save the flight. Please try again.',
         ),
       );
       stepContentRef.current?.scrollIntoView({ block: 'start' });
@@ -172,6 +181,8 @@ const FlightReservationForm = ({
       }}
       onExited={onClose}
       dismissDisabled={saveReservation.isPending}
+      contentDisabled={saveReservation.isPending}
+      status={<TripRefreshStatus kind="reservation" baseline={reservation} />}
       panelClassName="flex h-[calc(100dvh_-_2rem)] max-h-[56rem] flex-col sm:h-[calc(100dvh_-_4rem)] sm:max-w-3xl"
       contentClassName="min-h-0 flex-1 overflow-y-auto"
       footer={(requestClose) => (

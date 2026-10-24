@@ -11,7 +11,8 @@
     "startDate": "2030-04-01T00:00:00.000Z",
     "endDate": "2030-04-05T00:00:00.000Z",
     "isPublic": false,
-    "currentUserRole": "owner"
+    "currentUserRole": "owner",
+    "version": 0
   },
   "itinerary": {
     "_id": "64b000000000000000000004",
@@ -19,7 +20,8 @@
     "title": "Weekend itinerary",
     "description": "A seaside trip",
     "startDate": "2030-04-01T00:00:00.000Z",
-    "endDate": "2030-04-05T00:00:00.000Z"
+    "endDate": "2030-04-05T00:00:00.000Z",
+    "version": 0
   },
   "event": {
     "_id": "64b000000000000000000005",
@@ -28,15 +30,22 @@
     "placeId": null,
     "startTime": "2030-04-01T09:00:00.000Z",
     "endTime": "2030-04-01T10:00:00.000Z",
-    "notes": "Bring a camera"
+    "notes": "Bring a camera",
+    "version": 0
   },
   "placeSuggestion": {
     "placePrediction": {
       "placeId": "place-ocean-pier",
-      "text": { "text": "Ocean Pier, Miami" },
+      "text": {
+        "text": "Ocean Pier, Miami"
+      },
       "structuredFormat": {
-        "mainText": { "text": "Ocean Pier" },
-        "secondaryText": { "text": "Miami, FL" }
+        "mainText": {
+          "text": "Ocean Pier"
+        },
+        "secondaryText": {
+          "text": "Miami, FL"
+        }
       },
       "types": ["tourist_attraction"]
     }
@@ -61,7 +70,8 @@
           "arriveTime": "2030-04-01T10:00"
         }
       ]
-    }
+    },
+    "version": 0
   },
   "rental": {
     "_id": "64b000000000000000000007",
@@ -70,7 +80,10 @@
     "startTime": "2030-04-01T00:00:00.000Z",
     "endTime": "2030-04-05T00:00:00.000Z",
     "cost": 180,
-    "rentals": { "company": "Roadway" }
+    "rentals": {
+      "company": "Roadway"
+    },
+    "version": 0
   },
   "accommodation": {
     "_id": "64b000000000000000000008",
@@ -79,7 +92,10 @@
     "startTime": "2030-04-01T00:00:00.000Z",
     "endTime": "2030-04-05T00:00:00.000Z",
     "cost": 500,
-    "accommodations": { "address": "5 Harbor Road" }
+    "accommodations": {
+      "address": "5 Harbor Road"
+    },
+    "version": 0
   },
   "friend": {
     "id": "64b000000000000000000009",

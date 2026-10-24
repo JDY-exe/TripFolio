@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import TripRefreshStatus from './editing/TripRefreshStatus';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
@@ -10,30 +10,16 @@ import {
   displayAlert,
   tripCoverImagePreset,
 } from '../../components/common';
-import { useAuth } from '../../contexts/AuthContext';
-import { tripsQueryKey, useSendTripInvitations } from '../../queries/trips';
+import { TripWriteCancelled, useTripEditing } from '../../queries/tripEditing';
 import {
-  deleteFromApi,
-  getBlobFromApi,
-  getApiErrorMessage,
-  getFromApi,
-  patchToApi,
-} from '../../utils/api';
-
-type TripRole = 'owner' | 'editor' | 'viewer' | null;
-
-interface TripSettingsData {
-  _id: string;
-  name: string;
-  isPublic: boolean;
-  currentUserRole: TripRole;
-  users?: string[];
-  profilePictureId?: string;
-}
-
-interface TripPictureResponse {
-  trip: Pick<TripSettingsData, '_id' | 'profilePictureId'>;
-}
+  useTrip,
+  useSendTripInvitations,
+  useSaveTripPicture,
+  useSaveTripVisibility,
+  useDeleteTrip,
+} from '../../queries/trips';
+import type { Trip } from '../../queries/trips';
+import { getBlobFromApi, getApiErrorMessage } from '../../utils/api';
 
 /**
  * Loads trip settings and the current user's role, then lets the owner change
@@ -44,7 +30,9 @@ interface TripPictureResponse {
 const TripSettings = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const editing = useTripEditing();
+  const [baseline, setBaseline] = useState<Trip>();
+  const [pictureModalOpen, setPictureModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedFriendId, setSelectedFriendId] = useState<string>();
@@ -53,13 +41,7 @@ const TripSettings = () => {
     pictureId: string;
     url: string;
   }>();
-  const queryClient = useQueryClient();
-  const queryKey = ['trip-settings', id] as const;
-  const tripQuery = useQuery({
-    queryKey,
-    queryFn: () => getFromApi<TripSettingsData>(`/trip/${id}`),
-    enabled: Boolean(id),
-  });
+  const tripQuery = useTrip(id);
   const profilePictureId = tripQuery.data?.profilePictureId;
 
   useEffect(() => {
@@ -83,66 +65,70 @@ const TripSettings = () => {
     };
   }, [id, profilePictureId]);
 
-  const pictureMutation = useMutation({
-    mutationFn: (image: FormData) =>
-      patchToApi<TripPictureResponse>(`/trip/${id}/profile_picture`, image),
-    onSuccess: (response) => {
-      queryClient.setQueryData<TripSettingsData>(queryKey, (current) =>
-        current
-          ? { ...current, profilePictureId: response.trip.profilePictureId }
-          : current,
-      );
-      void queryClient.invalidateQueries({
-        queryKey: tripsQueryKey(user?.id),
-      });
-      displayAlert({ message: 'Trip picture updated.', tone: 'success' });
-    },
-    onError: (error) => {
-      displayAlert({
-        message: getApiErrorMessage(
-          error,
-          'Trip picture could not be updated.',
-        ),
-        tone: 'error',
-      });
-    },
-  });
+  const pictureMutation = useSaveTripPicture();
+  const visibilityMutation = useSaveTripVisibility();
+  const deleteMutation = useDeleteTrip();
 
-  const visibilityMutation = useMutation({
-    mutationFn: (isPublic: boolean) =>
-      patchToApi<TripSettingsData>(`/trip/${id}/visibility`, { isPublic }),
-    onSuccess: (trip) => {
-      queryClient.setQueryData(queryKey, trip);
+  /** Reports write failures while treating conflict choices as deliberate cancellation. */
+  const reportError = (error: unknown, fallback: string) => {
+    if (error instanceof TripWriteCancelled) return;
+    displayAlert({
+      message: getApiErrorMessage(
+        error,
+        error instanceof Error ? error.message : fallback,
+      ),
+      tone: 'error',
+    });
+  };
+
+  /** Applies visibility intent after refreshing, retaining the originally displayed version. */
+  const changeVisibility = async (isPublic: boolean) => {
+    if (!tripQuery.data) return;
+    try {
+      const updated = await visibilityMutation.mutateAsync({
+        baseline: tripQuery.data,
+        isPublic,
+      });
       displayAlert({
-        message: `Trip is now ${trip.isPublic ? 'public' : 'private'}.`,
+        message: `Trip is now ${updated.isPublic ? 'public' : 'private'}.`,
         tone: 'success',
       });
-    },
-    onError: (error) => {
-      displayAlert({
-        message: getApiErrorMessage(
-          error,
-          'Trip visibility could not be updated.',
-        ),
-        tone: 'error',
-      });
-    },
-  });
-  const deleteMutation = useMutation({
-    mutationFn: (tripId: string) => deleteFromApi(`/trip/${tripId}`),
-    onSuccess: () => {
-      queryClient.removeQueries({ queryKey });
-      void queryClient.invalidateQueries({ queryKey: tripsQueryKey(user?.id) });
+    } catch (error) {
+      reportError(error, 'Trip visibility could not be updated.');
+    }
+  };
+
+  /** Deletes the reviewed trip after another refresh and version check. */
+  const confirmDelete = async () => {
+    if (!baseline) return;
+    try {
+      await deleteMutation.mutateAsync(baseline);
       displayAlert({ message: 'Trip deleted.', tone: 'success' });
       navigate('/my-trips', { replace: true });
-    },
-    onError: (error) => {
-      displayAlert({
-        message: getApiErrorMessage(error, 'Trip could not be deleted.'),
-        tone: 'error',
-      });
-    },
-  });
+    } catch (error) {
+      if (error instanceof TripWriteCancelled && error.discarded)
+        setDeleteModalOpen(false);
+      reportError(error, 'Trip could not be deleted.');
+    }
+  };
+
+  /** Saves a cropped cover, retaining the draft when resolution returns to editing. */
+  const savePicture = async (file: File) => {
+    if (!baseline) return;
+    setPictureFile(file);
+    try {
+      await pictureMutation.mutateAsync({ baseline, file });
+      setPictureModalOpen(false);
+      setPictureFile(undefined);
+      displayAlert({ message: 'Trip picture updated.', tone: 'success' });
+    } catch (error) {
+      if (error instanceof TripWriteCancelled && error.discarded) {
+        setPictureModalOpen(false);
+        setPictureFile(undefined);
+      }
+      reportError(error, 'Trip picture could not be updated.');
+    }
+  };
   const shareMutation = useSendTripInvitations();
 
   /** Sends the selected friend's invitation and preserves the selection on failure.
@@ -151,6 +137,7 @@ const TripSettings = () => {
   const sendInvitation = async () => {
     if (!id || !selectedFriendId) return;
     try {
+      await editing?.refresh({ kind: 'trip', id });
       const response = await shareMutation.mutateAsync({
         tripId: id,
         recipientIds: [selectedFriendId],
@@ -206,24 +193,29 @@ const TripSettings = () => {
             <Text as="h3" variant="title">
               Trip picture
             </Text>
-            <ImageUploadField
+            {existingImageUrl && (
+              <img
+                src={existingImageUrl}
+                alt="Current trip picture"
+                className="my-4 aspect-video w-full rounded-panel object-cover"
+              />
+            )}
+            <Button
+              data-cy="trip-picture-open"
               className="mt-4"
-              disabled={pictureMutation.isPending}
-              existingImageUrl={existingImageUrl}
-              label="Add a trip picture"
-              name="trip-picture"
-              onAccept={async (file) => {
-                const image = new FormData();
-                image.append('image', file);
-                await pictureMutation.mutateAsync(image);
-                setPictureFile(file);
-              }}
-              pickerHeight={240}
-              preset={tripCoverImagePreset}
-              previewAlt="Current trip picture"
-              replaceLabel="Change trip picture"
-              value={pictureFile}
-            />
+              onClick={() =>
+                void editing?.prepare(
+                  () => {
+                    setBaseline(trip);
+                    setPictureFile(undefined);
+                    setPictureModalOpen(true);
+                  },
+                  { kind: 'trip', id: trip._id },
+                )
+              }
+            >
+              {profilePictureId ? 'Change trip picture' : 'Add a trip picture'}
+            </Button>
           </div>
         )}
         {canShareTrip && (
@@ -236,7 +228,12 @@ const TripSettings = () => {
             </Text>
             <Button
               data-cy="share-trip-open"
-              onClick={() => setShareModalOpen(true)}
+              onClick={() =>
+                void editing?.prepare(() => setShareModalOpen(true), {
+                  kind: 'trip',
+                  id: trip._id,
+                })
+              }
             >
               Share trip
             </Button>
@@ -259,9 +256,7 @@ const TripSettings = () => {
             aria-label="Public trip"
             checked={trip.isPublic}
             disabled={!canChangeVisibility || visibilityMutation.isPending}
-            onChange={(event) =>
-              visibilityMutation.mutate(event.target.checked)
-            }
+            onChange={(event) => void changeVisibility(event.target.checked)}
             className="size-5 shrink-0 accent-primary"
           />
         </label>
@@ -281,13 +276,60 @@ const TripSettings = () => {
             <Button
               data-cy="delete-trip-open"
               variant="danger"
-              onClick={() => setDeleteModalOpen(true)}
+              onClick={() =>
+                void editing?.prepare(
+                  () => {
+                    setBaseline(trip);
+                    setDeleteModalOpen(true);
+                  },
+                  { kind: 'trip', id: trip._id },
+                )
+              }
             >
               Delete trip
             </Button>
           </div>
         )}
       </section>
+      <Modal
+        open={pictureModalOpen}
+        title="Change trip picture"
+        onClose={() => setPictureModalOpen(false)}
+        dismissDisabled={pictureMutation.isPending}
+        status={<TripRefreshStatus kind="trip" baseline={baseline} />}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={pictureMutation.isPending}
+              onClick={() => setPictureModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            {pictureFile && (
+              <Button
+                data-cy="trip-picture-save"
+                disabled={pictureMutation.isPending}
+                onClick={() => void savePicture(pictureFile)}
+              >
+                Save picture
+              </Button>
+            )}
+          </>
+        }
+      >
+        <ImageUploadField
+          label="Add a trip picture"
+          name="trip-picture"
+          disabled={pictureMutation.isPending}
+          existingImageUrl={existingImageUrl}
+          onAccept={savePicture}
+          pickerHeight={240}
+          preset={tripCoverImagePreset}
+          previewAlt="Selected trip cover"
+          value={pictureFile}
+        />
+      </Modal>
       <Modal
         data-cy="share-trip-dialog"
         open={shareModalOpen}
@@ -298,6 +340,7 @@ const TripSettings = () => {
           setSelectedFriendId(undefined);
         }}
         dismissDisabled={shareMutation.isPending}
+        status={<TripRefreshStatus kind="trip" baseline={trip} />}
         footer={(requestClose) => (
           <>
             <Button
@@ -333,6 +376,7 @@ const TripSettings = () => {
         title={`Delete ${trip.name}?`}
         onClose={() => setDeleteModalOpen(false)}
         dismissDisabled={deleteMutation.isPending}
+        status={<TripRefreshStatus kind="trip" baseline={baseline} />}
         footer={(requestClose) => (
           <>
             <Button
@@ -347,7 +391,7 @@ const TripSettings = () => {
               data-cy="delete-trip-confirm"
               variant="danger"
               disabled={deleteMutation.isPending}
-              onClick={() => deleteMutation.mutate(id)}
+              onClick={() => void confirmDelete()}
             >
               {deleteMutation.isPending ? 'Deleting...' : 'Delete trip'}
             </Button>

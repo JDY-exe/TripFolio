@@ -13,10 +13,10 @@ import { lockBodyScroll } from '../scrollLock';
 
 const focusableSelector = [
   'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
+  'button:not(:disabled)',
+  'input:not(:disabled)',
+  'select:not(:disabled)',
+  'textarea:not(:disabled)',
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 const fadeDuration = 200;
@@ -37,6 +37,10 @@ export interface ModalProps extends Omit<
   onExited?: () => void;
   /** Prevents backdrop, Escape, and footer dismissal while work is pending. */
   dismissDisabled?: boolean;
+  /** Optional status shown between the heading and content. */
+  status?: ReactNode;
+  /** Disables controls in the content while a scoped action is pending. */
+  contentDisabled?: boolean;
   /** Main modal content. */
   children: ReactNode;
   /** Optional action row displayed beneath the content. */
@@ -73,6 +77,8 @@ function Modal({
   onClose,
   onExited,
   dismissDisabled = false,
+  status,
+  contentDisabled = false,
   children,
   footer,
   panelClassName,
@@ -233,8 +239,15 @@ function Modal({
           </div>
         </header>
 
+        {!!status && <div className="mt-3">{status}</div>}
         <div className={['mt-6', contentClassName].filter(Boolean).join(' ')}>
-          {children}
+          <fieldset
+            disabled={contentDisabled}
+            className="min-w-0"
+            aria-busy={contentDisabled || undefined}
+          >
+            {children}
+          </fieldset>
         </div>
 
         {!!footer && (

@@ -1,3 +1,10 @@
+const {
+  checkVersion,
+  updateVersioned,
+  deleteVersioned,
+  sendMutationError,
+} = require("../utils/documentVersion");
+const { withTripWrite } = require("../utils/tripWrite");
 const Trip = require("../models/trip");
 const Itinerary = require("../models/itinerary");
 const Event = require("../models/event");
@@ -6,11 +13,15 @@ const TripInvitation = require("../models/TripInvitation");
 
 const mongoose = require("mongoose");
 const { validateTripProfilePicture } = require("../utils/tripMedia");
-const { canEditTrip, canReadTrip, getTripRole } = require("../utils/tripAccess");
+const {
+  canEditTrip,
+  canReadTrip,
+  getTripRole,
+} = require("../utils/tripAccess");
 
 const serializeTripForUser = (trip, userId) => ({
   ...(typeof trip.toObject === "function" ? trip.toObject() : trip),
-  currentUserRole: getTripRole(trip, userId)
+  currentUserRole: getTripRole(trip, userId),
 });
 
 const createTrip = async (req, res) => {
@@ -27,7 +38,9 @@ const createTrip = async (req, res) => {
 
     // Validate dates
     if (new Date(endDate) < new Date(startDate)) {
-      return res.status(400).json({ message: "End date cannot be before start date" });
+      return res
+        .status(400)
+        .json({ message: "End date cannot be before start date" });
     }
 
     const newTrip = new Trip({
@@ -36,7 +49,7 @@ const createTrip = async (req, res) => {
       endDate,
       isPublic,
       ownerId: req.user.id,
-      users: [req.user.id]
+      users: [req.user.id],
     });
     const savedTrip = await newTrip.save();
 
@@ -49,25 +62,36 @@ const createTrip = async (req, res) => {
 const getTrips = async (req, res) => {
   try {
     const trips = await Trip.find({
-      $or: [{ ownerId: req.user.id }, { users: req.user.id }]
+      $or: [{ ownerId: req.user.id }, { users: req.user.id }],
     }).sort({ createdAt: -1 });
-    const travelerIds = [...new Set(trips.flatMap((trip) =>
-      [trip.ownerId, ...trip.users].filter(Boolean).map(String)
-    ))];
+    const travelerIds = [
+      ...new Set(
+        trips.flatMap((trip) =>
+          [trip.ownerId, ...trip.users].filter(Boolean).map(String),
+        ),
+      ),
+    ];
     const travelers = await User.find({ _id: { $in: travelerIds } })
-      .select("username profile_picture").lean();
-    const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
-    res.status(200).json(trips.map((trip) => ({
-      ...(typeof trip.toObject === 'function' ? trip.toObject() : trip),
-      travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
-        .map((id) => travelersById.get(id))
-        .filter(Boolean)
-        .map((traveler) => ({
-          id: String(traveler._id),
-          username: traveler.username,
-          profile_picture: traveler.profile_picture ?? null
-        }))
-    })));
+      .select("username profile_picture")
+      .lean();
+    const travelersById = new Map(
+      travelers.map((traveler) => [String(traveler._id), traveler]),
+    );
+    res.status(200).json(
+      trips.map((trip) => ({
+        ...serializeTripForUser(trip, req.user.id),
+        travelers: [
+          ...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String)),
+        ]
+          .map((id) => travelersById.get(id))
+          .filter(Boolean)
+          .map((traveler) => ({
+            id: String(traveler._id),
+            username: traveler.username,
+            profile_picture: traveler.profile_picture ?? null,
+          })),
+      })),
+    );
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -104,14 +128,26 @@ const updateTripVisibility = async (req, res) => {
       return res.status(404).json({ message: "Trip not found" });
     }
     if (getTripRole(trip, req.user.id) !== "owner") {
-      return res.status(403).json({ message: "Only the trip owner can change visibility" });
+      return res
+        .status(403)
+        .json({ message: "Only the trip owner can change visibility" });
     }
 
-    trip.isPublic = req.body.isPublic;
-    await trip.save();
-    return res.status(200).json(serializeTripForUser(trip, req.user.id));
+    const updated = await withTripWrite(
+      trip._id,
+      req.user.id,
+      (session, current) =>
+        updateVersioned(
+          current,
+          req.body.expectedVersion,
+          { isPublic: req.body.isPublic },
+          session,
+        ),
+      true,
+    );
+    return res.status(200).json(serializeTripForUser(updated, req.user.id));
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return sendMutationError(res, error);
   }
 };
 
@@ -120,27 +156,35 @@ const deleteTrip = async (req, res) => {
     const trip = await Trip.findById(req.params.id);
 
     if (!trip || !getTripRole(trip, req.user.id)) {
-      return res.status(404).json({ message: 'Trip not found' });
+      return res.status(404).json({ message: "Trip not found" });
     }
     if (getTripRole(trip, req.user.id) !== "owner") {
-      return res.status(403).json({ message: 'Only the trip owner can delete it' });
+      return res
+        .status(403)
+        .json({ message: "Only the trip owner can delete it" });
     }
 
-    const deletedTrip = await Trip.findByIdAndDelete(req.params.id);
+    const deletedTrip = await withTripWrite(
+      trip._id,
+      req.user.id,
+      (session, current) =>
+        deleteVersioned(current, req.body?.expectedVersion, session),
+      true,
+    );
     if (!deletedTrip) {
-      return res.status(404).json({ message: 'Trip not found' });
+      return res.status(404).json({ message: "Trip not found" });
     }
 
     if (deletedTrip.profilePictureId) {
       const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
-        bucketName: "tripProfilePictures"
+        bucketName: "tripProfilePictures",
       });
       await bucket.delete(deletedTrip.profilePictureId).catch(() => undefined);
     }
 
-    return res.status(200).json({ message: 'Trip successfully deleted' });
+    return res.status(200).json({ message: "Trip successfully deleted" });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting trip', error: error.message });
+    return sendMutationError(res, error);
   }
 };
 
@@ -161,26 +205,54 @@ const updateTripProfilePicture = async (req, res) => {
     }
     if (getTripRole(trip, req.user.id) !== "owner") {
       return res.status(getTripRole(trip, req.user.id) ? 403 : 404).json({
-        message: "Only the trip owner can change the trip picture"
+        message: "Only the trip owner can change the trip picture",
       });
     }
 
+    const expectedVersion =
+      req.body?.expectedVersion === undefined
+        ? undefined
+        : /^(0|[1-9]\d*)$/.test(req.body.expectedVersion)
+          ? Number(req.body.expectedVersion)
+          : NaN;
+    checkVersion(trip, expectedVersion);
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
-      bucketName: "tripProfilePictures"
+      bucketName: "tripProfilePictures",
     });
     const uploadStream = bucket.openUploadStream(req.file.originalname, {
-      metadata: { contentType: req.file.mimetype }
+      metadata: { contentType: req.file.mimetype },
     });
 
-    await new Promise((resolve, reject) => {
-      uploadStream.once("error", reject);
-      uploadStream.once("finish", resolve);
-      uploadStream.end(req.file.buffer);
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        uploadStream.once("error", reject);
+        uploadStream.once("finish", resolve);
+        uploadStream.end(req.file.buffer);
+      });
+    } catch (error) {
+      await uploadStream.abort().catch(() => undefined);
+      throw error;
+    }
 
     const previousPictureId = trip.profilePictureId;
-    trip.profilePictureId = uploadStream.id;
-    await trip.save();
+    let updated;
+    try {
+      updated = await withTripWrite(
+        trip._id,
+        req.user.id,
+        (session, current) =>
+          updateVersioned(
+            current,
+            expectedVersion,
+            { profilePictureId: uploadStream.id },
+            session,
+          ),
+        true,
+      );
+    } catch (error) {
+      await bucket.delete(uploadStream.id).catch(() => undefined);
+      throw error;
+    }
 
     if (previousPictureId) {
       await bucket.delete(previousPictureId).catch(() => undefined);
@@ -188,10 +260,10 @@ const updateTripProfilePicture = async (req, res) => {
 
     return res.status(200).json({
       message: "Trip cover updated successfully",
-      trip
+      trip: serializeTripForUser(updated, req.user.id),
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return sendMutationError(res, error);
   }
 };
 
@@ -202,15 +274,24 @@ const getTripProfilePicture = async (req, res) => {
     }
 
     const trip = await Trip.findById(req.params.id);
-    const pendingInvitation = trip && !canReadTrip(trip, req.user.id)
-      ? await TripInvitation.exists({ trip: trip._id, recipient: req.user.id, status: "pending" })
-      : false;
-    if (!trip || (!canReadTrip(trip, req.user.id) && !pendingInvitation) || !trip.profilePictureId) {
+    const pendingInvitation =
+      trip && !canReadTrip(trip, req.user.id)
+        ? await TripInvitation.exists({
+            trip: trip._id,
+            recipient: req.user.id,
+            status: "pending",
+          })
+        : false;
+    if (
+      !trip ||
+      (!canReadTrip(trip, req.user.id) && !pendingInvitation) ||
+      !trip.profilePictureId
+    ) {
       return res.status(404).json({ message: "Trip cover not found" });
     }
 
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
-      bucketName: "tripProfilePictures"
+      bucketName: "tripProfilePictures",
     });
     const [picture] = await bucket
       .find({ _id: trip.profilePictureId })
@@ -220,7 +301,10 @@ const getTripProfilePicture = async (req, res) => {
       return res.status(404).json({ message: "Trip cover not found" });
     }
 
-    res.set("Content-Type", picture.metadata?.contentType || "application/octet-stream");
+    res.set(
+      "Content-Type",
+      picture.metadata?.contentType || "application/octet-stream",
+    );
     res.set("Cache-Control", "private, max-age=3600");
     const downloadStream = bucket.openDownloadStream(trip.profilePictureId);
     downloadStream.on("error", (error) => {
@@ -239,10 +323,12 @@ const getTripFromUser = async (req, res) => {
   try {
     const userId = req.params.userId || req.user.id;
     if (String(userId) !== String(req.user.id)) {
-      return res.status(403).json({ message: "You can only view your own trips" });
+      return res
+        .status(403)
+        .json({ message: "You can only view your own trips" });
     }
     const trips = await Trip.find({
-      $or: [{ ownerId: userId }, { users: userId }]
+      $or: [{ ownerId: userId }, { users: userId }],
     });
     return res.status(200).json({ trips });
   } catch (error) {
@@ -264,17 +350,15 @@ const shareTrip = async (req, res) => {
       !Array.isArray(recipientIds) ||
       recipientIds.length === 0 ||
       recipientIds.some(
-        (id) => typeof id !== "string" || !mongoose.isValidObjectId(id)
+        (id) => typeof id !== "string" || !mongoose.isValidObjectId(id),
       )
     ) {
-      return res
-        .status(400)
-        .json({
-          message: "A non-empty array of valid recipientIds is required"
-        });
+      return res.status(400).json({
+        message: "A non-empty array of valid recipientIds is required",
+      });
     }
     const normalizedIds = recipientIds.map((id) =>
-      new mongoose.Types.ObjectId(id).toString()
+      new mongoose.Types.ObjectId(id).toString(),
     );
     if (new Set(normalizedIds).size !== normalizedIds.length) {
       return res
@@ -291,61 +375,66 @@ const shareTrip = async (req, res) => {
         if (!canEditTrip(trip, req.user.id)) {
           throw Object.assign(
             new Error("Only trip owners and editors can share this trip"),
-            { status: 403 }
+            { status: 403 },
           );
         }
+        await Trip.updateOne(
+          { _id: tripId },
+          { $inc: { __v: 1 } },
+          { session, timestamps: false },
+        );
         const recipients = await User.find({
-          _id: { $in: normalizedIds }
+          _id: { $in: normalizedIds },
         }).session(session);
         if (recipients.length !== normalizedIds.length) {
           throw Object.assign(
             new Error("One or more recipient profiles were not found"),
-            { status: 404 }
+            { status: 404 },
           );
         }
         if (normalizedIds.some((id) => getTripRole(trip, id))) {
           throw Object.assign(
             new Error("One or more recipients are already trip members"),
-            { status: 409 }
+            { status: 409 },
           );
         }
         const existingInvitation = await TripInvitation.findOne({
           trip: tripId,
           recipient: { $in: normalizedIds },
-          status: "pending"
+          status: "pending",
         }).session(session);
         if (existingInvitation) {
           throw Object.assign(
             new Error(
-              "A pending invitation already exists for one or more recipients"
+              "A pending invitation already exists for one or more recipients",
             ),
-            { status: 409 }
+            { status: 409 },
           );
         }
         return TripInvitation.insertMany(
           normalizedIds.map((recipient) => ({
             trip: tripId,
             recipient,
-            inviter: req.user.id
+            inviter: req.user.id,
           })),
-          { session, ordered: true }
+          { session, ordered: true },
         );
-      }
+      },
     );
 
     return res.status(201).json({
       message: "Trip invitations created",
-      invitations
+      invitations,
     });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({
         message:
-          "A pending invitation already exists for one or more recipients"
+          "A pending invitation already exists for one or more recipients",
       });
     }
     return res.status(error.status || 500).json({
-      message: error.status ? error.message : "Unable to send trip invitations"
+      message: error.status ? error.message : "Unable to send trip invitations",
     });
   }
 };
@@ -354,7 +443,9 @@ const addUserToTrip = async (req, res) => {
   try {
     const { tripId, userId, role = "editor" } = req.body;
     if (!tripId || !userId) {
-      return res.status(400).json({ message: "tripId and userId are required" });
+      return res
+        .status(400)
+        .json({ message: "tripId and userId are required" });
     }
     if (role !== "editor" && role !== "viewer") {
       return res.status(400).json({ message: "Role must be editor or viewer" });
@@ -363,51 +454,91 @@ const addUserToTrip = async (req, res) => {
     const existingTrip = await Trip.findById(tripId);
     if (!existingTrip || getTripRole(existingTrip, req.user.id) !== "owner") {
       return res.status(existingTrip ? 403 : 404).json({
-        message: "Only the trip owner can manage its members"
+        message: "Only the trip owner can manage its members",
       });
     }
 
-    const update = {
-      $addToSet: {
-        users: userId,
-        ...(role === "viewer" ? { viewerIds: userId } : {})
+    const trip = await withTripWrite(
+      tripId,
+      req.user.id,
+      async (session, current) => {
+        checkVersion(current, req.body.expectedVersion);
+        const users = [
+          ...new Set(current.users.map(String).concat(String(userId))),
+        ];
+        const viewerIds =
+          role === "viewer"
+            ? [...new Set(current.viewerIds.map(String).concat(String(userId)))]
+            : current.viewerIds
+                .map(String)
+                .filter((id) => id !== String(userId));
+        return updateVersioned(
+          current,
+          req.body.expectedVersion,
+          { users, viewerIds },
+          session,
+        );
       },
-      ...(role === "editor" ? { $pull: { viewerIds: userId } } : {})
-    };
-    const trip = await Trip.findByIdAndUpdate(tripId, update, { new: true });
+      true,
+    );
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
     return res.status(200).json({
       message: "User added to trip successfully",
-      trip
+      trip,
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    return sendMutationError(res, error);
   }
 };
 
 /** Lists pending invitations belonging to the authenticated recipient. */
 const getTripInvitations = async (req, res) => {
   try {
-    const invitations = await TripInvitation.find({ recipient: req.user.id, status: "pending" })
-      .populate({ path: "trip", select: "name startDate endDate profilePictureId ownerId users",
-        populate: { path: "ownerId", select: "username profile_picture" } })
+    const invitations = await TripInvitation.find({
+      recipient: req.user.id,
+      status: "pending",
+    })
+      .populate({
+        path: "trip",
+        select: "name startDate endDate profilePictureId ownerId users",
+        populate: { path: "ownerId", select: "username profile_picture" },
+      })
       .populate("inviter", "username")
       .sort({ createdAt: -1 });
-    const results = await Promise.all(invitations.filter((invitation) => invitation.trip).map(async (invitation) => {
-      const trip = invitation.trip;
-      const owner = trip.ownerId || (trip.users?.[0]
-        ? await User.findById(trip.users[0]).select("username profile_picture") : null);
-      return {
-        _id: invitation._id,
-        trip: { _id: trip._id, name: trip.name, startDate: trip.startDate,
-          endDate: trip.endDate, profilePictureId: trip.profilePictureId,
-          owner: owner ? { username: owner.username, profile_picture: owner.profile_picture } : null },
-        inviter: invitation.inviter
-      };
-    }));
+    const results = await Promise.all(
+      invitations
+        .filter((invitation) => invitation.trip)
+        .map(async (invitation) => {
+          const trip = invitation.trip;
+          const owner =
+            trip.ownerId ||
+            (trip.users?.[0]
+              ? await User.findById(trip.users[0]).select(
+                  "username profile_picture",
+                )
+              : null);
+          return {
+            _id: invitation._id,
+            trip: {
+              _id: trip._id,
+              name: trip.name,
+              startDate: trip.startDate,
+              endDate: trip.endDate,
+              profilePictureId: trip.profilePictureId,
+              owner: owner
+                ? {
+                    username: owner.username,
+                    profile_picture: owner.profile_picture,
+                  }
+                : null,
+            },
+            inviter: invitation.inviter,
+          };
+        }),
+    );
     return res.status(200).json(results);
   } catch (error) {
     return res.status(500).json({ message: "Unable to load invitations" });
@@ -418,23 +549,61 @@ const getTripInvitations = async (req, res) => {
 const respondToTripInvitation = async (req, res) => {
   try {
     const { status } = req.body;
-    if (!["accepted", "declined"].includes(status) || !mongoose.isValidObjectId(req.params.invitationId)) {
+    if (
+      !["accepted", "declined"].includes(status) ||
+      !mongoose.isValidObjectId(req.params.invitationId)
+    ) {
       return res.status(400).json({ message: "Invalid invitation response" });
     }
     const invitation = await TripInvitation.findOne({
-      _id: req.params.invitationId, recipient: req.user.id, status: "pending"
+      _id: req.params.invitationId,
+      recipient: req.user.id,
+      status: "pending",
     });
-    if (!invitation) return res.status(404).json({ message: "Pending invitation not found" });
+    if (!invitation)
+      return res.status(404).json({ message: "Pending invitation not found" });
     if (status === "accepted") {
-      const trip = await Trip.findByIdAndUpdate(invitation.trip,
-        { $addToSet: { users: req.user.id } }, { new: true });
-      if (!trip) return res.status(404).json({ message: "Trip no longer exists" });
+      const trip = await Trip.findById(invitation.trip);
+      if (!trip)
+        return res.status(404).json({ message: "Trip no longer exists" });
     }
-    invitation.status = status;
-    await invitation.save();
+    await mongoose.connection.transaction(async (session) => {
+      const current = await TripInvitation.findOne({
+        _id: invitation._id,
+        recipient: req.user.id,
+        status: "pending",
+      }).session(session);
+      if (!current)
+        throw Object.assign(new Error("Pending invitation not found"), {
+          status: 404,
+        });
+      if (status === "accepted") {
+        const trip = await Trip.findById(invitation.trip, null, { session });
+        if (!trip)
+          throw Object.assign(new Error("Trip no longer exists"), {
+            status: 404,
+          });
+        if (!trip.users.some((id) => String(id) === String(req.user.id))) {
+          await Trip.updateOne(
+            { _id: trip._id },
+            { $addToSet: { users: req.user.id }, $inc: { version: 1 } },
+            { session },
+          );
+        } else {
+          await Trip.updateOne(
+            { _id: trip._id },
+            { $inc: { __v: 1 } },
+            { session, timestamps: false },
+          );
+        }
+      }
+      current.status = status;
+      await current.save({ session });
+      invitation.status = status;
+    });
     return res.status(200).json({ invitation });
   } catch (error) {
-    return res.status(500).json({ message: "Unable to respond to invitation" });
+    return sendMutationError(res, error);
   }
 };
 
@@ -450,5 +619,5 @@ module.exports = {
   getTripProfilePicture,
   getTripFromUser,
   shareTrip,
-  addUserToTrip
+  addUserToTrip,
 };

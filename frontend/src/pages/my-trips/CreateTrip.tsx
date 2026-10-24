@@ -18,6 +18,7 @@ import { patchToApi, postToApi } from '../../utils/api';
 
 interface TripResponse {
   savedTrip: {
+    version: number;
     _id: string;
     name: string;
     startDate: string;
@@ -96,6 +97,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
       if (coverFile) {
         const imageData = new FormData();
         imageData.append('image', coverFile);
+        imageData.append('expectedVersion', String(newTrip.savedTrip.version));
 
         try {
           await patchToApi(

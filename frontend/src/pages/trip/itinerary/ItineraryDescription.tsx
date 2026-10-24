@@ -1,3 +1,4 @@
+import TripRefreshStatus from '../editing/TripRefreshStatus';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, X } from 'lucide-react';
@@ -6,7 +7,13 @@ import {
   itineraryQueryKey,
   type Itinerary,
 } from '../../../queries/itineraries';
-import { patchToApi } from '../../../utils/api';
+import { getApiErrorMessage } from '../../../utils/api';
+import { useSaveItinerary } from '../../../queries/itineraries';
+import {
+  TripWriteCancelled,
+  useTripEditing,
+} from '../../../queries/tripEditing';
+import { displayAlert } from '../../../components/common';
 
 interface ItineraryDescriptionProps {
   itinerary: Itinerary;
@@ -24,13 +31,22 @@ const ItineraryDescription = ({
   readOnly = false,
 }: ItineraryDescriptionProps) => {
   const queryClient = useQueryClient();
+  const editing = useTripEditing();
+  const mutation = useSaveItinerary();
+  const [baseline, setBaseline] = useState(itinerary);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState('');
 
   /** Opens the editor with the current description. */
   const handleEdit = () => {
-    setDraft(itinerary.description);
-    setIsEditing(true);
+    void editing?.prepare(
+      () => {
+        setBaseline(itinerary);
+        setDraft(itinerary.description);
+        setIsEditing(true);
+      },
+      { kind: 'itinerary', id: itinerary._id },
+    );
   };
 
   /** Saves the description and updates the cached itinerary.
@@ -38,14 +54,24 @@ const ItineraryDescription = ({
    */
   const handleSave = async () => {
     try {
-      const updated = await patchToApi<Itinerary>(
-        `/itinerary/${itinerary._id}`,
-        { description: draft },
-      );
+      const updated = await mutation.mutateAsync({
+        baseline,
+        description: draft,
+      });
       queryClient.setQueryData(itineraryQueryKey(tripId), updated);
       setIsEditing(false);
     } catch (error) {
-      console.error('Failed to update itinerary description:', error);
+      if (error instanceof TripWriteCancelled) {
+        if (error.discarded) setIsEditing(false);
+        return;
+      }
+      displayAlert({
+        message: getApiErrorMessage(
+          error,
+          'Could not save the description. Please try again.',
+        ),
+        tone: 'error',
+      });
     }
   };
 
@@ -67,8 +93,10 @@ const ItineraryDescription = ({
       </div>
       {isEditing && (
         <div className="mt-3 flex flex-col gap-3">
+          <TripRefreshStatus kind="itinerary" baseline={baseline} />
           <TextArea
             data-cy="description-input"
+            disabled={mutation.isPending}
             aria-label="Description"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -78,6 +106,7 @@ const ItineraryDescription = ({
           <div className="flex flex-wrap gap-2">
             <Button
               data-cy="description-save"
+              disabled={mutation.isPending}
               onClick={() => void handleSave()}
               size="sm"
               leadingIcon={<Check size={16} />}
@@ -86,6 +115,7 @@ const ItineraryDescription = ({
             </Button>
             <Button
               data-cy="description-cancel"
+              disabled={mutation.isPending}
               onClick={() => setIsEditing(false)}
               variant="ghost"
               size="sm"

@@ -14,13 +14,14 @@ const publicItineraryRoutes = require("./routes/publicItineraryRoutes");
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: "http://localhost:3001",
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3001",
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    credentials: true,
+  }),
+);
 app.use(express.json());
-
 
 // Database
 connectDB();

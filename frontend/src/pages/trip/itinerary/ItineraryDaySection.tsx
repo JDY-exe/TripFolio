@@ -1,3 +1,4 @@
+import { useTripEditing } from '../../../queries/tripEditing';
 import { useState } from 'react';
 import { Skeleton, Text } from '../../../components/common';
 import type { EventData } from '../../../queries/events';
@@ -38,6 +39,7 @@ const ItineraryDaySection = ({
   onEventSaved,
   readOnly = false,
 }: ItineraryDaySectionProps) => {
+  const editing = useTripEditing();
   const [eventBeingEdited, setEventBeingEdited] = useState<EventData | null>(
     null,
   );
@@ -102,7 +104,16 @@ const ItineraryDaySection = ({
             <EventCard
               key={event._id}
               event={event}
-              onEdit={readOnly ? undefined : setEventBeingEdited}
+              onEdit={
+                readOnly
+                  ? undefined
+                  : (event) => {
+                      void editing?.prepare(() => setEventBeingEdited(event), {
+                        kind: 'event',
+                        id: event._id,
+                      });
+                    }
+              }
               onDelete={onDeleteEvent}
               readOnly={readOnly}
             />

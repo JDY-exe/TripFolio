@@ -1,3 +1,4 @@
+import { changedValues, useTripEditing } from './tripEditing';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteFromApi, getFromApi, patchToApi, postToApi } from '../utils/api';
 
@@ -20,6 +21,7 @@ export interface FlightSegment {
 }
 
 export interface Reservation {
+  version: number;
   _id: string;
   type: ReservationType;
   name: string;
@@ -99,6 +101,7 @@ interface SaveReservationVariables {
   type: ReservationType;
   values: ReservationInput;
   id?: string;
+  baseline?: Reservation;
 }
 
 /**
@@ -108,43 +111,86 @@ interface SaveReservationVariables {
  */
 export const useSaveReservation = (tripId: string) => {
   const queryClient = useQueryClient();
+  const editing = useTripEditing();
   return useMutation({
-    mutationFn: async ({ type, values, id }: SaveReservationVariables) => {
+    mutationFn: async ({
+      type,
+      values,
+      id,
+      baseline,
+    }: SaveReservationVariables) => {
       const url = `/logistics/${paths[type]}`;
-      const response = id
-        ? await patchToApi<{ reservation: Reservation }>(`${url}/${id}`, values)
-        : await postToApi<{ reservation: Reservation }>(url, {
-            ...values,
-            tripId,
-          });
+      if (!editing) throw new Error('Trip editing is unavailable.');
+      if (id && baseline) {
+        const patch = changedValues(
+          {
+            ...baseline,
+            confirmationNumber: baseline.confirmationNumber ?? '',
+            notes: baseline.notes ?? '',
+            cost: baseline.cost ?? null,
+          },
+          values,
+        );
+        // Flight summary dates belong to the ordered journey, not an independent patch.
+        if (type === ReservationType.Flights && !patch.flights) {
+          delete patch.startTime;
+          delete patch.endTime;
+        }
+        const response = await editing.write({
+          kind: 'reservation',
+          baseline,
+          draft: patch,
+          send: (expectedVersion) =>
+            patchToApi<{ reservation: Reservation }>(`${url}/${id}`, {
+              ...patch,
+              expectedVersion,
+            }),
+        });
+        return response.reservation;
+      }
+      if (id) throw new Error('The original reservation is required.');
+      const response = await postToApi<{ reservation: Reservation }>(url, {
+        ...values,
+        tripId,
+      });
       return response.reservation;
     },
-    onSuccess: async (reservation) => {
-      await queryClient.invalidateQueries({
-        queryKey: reservationsQueryKey(tripId, reservation.type),
-      });
+    onSuccess: async (reservation, variables) => {
+      if (variables.baseline) return;
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: reservationsQueryKey(tripId, reservation.type),
+        }),
+        queryClient.invalidateQueries({ queryKey: ['trips'] }),
+        queryClient.invalidateQueries({ queryKey: ['trip-settings', tripId] }),
+        queryClient.invalidateQueries({ queryKey: ['public-itinerary'] }),
+        queryClient.invalidateQueries({ queryKey: ['public-itinerary-feed'] }),
+      ]);
     },
   });
 };
 
 /**
- * Deletes a reservation and refreshes its category after removal.
- * @param tripId - Trip that owns the reservation.
+ * Deletes a reservation and refreshes affected entities after removal.
  * @returns A React Query mutation for reservation deletion.
  */
-export const useDeleteReservation = (tripId: string) => {
-  const queryClient = useQueryClient();
+export const useDeleteReservation = () => {
+  const editing = useTripEditing();
   return useMutation({
     mutationFn: async (reservation: Reservation) => {
-      await deleteFromApi(
-        `/logistics/${paths[reservation.type]}/${reservation._id}`,
-      );
-      return reservation.type;
-    },
-    onSuccess: async (type) => {
-      await queryClient.invalidateQueries({
-        queryKey: reservationsQueryKey(tripId, type),
+      if (!editing) throw new Error('Trip editing is unavailable.');
+      await editing.write({
+        kind: 'reservation',
+        baseline: reservation,
+        draft: {},
+        deleting: true,
+        send: (expectedVersion) =>
+          deleteFromApi(
+            `/logistics/${paths[reservation.type]}/${reservation._id}`,
+            { data: { expectedVersion } },
+          ),
       });
+      return reservation.type;
     },
   });
 };

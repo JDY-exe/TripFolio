@@ -3,6 +3,9 @@
 React, TypeScript, Vite, Tailwind CSS v4, and Lucide icons. React Compiler is enabled.
 Components use native HTML elements rather than a runtime UI library.
 
+For versioned mutations, targeted refreshes, and conflict-aware editors, see
+[Adding an entity to concurrent trip editing](../docs/versioned-entities.md).
+
 ## Development
 
 Run commands from `frontend/`:

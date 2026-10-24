@@ -104,6 +104,7 @@ describe('flight journey wizard', () => {
 
   it('prefills existing journeys', () => {
     const reservation: Reservation = {
+      version: 0,
       _id: 'flight-1',
       type: ReservationType.Flights,
       name: 'Return flight',
@@ -149,6 +150,7 @@ describe('flight journey wizard', () => {
 
   it('shows single-leg and connecting journeys as separate cards', () => {
     const singleLeg: Reservation = {
+      version: 0,
       _id: 'single-leg',
       type: ReservationType.Flights,
       name: 'Nonstop flight',
@@ -162,6 +164,7 @@ describe('flight journey wizard', () => {
       },
     };
     const journey: Reservation = {
+      version: 0,
       ...singleLeg,
       _id: 'journey',
       name: 'Connecting journey',

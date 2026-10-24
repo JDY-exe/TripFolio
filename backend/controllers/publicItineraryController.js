@@ -40,14 +40,17 @@ const getPublicItineraryFeed = async (req, res) => {
       }),
     ]);
     if (!user) {
-      return res.status(401).json({ message: "Authenticated user no longer exists" });
+      return res
+        .status(401)
+        .json({ message: "Authenticated user no longer exists" });
     }
 
     const friendIds = new Set((user.friends || []).map(String));
     for (const friendship of friendships) {
-      const friendId = String(friendship.requester) === String(userId)
-        ? friendship.recipient
-        : friendship.requester;
+      const friendId =
+        String(friendship.requester) === String(userId)
+          ? friendship.recipient
+          : friendship.requester;
       if (String(friendId) !== String(userId)) friendIds.add(String(friendId));
     }
 
@@ -107,6 +110,7 @@ const getPublicItineraryFeed = async (req, res) => {
             },
             itinerary: {
               _id: "$itinerary._id",
+              version: "$itinerary.version",
               title: {
                 $cond: [
                   {
@@ -119,7 +123,9 @@ const getPublicItineraryFeed = async (req, res) => {
                             $ne: [
                               {
                                 $trim: {
-                                  input: { $ifNull: ["$itinerary.description", ""] },
+                                  input: {
+                                    $ifNull: ["$itinerary.description", ""],
+                                  },
                                 },
                               },
                               "",
@@ -148,7 +154,12 @@ const getPublicItineraryFeed = async (req, res) => {
       nextPage: hasMore ? page + 1 : null,
     });
   } catch (error) {
-    return res.status(500).json({ message: "Error fetching public itineraries", error: error.message });
+    return res
+      .status(500)
+      .json({
+        message: "Error fetching public itineraries",
+        error: error.message,
+      });
   }
 };
 
@@ -200,7 +211,12 @@ const getPublicItinerary = async (req, res) => {
       events,
     });
   } catch (error) {
-    return res.status(500).json({ message: "Error fetching public itinerary", error: error.message });
+    return res
+      .status(500)
+      .json({
+        message: "Error fetching public itinerary",
+        error: error.message,
+      });
   }
 };
 
@@ -232,20 +248,34 @@ const getPublicTripCover = async (req, res) => {
       return res.status(404).json({ message: "Public trip cover not found" });
     }
 
-    res.set("Content-Type", picture.metadata?.contentType || "application/octet-stream");
+    res.set(
+      "Content-Type",
+      picture.metadata?.contentType || "application/octet-stream",
+    );
     res.set("Cache-Control", "public, max-age=3600");
     const downloadStream = bucket.openDownloadStream(trip.profilePictureId);
     downloadStream.on("error", (error) => {
       if (!res.headersSent) {
-        res.status(404).json({ message: "Public trip cover could not be read" });
+        res
+          .status(404)
+          .json({ message: "Public trip cover could not be read" });
       } else {
         res.destroy(error);
       }
     });
     return downloadStream.pipe(res);
   } catch (error) {
-    return res.status(500).json({ message: "Error fetching public trip cover", error: error.message });
+    return res
+      .status(500)
+      .json({
+        message: "Error fetching public trip cover",
+        error: error.message,
+      });
   }
 };
 
-module.exports = { getPublicItineraryFeed, getPublicItinerary, getPublicTripCover };
+module.exports = {
+  getPublicItineraryFeed,
+  getPublicItinerary,
+  getPublicTripCover,
+};
