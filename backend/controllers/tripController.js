@@ -15,9 +15,9 @@ const serializeTripForUser = (trip, userId) => ({
 
 const createTrip = async (req, res) => {
   try {
-    const { name, startDate, endDate, isPublic = false } = req.body;
+    const { name, startDate, endDate, isPublic = false, location } = req.body;
 
-    if (!name || !startDate || !endDate) {
+    if (!name || !startDate || !endDate || !location) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -36,7 +36,8 @@ const createTrip = async (req, res) => {
       endDate,
       isPublic,
       ownerId: req.user.id,
-      users: [req.user.id]
+      users: [req.user.id],
+      location: location
     });
     const savedTrip = await newTrip.save();
 

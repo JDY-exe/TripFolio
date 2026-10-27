@@ -50,7 +50,11 @@ const tripSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: "Reservation"
     }
-  ]
+  ],
+  location: {
+    type: String,
+    required: [true, "Location is required"]
+  }
 }, { timestamps: true });
 
 // Script for cascading delete middleware
