@@ -29,6 +29,24 @@ const getPublicItineraryFeed = async (req, res) => {
     ) {
       return res.status(400).json({ message: "Invalid feed pagination" });
     }
+    const location =
+      typeof req.query.location === "string"
+        ? req.query.location.trim()
+        : "";
+
+    const locationMatch = {};
+
+    if (location) {
+      const escapedLocation = location.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+      locationMatch.location = {
+        $regex: escapedLocation,
+        $options: "i"
+      };
+    }
 
     const pageSize = Math.min(requestedPageSize, MAX_PAGE_SIZE);
     const userId = req.user.id;
@@ -64,7 +82,12 @@ const getPublicItineraryFeed = async (req, res) => {
     );
     const [records] = await Promise.all([
       Trip.aggregate([
-        { $match: { isPublic: true } },
+        {
+          $match: {
+            isPublic: true,
+            ...locationMatch
+          }
+        },
         {
           $lookup: {
             from: "itineraries",
@@ -85,7 +108,14 @@ const getPublicItineraryFeed = async (req, res) => {
         },
         { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
         { $addFields: { isFriend: { $in: ["$ownerId", friendObjectIds] } } },
-        { $sort: { isFriend: -1, "itinerary.createdAt": -1, _id: 1 } },
+        {
+          $sort: {
+            votes: -1,
+            isFriend: -1,
+            "itinerary.createdAt": -1,
+            _id: 1
+          }
+        },
         { $skip: page * pageSize },
         { $limit: pageSize + 1 },
         {

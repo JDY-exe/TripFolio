@@ -47,25 +47,37 @@ export interface PublicItineraryDetails {
   events: EventData[];
 }
 
-/** Creates an account-scoped key for the paginated public itinerary feed. */
-export const publicItineraryFeedQueryKey = (userId?: string) =>
-  ['public-itinerary-feed', userId] as const;
 
-/** Loads ranked public itinerary pages as the user scrolls the Social feed.
- * @param userId - Authenticated account ID; disables fetching when absent.
+/** Creates a cache key for each user's location-filtered feed. */
+export const publicItineraryFeedQueryKey = (
+  userId?: string,
+  location = '',
+) => ['public-itinerary-feed', userId, location] as const;
+
+/** Loads public itineraries filtered by location as the user scrolls.
+ * @param userId - Authenticated account ID.
+ * @param location - Optional location search filter.
  * @returns Infinite-query pages and controls for loading subsequent pages.
  */
-export const usePublicItineraryFeed = (userId?: string) =>
+export const usePublicItineraryFeed = (
+  userId?: string,
+  location = '',
+) =>
   useInfiniteQuery({
-    queryKey: publicItineraryFeedQueryKey(userId),
+    queryKey: publicItineraryFeedQueryKey(userId, location),
     queryFn: ({ pageParam }) =>
       getFromApi<PublicItineraryFeedPage>('/api/itineraries/feed', {
-        params: { page: pageParam, limit: 10 },
+        params: {
+          page: pageParam,
+          limit: 10,
+          ...(location.trim() ? { location: location.trim() } : {}),
+        },
       }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
     enabled: Boolean(userId),
   });
+
 
 /** Creates the cache key for a public itinerary detail view. */
 export const publicItineraryQueryKey = (tripId?: string) =>
