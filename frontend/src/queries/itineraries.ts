@@ -10,6 +10,12 @@ export interface Itinerary {
   endDate: string;
 }
 
+export interface PublicItineraryTraveler {
+  id: string;
+  username: string;
+  profile_picture?: string | null;
+}
+
 export interface PublicItineraryOwner {
   id: string;
   username: string;
@@ -43,6 +49,7 @@ export interface PublicItineraryDetails {
     endDate: string;
   };
   owner: PublicItineraryOwner | null;
+  travelers: PublicItineraryTraveler[];
   itinerary: Itinerary;
   events: EventData[];
 }

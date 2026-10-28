@@ -45,6 +45,12 @@ const tripSchema = new mongoose.Schema({
       ref: "User"
     }
   ],
+  hiddenUsers: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }
+  ],
   reservations: [
     {
       type: mongoose.Schema.Types.ObjectId,

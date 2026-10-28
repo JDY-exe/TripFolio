@@ -29,6 +29,7 @@ interface TripSettingsData {
   currentUserRole: TripRole;
   users?: string[];
   profilePictureId?: string;
+  hiddenUsers?: string[];
 }
 
 interface TripPictureResponse {
@@ -61,6 +62,45 @@ const TripSettings = () => {
     enabled: Boolean(id),
   });
   const profilePictureId = tripQuery.data?.profilePictureId;
+  const hideUserMutation = useMutation({
+    mutationFn: () =>
+      patchToApi<{ hidden: boolean }>(
+        '/trip/hideUser',
+        { tripId: id },
+      ),
+    onSuccess: (response) => {
+      queryClient.setQueryData<TripSettingsData>(queryKey, (current) =>
+        current
+          ? {
+            ...current,
+            hiddenUsers: response.hidden
+              ? [...(current.hiddenUsers ?? []).filter(
+                (userId) => userId !== user?.id
+              ), user!.id]
+              : (current.hiddenUsers ?? []).filter(
+                (userId) => userId !== user?.id
+              ),
+          }
+          : current,
+      );
+
+      displayAlert({
+        message: response.hidden
+          ? 'You are now hidden from the public traveler list.'
+          : 'You are now visible on the public traveler list.',
+        tone: 'success',
+      });
+    },
+    onError: (error) => {
+      displayAlert({
+        message: getApiErrorMessage(
+          error,
+          'Could not update your visibility preference.',
+        ),
+        tone: 'error',
+      });
+    },
+  });
 
   useEffect(() => {
     if (!id || !profilePictureId) return;
@@ -287,6 +327,28 @@ const TripSettings = () => {
             </Button>
           </div>
         )}
+        <label className="mt-4 flex max-w-2xl items-center justify-between gap-5 rounded-panel border border-outline-variant bg-surface-container-low p-5">
+          <span>
+            <Text as="span" variant="label">
+              Hide myself
+            </Text>
+            <Text color="muted" className="mt-1">
+              Hide your profile from the public traveler list for this trip.
+            </Text>
+          </span>
+
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label="Hide myself"
+            checked={Boolean(
+              trip.hiddenUsers?.includes(user?.id ?? ''),
+            )}
+            disabled={hideUserMutation.isPending}
+            onChange={() => hideUserMutation.mutate()}
+            className="size-5 shrink-0 accent-primary"
+          />
+        </label>
       </section>
       <Modal
         data-cy="share-trip-dialog"

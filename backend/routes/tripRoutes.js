@@ -14,7 +14,8 @@ const {
   getTripFromUser,
 	updateTripProfilePicture,
 	getTripProfilePicture,
-	modifyGlobalVotes
+	modifyGlobalVotes,
+	hideUserFromTrip
 } = require("../controllers/tripController");
 const { MAX_TRIP_PICTURE_SIZE_BYTES } = require("../utils/tripMedia");
 const authenticateToken = require("../middleware/authenticateToken");
@@ -53,5 +54,6 @@ router.get('/:id/profile_picture', getTripProfilePicture);
 router.delete('/:id', deleteTrip);
 router.patch('/user', addUserToTrip);
 router.patch('/votes', modifyGlobalVotes);
+router.patch('/hideUser', hideUserFromTrip);
 
 module.exports = router;

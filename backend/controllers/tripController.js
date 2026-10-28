@@ -537,6 +537,53 @@ const modifyGlobalVotes = async (req, res) => {
   }
 };
 
+const hideUserFromTrip = async (req, res) => {
+  try {
+    const { tripId } = req.body;
+    const userId = req.user.id;
+
+    if (!tripId || !mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({
+        message: "A valid tripId is required"
+      });
+    }
+
+    const trip = await Trip.findById(tripId);
+
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+    
+    if (!getTripRole(trip, userId)) {
+      return res.status(403).json({
+        message: "You must be a trip member to change your visibility"
+      });
+    }
+
+    trip.hiddenUsers ??= [];
+
+    const isHidden = trip.hiddenUsers.some(
+      (id) => String(id) === String(userId)
+    );
+
+    if (isHidden) {
+      trip.hiddenUsers.pull(userId);
+    } else {
+      trip.hiddenUsers.addToSet(userId);
+    }
+
+    await trip.save();
+
+    return res.status(200).json({
+      message: "User visibility updated successfully",
+      hidden: !isHidden
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   getTripInvitations,
   respondToTripInvitation,
@@ -550,5 +597,6 @@ module.exports = {
   getTripFromUser,
   shareTrip,
   addUserToTrip,
-  modifyGlobalVotes
+  modifyGlobalVotes,
+  hideUserFromTrip
 };

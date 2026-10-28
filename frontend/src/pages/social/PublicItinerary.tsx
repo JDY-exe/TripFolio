@@ -151,6 +151,63 @@ const PublicItinerary = () => {
             tripId={data.trip._id}
             readOnly
           />
+
+          <section
+            aria-labelledby="travelers-heading"
+            className="rounded-panel border border-outline-variant/60 p-5"
+          >
+            <Text
+              as="h2"
+              id="travelers-heading"
+              variant="title"
+              className="mb-4"
+            >
+              Travelers ({data.travelers.length})
+            </Text>
+
+            <div className="flex flex-col gap-4">
+              {data.travelers.map((traveler) => (
+                <div
+                  key={traveler.id}
+                  className="flex items-center gap-3"
+                >
+                  {traveler.profile_picture ? (
+                    <img
+                      src={traveler.profile_picture}
+                      alt=""
+                      className="size-10 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      aria-hidden="true"
+                      className="flex size-10 shrink-0 items-center justify-center
+              rounded-full bg-surface-container text-on-surface font-semibold"
+                    >
+                      {(traveler.username || '?').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+
+                  <div className="min-w-0">
+                    <Text className="truncate" variant="label">
+                      {traveler.username || 'Traveler'}
+                    </Text>
+
+                    {traveler.id === data.owner?.id && (
+                      <Text color="muted" variant="caption">
+                        Trip owner
+                      </Text>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {data.travelers.length === 0 && (
+                <Text color="muted" variant="caption">
+                  No travelers found.
+                </Text>
+              )}
+            </div>
+          </section>
         </aside>
       </div>
     </section>
