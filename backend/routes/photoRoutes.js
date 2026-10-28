@@ -1,143 +1,66 @@
-
 const express = require("express");
-const router = express.Router();
-
-const Photo = require("../models/photo");
-const Trip = require("../models/Trip");
+const multer = require("multer");
 const authenticateToken = require("../middleware/authenticateToken");
+const { MAX_PHOTO_BYTES, PhotoError } = require("../utils/photoValidation");
+const { authorizePhoto, uploadPhoto, listPhotos, getPhotoContent, deletePhoto } = require("../controllers/photoController");
 
-
-router.post("/", authenticateToken, async (req, res) => {
-    try {
-        const {
-            photoString,
-            linkEvent,
-            metadata,
-            trip
-        } = req.body;
-        if (!photoString || typeof photoString !== "string") {
-            return res.status(400).json({
-                message: "photoString is required"
-            });
-        }
-        if (!trip) {
-            return res.status(400).json({
-                message: "trip is required"
-            });
-        }
-
-        const tripDoc = await Trip.findById(trip);
-
-        if (!tripDoc) {
-            return res.status(404).json({
-                message: "Trip not found"
-            });
-        }
-
-        const userId = req.user.id;
-        const isTripMember = tripDoc.users.some(
-            user => user.toString() === userId.toString()
-        );
-
-        if (!isTripMember) {
-            return res.status(403).json({
-                message: "You do not have access to this trip"
-            });
-        }
-
-        const location = metadata?.location;
-
-        if (location) {
-            const { latitude, longitude } = location;
-
-            if (
-                latitude != null &&
-                (!Number.isFinite(latitude) ||
-                    latitude < -90 ||
-                    latitude > 90)
-            ) {
-                return res.status(400).json({
-                    message: "Invalid latitude"
-                });
-            }
-
-            if (
-                longitude != null &&
-                (!Number.isFinite(longitude) ||
-                    longitude < -180 ||
-                    longitude > 180)
-            ) {
-                return res.status(400).json({
-                    message: "Invalid longitude"
-                });
-            }
-        }
-
-        const photo = await Photo.create({
-            photoString,
-            linkEvent: linkEvent || null,
-            metadata: metadata || {},
-            trip: tripDoc._id
-        });
-
-        return res.status(201).json({
-            message: "Photo created successfully",
-            photo
-        });
-    } catch (error) {
-        console.error("Error creating photo:", error);
-
-        return res.status(500).json({
-            message: "Failed to create photo"
-        });
-    }
+const router = express.Router({ mergeParams: true });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_PHOTO_BYTES, files: 1, fields: 0, parts: 1, headerPairs: 50 }
 });
 
-router.get("/:tripId", authenticateToken, async (req, res) => {
-    try {
-        const { tripId } = req.params;
+// Bound the entire buffered-upload/processing lifecycle, not just Sharp's workers.
+// There is no unbounded in-memory queue; callers retry a busy server later.
+let activeUploads = 0;
+const reserveUpload = (req, res, next) => {
+  if (activeUploads >= 2) {
+    res.set("Retry-After", "5");
+    return next(new PhotoError("Photo uploads are busy; retry shortly", 503));
+  }
+  activeUploads += 1;
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    activeUploads -= 1;
+  };
+  // Release in the handler's finally block even if the client disconnects early.
+  req.releasePhotoUpload = release;
+  next();
+};
 
-        if (!mongoose.Types.ObjectId.isValid(tripId)) {
-            return res.status(400).json({
-                message: "Invalid trip ID"
-            });
-        }
-
-        const tripDoc = await Trip.findById(tripId);
-
-        if (!tripDoc) {
-            return res.status(404).json({
-                message: "Trip not found"
-            });
-        }
-
-        const userId = req.user.id;
-
-        const isTripMember = tripDoc.users.some(
-            user => user.toString() === userId.toString()
-        );
-
-        if (!isTripMember) {
-            return res.status(403).json({
-                message: "You do not have access to this trip"
-            });
-        }
-
-        const photos = await Photo.find({
-            trip: tripId
-        }).populate("linkEvent");
-
-        return res.status(200).json({
-            message: "Photos retrieved successfully",
-            photos
-        });
-    } catch (error) {
-        console.error("Error retrieving photos:", error);
-
-        return res.status(500).json({
-            message: "Failed to retrieve photos"
-        });
+const parsePhoto = (req, res, next) => upload.single("image")(req, res, (error) => {
+  if (error) {
+    req.releasePhotoUpload();
+    if (error instanceof multer.MulterError) {
+      return next(new PhotoError(
+        error.code === "LIMIT_FILE_SIZE" ? "Photos must not exceed 16 MiB" : "Send exactly one image file and no additional fields",
+        error.code === "LIMIT_FILE_SIZE" ? 413 : 400
+      ));
     }
+    return next(new PhotoError("Invalid multipart image upload"));
+  }
+  next();
+});
+
+router.use(authenticateToken);
+router.post("/", authorizePhoto(true), reserveUpload, parsePhoto, async (req, res, next) => {
+  try {
+    await uploadPhoto(req, res, next);
+  } finally {
+    req.releasePhotoUpload();
+  }
+});
+router.get("/", authorizePhoto(), listPhotos);
+router.get("/:photoId/content", authorizePhoto(), getPhotoContent);
+router.delete("/:photoId", authorizePhoto(true), deletePhoto);
+router.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  if (!(error instanceof PhotoError)) console.error("Photo request failed", error);
+  res.status(error instanceof PhotoError ? error.status : 500).json({
+    message: error instanceof PhotoError ? error.message : "Photo operation failed"
+  });
 });
 
 module.exports = router;
