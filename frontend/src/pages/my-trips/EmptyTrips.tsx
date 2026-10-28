@@ -39,15 +39,9 @@ const EmptyTrips = ({ onCreate }: { onCreate: () => void }) => (
       />
       <circle cx="270" cy="143" r="4" stroke="currentColor" strokeWidth="2" />
     </svg>
-    <Text as="h2" variant="headline">
-      A world of possibilities
-    </Text>
     <Text color="muted" className="mt-3 mb-6">
       No trips found. Create one to get started!
     </Text>
-    <Button variant="outline" onClick={onCreate}>
-      Plan your first trip
-    </Button>
   </div>
 );
 export default EmptyTrips;

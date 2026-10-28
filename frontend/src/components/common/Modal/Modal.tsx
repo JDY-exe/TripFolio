@@ -29,6 +29,8 @@ export interface ModalProps extends Omit<
   open: boolean;
   /** Accessible and visible modal heading. */
   title: ReactNode;
+  /** Visually hides the header while retaining the accessible dialog name. */
+  hideHeader?: boolean;
   /** Optional supporting copy shown beneath the heading. */
   description?: ReactNode;
   /** Requests that the parent close the controlled modal. */
@@ -69,6 +71,7 @@ function getFocusableElements(container: HTMLElement) {
 function Modal({
   open,
   title,
+  hideHeader = false,
   description,
   onClose,
   onExited,
@@ -220,7 +223,11 @@ function Modal({
         ].join(' ')}
         tabIndex={-1}
       >
-        <header className="flex items-start justify-between gap-6">
+        <header
+          className={
+            hideHeader ? 'sr-only' : 'flex items-start justify-between gap-6'
+          }
+        >
           <div>
             <Text as="h2" id={titleId} variant="title">
               {title}
@@ -233,7 +240,11 @@ function Modal({
           </div>
         </header>
 
-        <div className={['mt-6', contentClassName].filter(Boolean).join(' ')}>
+        <div
+          className={[!hideHeader && 'mt-6', contentClassName]
+            .filter(Boolean)
+            .join(' ')}
+        >
           {children}
         </div>
 

@@ -33,6 +33,8 @@ export interface MediaUploadProps extends Omit<
   multiple?: boolean;
   /** Semantic file categories accepted by the native picker. */
   mediaType?: MediaUploadMediaType | readonly MediaUploadMediaType[];
+  /** Optional MIME/extension allowlist overriding the category for picker and drop. */
+  accept?: string;
   /** Whether to replace the picker with an indeterminate loading state. */
   loading?: boolean;
   /** Shared loading component displayed while `loading` is true. */
@@ -92,6 +94,7 @@ function MediaUpload({
   height = 384,
   multiple = false,
   mediaType = 'any',
+  accept,
   loading = false,
   loadingIndicatorType = 'expressive',
   label,
@@ -152,7 +155,7 @@ function MediaUpload({
    */
   const reportFiles = (files: Iterable<File>) => {
     const acceptedFiles = Array.from(files).filter((file) =>
-      isMediaUploadFileAccepted(file, mediaType),
+      isMediaUploadFileAccepted(file, mediaType, accept),
     );
     const selectedFiles = multiple ? acceptedFiles : acceptedFiles.slice(0, 1);
     if (selectedFiles.length === 0) return;
@@ -284,7 +287,7 @@ function MediaUpload({
       <input
         data-cy={`${name}-file-input`}
         ref={inputRef}
-        accept={getMediaUploadAccept(mediaType)}
+        accept={accept ?? getMediaUploadAccept(mediaType)}
         disabled={disabled}
         hidden
         multiple={multiple}

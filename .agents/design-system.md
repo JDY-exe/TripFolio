@@ -291,6 +291,7 @@ has four equally rounded corners, and opening and closing fade over 200 ms.
 | `open` | `boolean` | Required | Controls visibility and exit transition. |
 | `title` | `ReactNode` | Required | Supplies the visible modal heading. |
 | `description` | `ReactNode` | — | Adds supporting copy beneath the heading. |
+| `hideHeader` | `boolean` | `false` | Visually hides the header and removes its spacing, retaining the accessible dialog name; useful for photo viewers. |
 | `onClose` | `() => void` | Required | Handles Close, Escape, and backdrop dismissal. |
 | `onExited` | `() => void` | — | Runs after a controlled close finishes fading out. |
 | `dismissDisabled` | `boolean` | `false` | Blocks dismissal while a save or delete is pending. |

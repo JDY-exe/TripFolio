@@ -5,6 +5,8 @@ const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const sharp = require("sharp");
 const { Readable } = require("node:stream");
+const { readFile } = require("node:fs/promises");
+const path = require("node:path");
 const Trip = require("../models/trip");
 const Photo = require("../models/Photo");
 const storage = require("../services/photoStorage");
@@ -90,6 +92,18 @@ test("photo API permissions, upload, content, pagination and compensation", { ti
   assert.equal(photo.contentType, "image/webp");
   assert.equal(photo.fileId, undefined);
   assert.equal(files.size, 1);
+  // Content sniffing, not the misleading test.png filename/MIME, chooses the decoder.
+  for (const bytes of [
+    await readFile(path.join(__dirname, "fixtures/photos/phone.heic")),
+    await sharp(png).webp().toBuffer(),
+    await sharp(png).avif().toBuffer()
+  ]) {
+    const result = await send("", owner, { method: "POST", body: form(bytes) });
+    assert.equal(result.status, 201, await result.clone().text());
+    const uploaded = (await result.json()).photo;
+    assert.equal(uploaded.contentType, "image/webp");
+    assert.equal((await send(`/${uploaded.id}`, owner, { method: "DELETE" })).status, 204);
+  }
   const listed = await (await send("?limit=1", viewer)).json();
   assert.equal(listed.photos.length, 1);
   assert.equal(listed.nextCursor, null);
