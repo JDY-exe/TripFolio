@@ -10,6 +10,7 @@ const itineraryRoutes = require("./routes/itineraryRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const destinationRoutes = require("./routes/destinationRoutes");
 const publicItineraryRoutes = require("./routes/publicItineraryRoutes");
+const photoRoutes = require("./routes/photoRoutes");
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use(express.json());
 connectDB();
 
 // Routes
+app.use("/trip/:tripId/photos", photoRoutes);
 app.use("/trip", tripRoutes);
 app.use("/users", userRoutes);
 app.use("/logistics", reservationRoutes);

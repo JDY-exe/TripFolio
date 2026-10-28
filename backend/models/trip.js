@@ -52,6 +52,9 @@ const tripSchema = new mongoose.Schema({
 tripSchema.pre('findOneAndDelete', async function() {
   const tripId = this.getQuery()._id;
 
+  // Preserve metadata on storage failure so deleting the trip can be retried.
+  await require("../services/photoCleanup").deleteTripPhotos(tripId);
+
   // All Mongoose models of a Trip that needs cascading deletion goes here
   const Itinerary = mongoose.models.Itinerary;
   const Event = mongoose.models.Event;
