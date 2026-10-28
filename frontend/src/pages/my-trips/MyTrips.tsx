@@ -62,9 +62,7 @@ const MyTrips = () => {
         )}
         {!isPending && !isError && (
           <div className="mt-8 grid gap-6 md:grid-cols-2">
-            {trips.length === 0 && (
-              <EmptyTrips onCreate={() => setIsCreateOpen(true)} />
-            )}
+            {trips.length === 0 && <EmptyTrips />}
             {trips.length > 0 &&
               trips.map((trip) => (
                 <TripCard

@@ -1,5 +1,28 @@
 {
   "scrollPhotoCount": 48,
+  "otherUser": {
+    "id": "64b000000000000000000099",
+    "username": "other-traveler",
+    "email": "other@tripfolio.test",
+    "friends": []
+  },
+  "cacheAccessCases": [
+    {
+      "name": "does not expose a previous account’s album",
+      "account": "other",
+      "canList": false
+    },
+    {
+      "name": "does not reuse a previous account’s private image bytes",
+      "account": "other",
+      "canList": true
+    },
+    {
+      "name": "clears private image bytes when the same account logs in again",
+      "account": "owner",
+      "canList": true
+    }
+  ],
   "deleteError": "Unable to delete photo. Please try again.",
   "names": ["holiday.heic", "holiday.heif", "holiday.webp", "holiday.avif"],
   "photo": {

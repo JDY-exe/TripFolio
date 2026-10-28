@@ -35,6 +35,7 @@ const PhotoViewer = ({
       open
       title={photo.originalName}
       hideHeader
+      showCloseButton
       onClose={onClose}
       panelClassName="flex h-[92dvh] max-h-[calc(100dvh-2rem)] max-w-6xl flex-col sm:max-h-[calc(100dvh-4rem)]"
       contentClassName="min-h-0 flex-1"

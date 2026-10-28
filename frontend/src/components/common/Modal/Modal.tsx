@@ -8,6 +8,8 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
+import { X } from 'lucide-react';
+import IconButton from '../IconButton';
 import Text from '../Text';
 import { lockBodyScroll } from '../scrollLock';
 
@@ -31,6 +33,8 @@ export interface ModalProps extends Omit<
   title: ReactNode;
   /** Visually hides the header while retaining the accessible dialog name. */
   hideHeader?: boolean;
+  /** Shows a visible close control, including when the heading is hidden. */
+  showCloseButton?: boolean;
   /** Optional supporting copy shown beneath the heading. */
   description?: ReactNode;
   /** Requests that the parent close the controlled modal. */
@@ -72,6 +76,7 @@ function Modal({
   open,
   title,
   hideHeader = false,
+  showCloseButton = false,
   description,
   onClose,
   onExited,
@@ -218,14 +223,26 @@ function Modal({
       <div
         ref={panelRef}
         className={[
-          'w-full rounded-3xl bg-surface-container p-5 text-on-surface sm:p-7',
+          'relative w-full rounded-3xl bg-surface-container p-5 text-on-surface sm:p-7',
           panelClassName ?? 'max-w-xl',
         ].join(' ')}
         tabIndex={-1}
       >
+        {showCloseButton && (
+          <IconButton
+            label="Close dialog"
+            icon={<X aria-hidden size={20} />}
+            onClick={requestClose}
+            disabled={dismissDisabled}
+            className="absolute top-3 right-3 z-10 bg-surface-container sm:top-4 sm:right-4"
+            data-cy="modal-close"
+          />
+        )}
         <header
           className={
-            hideHeader ? 'sr-only' : 'flex items-start justify-between gap-6'
+            hideHeader
+              ? 'sr-only'
+              : `flex items-start justify-between gap-6 ${showCloseButton ? 'pr-12' : ''}`
           }
         >
           <div>

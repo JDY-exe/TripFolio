@@ -1,4 +1,6 @@
 import fixture from '../fixtures/album.json';
+import featureFixture from '../fixtures/owned-features.json';
+import { testAccessToken } from '../support/auth';
 import { visitOwnedTrip } from '../support/ownedTrip';
 
 describe('phone photo uploads', () => {
@@ -76,6 +78,84 @@ describe('phone photo uploads', () => {
     cy.get('[data-cy="album-tab-photos"]').should('be.focused');
     cy.get('[data-cy="album-photos-panel"]').should('be.visible');
   });
+  it('provides a visible close button for a single photo on mobile', () => {
+    cy.viewport(390, 844);
+    cy.intercept(
+      { method: 'GET', pathname: '/trip/*/photos' },
+      { body: { photos: [fixture.photo], nextCursor: null } },
+    );
+    cy.intercept(
+      { method: 'GET', pathname: '/trip/*/photos/*/content' },
+      { headers: { 'content-type': 'image/png' }, fixture: 'avatar.png' },
+    );
+    visitOwnedTrip('Album');
+    cy.get('[data-cy="album-photo"]').click();
+    cy.contains('button', 'Previous photo').should('be.disabled');
+    cy.contains('button', 'Next photo').should('be.disabled');
+    cy.get('[data-cy="modal-close"]').should('be.visible').and('be.focused');
+    cy.screenshot('album-mobile-photo-viewer', { capture: 'viewport' });
+    cy.get('[data-cy="modal-close"]').click();
+    cy.get('[role="dialog"]').should('not.exist');
+    cy.get('[data-cy="album-photo"]').should('be.focused');
+  });
+
+  fixture.cacheAccessCases.forEach(({ name, account, canList }) => {
+    it(name, () => {
+      cy.intercept(
+        { method: 'GET', pathname: '/trip/*/photos' },
+        { body: { photos: [fixture.photo], nextCursor: null } },
+      );
+      cy.intercept(
+        { method: 'GET', pathname: '/trip/*/photos/*/content' },
+        { headers: { 'content-type': 'image/png' }, fixture: 'avatar.png' },
+      );
+      visitOwnedTrip('Album');
+      cy.get('[data-cy="album-photo"] img').should('be.visible');
+      cy.contains('button', 'My Trips').click();
+      cy.get('[data-cy="nav-profile"]').click();
+      cy.get('[data-cy="logout"]').click();
+      cy.location('pathname').should('eq', '/auth');
+
+      cy.intercept(
+        { method: 'GET', pathname: '/trip/*/photos' },
+        canList
+          ? { body: { photos: [fixture.photo], nextCursor: null } }
+          : { statusCode: 404, body: { message: 'Trip not found' } },
+      ).as('nextAccountAlbum');
+      cy.intercept(
+        { method: 'GET', pathname: '/trip/*/photos/*/content' },
+        { statusCode: 404, body: { message: 'Photo not found' } },
+      ).as('deniedContent');
+      const user =
+        account === 'owner' ? featureFixture.user : fixture.otherUser;
+      cy.intercept(
+        { method: 'POST', pathname: '/users/login' },
+        { body: { token: testAccessToken(), user } },
+      );
+      cy.window().then((window) => {
+        window.history.pushState({}, '', `/trip/${featureFixture.trip._id}`);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      });
+      cy.location('pathname').should('eq', '/auth');
+      cy.get('[data-cy="login-email"]').type(user.email);
+      cy.get('[data-cy="login-password"]').type('sample-password');
+      cy.get('[data-cy="login-submit"]').click();
+      cy.location('pathname').should('eq', `/trip/${featureFixture.trip._id}`);
+      cy.get('[data-cy="nav-album"]').click();
+      cy.wait('@nextAccountAlbum');
+      if (canList) {
+        cy.wait('@deniedContent');
+        cy.contains('Photo unavailable').should('be.visible');
+      } else {
+        cy.contains('Your album couldn’t load', { timeout: 12_000 }).should(
+          'be.visible',
+        );
+        cy.get('[data-cy="album-photo"]').should('not.exist');
+      }
+      cy.get('[data-cy="album-photo"] img').should('not.exist');
+    });
+  });
+
   it('scrolls only the photo pane while the desktop map stays in place', () => {
     cy.viewport(1440, 1000);
     cy.intercept(
@@ -157,7 +237,45 @@ describe('phone photo uploads', () => {
     cy.get('[data-cy="album-add-photos"]').should('be.visible');
   });
 
-  it('retains failed deletions for retry and clears selection when editing ends', () => {
+  it('automatically completes a deletion after a transient failure hides the photo', () => {
+    let hidden = false;
+    let attempts = 0;
+    cy.intercept({ method: 'GET', pathname: '/trip/*/photos' }, (request) =>
+      request.reply({
+        body: { photos: hidden ? [] : [fixture.photo], nextCursor: null },
+      }),
+    );
+    cy.intercept(
+      { method: 'GET', pathname: '/trip/*/photos/*/content' },
+      { headers: { 'content-type': 'image/png' }, fixture: 'avatar.png' },
+    );
+    cy.intercept(
+      { method: 'DELETE', pathname: '/trip/*/photos/*' },
+      (request) => {
+        attempts += 1;
+        hidden = true;
+        if (attempts === 1)
+          request.reply({
+            statusCode: 500,
+            body: { message: fixture.deleteError },
+          });
+        else request.reply({ statusCode: 204 });
+      },
+    ).as('retryDelete');
+    visitOwnedTrip('Album');
+    cy.get('[data-cy="album-edit-photos"]').click();
+    cy.get('[data-cy="album-photo"]').click();
+    cy.get('[data-cy="album-delete-selected"]').click();
+    cy.get('[data-cy="album-confirm-delete"]').click();
+    cy.get('@retryDelete.all').should('have.length', 2);
+    cy.get('[data-cy="album-delete-dialog"]').should('not.exist');
+    cy.get('[data-cy="album-photo"]').should('not.exist');
+    cy.get('[data-cy="album-add-photos"]').should('be.visible');
+    cy.contains('1 photo deleted.').should('be.visible');
+    cy.contains(fixture.deleteError).should('not.exist');
+  });
+
+  it('retains failed deletions after retries are exhausted and clears selection when editing ends', () => {
     let photos = [
       fixture.photo,
       { ...fixture.photo, id: 'photo-2', originalName: 'second.webp' },

@@ -1,10 +1,9 @@
-import { Button, Text } from '../../components/common';
+import { Text } from '../../components/common';
 
-/** Renders a minimal landscape and first-trip action.
- * @param props - Callback opening trip creation.
+/** Renders a minimal landscape and guidance when there are no trips.
  * @returns A theme-aware SVG empty state.
  */
-const EmptyTrips = ({ onCreate }: { onCreate: () => void }) => (
+const EmptyTrips = () => (
   <div
     data-cy="empty-trips"
     className="col-span-full flex min-h-[55vh] flex-col items-center justify-center text-center"
