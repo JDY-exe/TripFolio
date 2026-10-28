@@ -152,8 +152,7 @@ describe('phone photo uploads', () => {
     cy.get('[data-cy="album-confirm-delete"]').click();
     cy.get('@deletePhoto.all').should('have.length', 2);
     cy.get('[data-cy="album-photo"]').should('not.exist');
-    cy.get('[data-cy="album-delete-selected"]').should('have.text', 'Delete 0');
-    cy.get('[data-cy="album-edit-photos"]').contains('Cancel').click();
+    cy.get('[data-cy="album-edit-photos"]').should('contain', 'Edit mode');
     cy.get('[data-cy="album-delete-selected"]').should('not.exist');
     cy.get('[data-cy="album-add-photos"]').should('be.visible');
   });

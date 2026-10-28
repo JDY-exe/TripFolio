@@ -34,7 +34,7 @@ export const useAlbumEditing = (tripId: string, photos: TripPhoto[]) => {
     setConfirmOpen(false);
   };
 
-  /** Deletes a snapshot of confirmed IDs, retaining only failures for retry.
+  /** Deletes confirmed IDs and exits edit mode on success, retaining failures for retry.
    * @returns A promise resolving once requests and shared-cache updates complete.
    */
   const confirmDelete = async () => {
@@ -42,6 +42,7 @@ export const useAlbumEditing = (tripId: string, photos: TripPhoto[]) => {
     const { deletedIds, failures } = await deletion.mutateAsync(selectedIds);
     setSelected(failures.map((failure) => failure.id));
     setConfirmOpen(false);
+    if (failures.length === 0) setEditing(false);
     if (deletedIds.length > 0)
       displayAlert({
         message: `${deletedIds.length} ${deletedIds.length === 1 ? 'photo' : 'photos'} deleted.`,
