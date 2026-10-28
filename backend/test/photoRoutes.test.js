@@ -32,10 +32,13 @@ test("photo API permissions, upload, content, pagination and compensation", { ti
   t.mock.method(storage, "find", async (id) => files.has(String(id)) ? {} : null);
   t.mock.method(storage, "download", (id) => Readable.from([files.get(String(id))]));
   let failCreate = false;
+  let loseCreateAcknowledgement = false;
   t.mock.method(Photo, "create", async (data) => {
     if (failCreate) throw new Error("database unavailable");
-    const record = { ...data, _id: new mongoose.Types.ObjectId(), status: "ready", createdAt: new Date() };
-    records.set(String(record._id), record); return record;
+    const record = { ...data, _id: data._id || new mongoose.Types.ObjectId(), status: "ready", createdAt: new Date() };
+    records.set(String(record._id), record);
+    if (loseCreateAcknowledgement) throw new Error("insert committed but acknowledgement lost");
+    return record;
   });
   const matches = (record, filter) => String(record.trip) === String(filter.trip) &&
     (!filter._id || String(record._id) === String(filter._id)) && (!filter.status || record.status === filter.status) &&
@@ -49,7 +52,12 @@ test("photo API permissions, upload, content, pagination and compensation", { ti
     return record;
   });
   t.mock.method(Photo, "deleteOne", async ({ _id }) => { records.delete(String(_id)); });
-  t.mock.method(Photo, "updateOne", async ({ _id }) => { records.get(String(_id)).status = "deleting"; });
+  let failCompensationUpdate = false;
+  t.mock.method(Photo, "updateOne", async ({ _id }) => {
+    if (failCompensationUpdate) throw new Error("metadata cleanup unavailable");
+    const record = records.get(String(_id));
+    if (record) record.status = "deleting";
+  });
   t.mock.method(Photo, "find", (filter) => ({ sort: () => ({ limit: (limit) => ({
     lean: async () => [...records.values()].filter((p) => matches(p, filter))
       .sort((a, b) => b.createdAt - a.createdAt || String(b._id).localeCompare(String(a._id))).slice(0, limit)
@@ -123,8 +131,37 @@ test("photo API permissions, upload, content, pagination and compensation", { ti
   assert.equal((await send("", owner, { method: "POST", body: form() })).status, 500);
   assert.equal(files.size, 0);
 
-  // Reserve slots across processing/storage, rejecting excess work without queuing.
   failCreate = false;
+  loseCreateAcknowledgement = true;
+  assert.equal((await send("", owner, { method: "POST", body: form() })).status, 500);
+  assert.equal(records.size, 0, "a committed insert must be cleaned up even when create rejects");
+  assert.equal(files.size, 0);
+
+  storage.remove = async () => { throw new Error("storage unavailable"); };
+  assert.equal((await send("", owner, { method: "POST", body: form() })).status, 500);
+  assert.equal(records.size, 1);
+  const tombstone = [...records.values()][0];
+  assert.equal(tombstone.status, "deleting", "failed file cleanup must retain a hidden retryable record");
+  assert.ok(files.has(String(tombstone.fileId)));
+  assert.equal((await (await send()).json()).photos.length, 0);
+  storage.remove = originalRemove;
+  assert.equal((await send(`/${tombstone._id}`, owner, { method: "DELETE" })).status, 204);
+  assert.equal(records.size, 0);
+  assert.equal(files.size, 0);
+
+  failCompensationUpdate = true;
+  assert.equal((await send("", owner, { method: "POST", body: form() })).status, 500);
+  assert.equal(records.size, 1);
+  const retained = [...records.values()][0];
+  assert.equal(retained.status, "ready");
+  assert.ok(files.has(String(retained.fileId)), "do not remove bytes if metadata could not be hidden");
+  failCompensationUpdate = false;
+  assert.equal((await send(`/${retained._id}`, owner, { method: "DELETE" })).status, 204);
+  assert.equal(records.size, 0);
+  assert.equal(files.size, 0);
+  loseCreateAcknowledgement = false;
+
+  // Reserve slots across processing/storage, rejecting excess work without queuing.
   const originalUpload = storage.upload;
   let releaseUploads;
   let notifyArrived;

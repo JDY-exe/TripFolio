@@ -39,7 +39,7 @@ const serializePhoto = (photo) => ({
 /** Processes a single image and compensates for failures after storing its bytes. */
 const uploadPhoto = async (req, res, next) => {
   let fileId;
-  let photo;
+  let photoId;
   try {
     if (Object.keys(req.body || {}).length > 0) throw new PhotoError("Unexpected upload fields");
     const { data, info } = await processPhoto(req.file?.buffer);
@@ -51,8 +51,10 @@ const uploadPhoto = async (req, res, next) => {
     // Never use the original filename as a filesystem path or response header.
     const originalName = req.file.originalname.split(/[\\/]/).pop()
       .replace(/[\x00-\x1f\x7f]/g, "").slice(0, 255) || "photo";
-    photo = await Photo.create({
-      trip: req.params.tripId, uploadedBy: req.user.id, fileId, originalName,
+    // Keep the ID even if MongoDB commits the insert but its acknowledgement is lost.
+    photoId = new mongoose.Types.ObjectId();
+    const photo = await Photo.create({
+      _id: photoId, trip: req.params.tripId, uploadedBy: req.user.id, fileId, originalName,
       contentType: "image/webp", byteLength: data.length, width: info.width, height: info.height
     });
     // A trip can disappear between the first permission check and metadata creation.
@@ -62,11 +64,13 @@ const uploadPhoto = async (req, res, next) => {
   } catch (error) {
     if (fileId) {
       try {
-        if (photo) await Photo.updateOne({ _id: photo._id }, { $set: { status: "deleting" } });
+        // Hide any potentially committed record before removing its bytes. If this
+        // fails, retain the bytes rather than leave a ready record with no file.
+        if (photoId) await Photo.updateOne({ _id: photoId }, { $set: { status: "deleting" } });
         await storage.remove(fileId);
-        if (photo) await Photo.deleteOne({ _id: photo._id });
+        if (photoId) await Photo.deleteOne({ _id: photoId });
       } catch (cleanupError) {
-        console.error("Photo compensation failed; reconciliation required", { fileId, cleanupError });
+        console.error("Photo compensation failed; reconciliation required", { photoId, fileId, cleanupError });
       }
     }
     next(error);
