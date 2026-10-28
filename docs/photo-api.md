@@ -3,13 +3,20 @@
 Album photos are private trip resources. Owners/editors can upload and delete;
 viewers can list and fetch content. A public trip does **not** expose its album.
 All endpoints require the existing `Authorization: Bearer <token>` header.
-There are no frontend changes in this implementation.
+The album picker sends originals sequentially to this API; phone-only formats
+are decoded on the server rather than through browser canvas.
 
 ## Processing policy
 
 - Exactly one `image` file per multipart request; no extra form fields.
-- Input: JPEG or PNG, non-empty, at most **16 MiB** (16,777,216 bytes).
-- Decode limit: **40,000,000 pixels**. Animated/multi-frame images are rejected.
+- Input: JPEG, PNG, HEIC/HEIF (HEVC), WebP, or AVIF, non-empty, at most
+  **16 MiB** (16,777,216 bytes).
+- Decode limit: **60,000,000 pixels**, including 48 MP phone photos.
+  Animated/multi-frame images are rejected. RAW/DNG, GIF, TIFF, and SVG are not supported.
+- HEIC uses a bundled libheif decoder in a worker with a 30-second deadline;
+  no system HEVC codec is required. Dimensions are checked before RGBA allocation.
+  HEIF rotation/mirroring is applied by libheif, not applied again by Sharp.
+- Live/Motion Photos retain only the uploaded still image, not accompanying video.
 - Actual decoded format is checked, not the filename or client MIME type.
 - Apply EXIF orientation; resize within **2560 × 2560**, preserving aspect ratio
   and never enlarging; encode **once** to WebP at quality **82**.

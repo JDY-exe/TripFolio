@@ -89,9 +89,20 @@ export function getMediaUploadDropLabel(
  * @returns Whether the file is eligible for selection.
  */
 export function isMediaUploadFileAccepted(
-  file: Pick<File, 'type'>,
+  file: Pick<File, 'type'> & Partial<Pick<File, 'name'>>,
   mediaType: MediaUploadMediaType | readonly MediaUploadMediaType[],
+  accept?: string,
 ) {
+  if (accept) {
+    return accept.split(',').some((entry) => {
+      const pattern = entry.trim().toLowerCase();
+      if (pattern.startsWith('.'))
+        return file.name?.toLowerCase().endsWith(pattern);
+      if (pattern.endsWith('/*'))
+        return file.type.toLowerCase().startsWith(pattern.slice(0, -1));
+      return file.type.toLowerCase() === pattern;
+    });
+  }
   const types = normalizeMediaTypes(mediaType);
   if (types.length === 0 || types.includes('any') || !file.type) return true;
 

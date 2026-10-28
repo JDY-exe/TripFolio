@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const sharp = require("sharp");
+const { readFile } = require("node:fs/promises");
+const path = require("node:path");
 const { processPhoto, MAX_PHOTO_BYTES } = require("../utils/photoValidation");
 
 const image = (width, height) => sharp({ create: { width, height, channels: 3, background: "red" } });
@@ -28,6 +30,36 @@ test("rejects empty, corrupt, oversized, unsupported, and excessive-pixel inputs
   await assert.rejects(processPhoto(), /non-empty/);
   await assert.rejects(processPhoto(Buffer.from("not an image")), /corrupt/);
   await assert.rejects(processPhoto(Buffer.alloc(MAX_PHOTO_BYTES + 1)), (error) => error.status === 413);
-  await assert.rejects(processPhoto(await image(8, 8).webp().toBuffer()), /JPEG and PNG/);
-  await assert.rejects(processPhoto(await image(6400, 6400).png().toBuffer()), /40 megapixels/);
+  await assert.rejects(processPhoto(await image(8, 8).gif().toBuffer()), /still JPEG/);
+  await assert.rejects(processPhoto(await image(8000, 8000).png().toBuffer()), /60 megapixels/);
+});
+
+for (const format of ["webp", "avif"]) {
+  test(`normalizes still ${format} to WebP`, async () => {
+    const { data, info } = await processPhoto(await image(32, 16)[format]().toBuffer());
+    assert.equal(info.format, "webp");
+    assert.equal(info.width, 32);
+    assert.equal((await sharp(data).metadata()).exif, undefined);
+  });
+}
+
+test("decodes real HEIC without a system HEVC codec", async () => {
+  const input = await readFile(path.join(__dirname, "fixtures/photos/phone.heic"));
+  const { info } = await processPhoto(input);
+  assert.equal(info.format, "webp");
+  assert.equal(info.width, 64);
+});
+
+test("accepts a full-resolution 48 MP photo", async () => {
+  const { info } = await processPhoto(await image(8000, 6000).jpeg().toBuffer());
+  assert.equal(info.width, 2560);
+  assert.equal(info.height, 1920);
+});
+
+test("rejects animated WebP", async () => {
+  // Distinct stacked frames prevent the encoder from collapsing the animation.
+  const frames = Buffer.concat([Buffer.alloc(8 * 8 * 3, 0), Buffer.alloc(8 * 8 * 3, 255)]);
+  const webp = await sharp(frames, { raw: { width: 8, height: 16, channels: 3, pageHeight: 8 } })
+    .webp({ loop: 0, delay: [100, 100] }).toBuffer();
+  await assert.rejects(processPhoto(webp), /still JPEG/);
 });

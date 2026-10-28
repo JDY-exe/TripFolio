@@ -1,4 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- The provider and hook intentionally share this context module. */
+import { useQueryClient } from '@tanstack/react-query';
 import {
   createContext,
   useCallback,
@@ -106,6 +107,7 @@ export const readStoredSession = (): StoredSessionResult => {
  */
 export const AuthProvider = ({ children }: PropsWithChildren) => {
   const { setLoading } = useLoading();
+  const queryClient = useQueryClient();
   const [storedSessionResult] = useState(readStoredSession);
   const { session: storedSession, hasStaleToken } = storedSessionResult;
   const [session, setSession] = useState<AuthSession | null>(storedSession);
@@ -123,13 +125,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     staleSessionHandled.current = false;
   }, []);
 
-  /** Removes all client-side credentials and returns auth state to anonymous. */
+  /** Removes credentials and cached server data so private data cannot outlive a session. */
   const clearSession = useCallback(() => {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     setApiAccessToken(null);
+    queryClient.clear();
     setSession(null);
     setStatus(AuthStatus.Anonymous);
-  }, []);
+  }, [queryClient]);
 
   // Explains a redirect caused by a token rejected during local restoration.
   useEffect(() => {

@@ -1,0 +1,41 @@
+{
+  "scrollPhotoCount": 48,
+  "otherUser": {
+    "id": "64b000000000000000000099",
+    "username": "other-traveler",
+    "email": "other@tripfolio.test",
+    "friends": []
+  },
+  "cacheAccessCases": [
+    {
+      "name": "does not expose a previous account’s album",
+      "account": "other",
+      "canList": false
+    },
+    {
+      "name": "does not reuse a previous account’s private image bytes",
+      "account": "other",
+      "canList": true
+    },
+    {
+      "name": "clears private image bytes when the same account logs in again",
+      "account": "owner",
+      "canList": true
+    }
+  ],
+  "deleteError": "Unable to delete photo. Please try again.",
+  "names": ["holiday.heic", "holiday.heif", "holiday.webp", "holiday.avif"],
+  "photo": {
+    "id": "photo-1",
+    "trip": "album-trip",
+    "uploadedBy": "owner",
+    "originalName": "holiday.webp",
+    "createdAt": "2026-05-12T10:00:00.000Z",
+    "contentUrl": "/trip/album-trip/photos/photo-1/content",
+    "byteLength": 100,
+    "contentType": "image/webp",
+    "width": 64,
+    "height": 48
+  },
+  "error": "Image is corrupt, unsupported, or exceeds 60 megapixels"
+}
