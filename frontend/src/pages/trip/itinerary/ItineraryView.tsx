@@ -116,7 +116,7 @@ const ItineraryView = () => {
             id="itinerary-heading"
             variant="display"
           >
-            Itinerary
+            Itinerary test
           </Text>
           {tripName && (
             <Text as="span" variant="display" className="min-w-0 break-words">

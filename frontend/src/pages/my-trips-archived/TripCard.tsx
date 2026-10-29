@@ -38,7 +38,7 @@ const TripCard = ({
     >
       <Link
         data-cy={`trip-card-${id}`}
-        to={`/trip/${id}`}
+        to={`/trip/archived/${id}`}
         aria-label={`View ${title}`}
         className="absolute inset-0 z-10 cursor-pointer rounded-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
       />
