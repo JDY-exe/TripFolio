@@ -25,6 +25,7 @@ import PublicItinerary from './pages/social/PublicItinerary';
 import SocialFeed from './pages/social/SocialFeed';
 import Trip from './pages/trip/Trip';
 import { AuthStatus } from './types/auth';
+import MyArchivedTrips from './pages/my-trips-archived/MyTrips';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,6 +76,8 @@ const AppContent = () => {
             <Route path="trip" element={<Trip />} />
             <Route path="trip/:id" element={<Trip />} />
             <Route path="*" element={<Navigate to="/my-trips" replace />} />
+            <Route path="archived-trips" element={<MyArchivedTrips />} />
+            <Route path="trip/archived/:id" element={<Trip />} />
           </Route>
         </Routes>
       </main>

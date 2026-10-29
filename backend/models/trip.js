@@ -60,6 +60,10 @@ const tripSchema = new mongoose.Schema({
   location: {
     type: String,
     required: [true, "Location is required"]
+  },
+  archived: {
+    type: Boolean,
+    default: false,
   }
 }, { timestamps: true });
 

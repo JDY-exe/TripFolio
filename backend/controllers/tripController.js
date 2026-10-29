@@ -37,7 +37,8 @@ const createTrip = async (req, res) => {
       isPublic,
       ownerId: req.user.id,
       users: [req.user.id],
-      location: location
+      location: location,
+      archived: false
     });
     const savedTrip = await newTrip.save();
 
@@ -50,6 +51,7 @@ const createTrip = async (req, res) => {
 const getTrips = async (req, res) => {
   try {
     const trips = await Trip.find({
+      archived: {$ne: true},
       $or: [{ ownerId: req.user.id }, { users: req.user.id }]
     }).sort({ createdAt: -1 });
     const travelerIds = [...new Set(trips.flatMap((trip) =>
@@ -553,7 +555,7 @@ const hideUserFromTrip = async (req, res) => {
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
-    
+
     if (!getTripRole(trip, userId)) {
       return res.status(403).json({
         message: "You must be a trip member to change your visibility"
@@ -584,6 +586,103 @@ const hideUserFromTrip = async (req, res) => {
   }
 };
 
+const archiveTrip = async (req, res) => {
+  try {
+    const { tripId } = req.body;
+    const userId = req.user.id;
+
+    if (!tripId || !mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({
+        message: "A valid tripId is required"
+      });
+    }
+
+    const trip = await Trip.findById(tripId);
+
+    if (!trip) {
+      return res.status(404).json({
+        message: "Trip not found"
+      });
+    }
+
+    if (!getTripRole(trip, userId)) {
+      return res.status(403).json({
+        message: "You must be a trip member to change its archive status"
+      });
+    }
+
+    const now = new Date();
+    const endDate = new Date(trip.endDate);
+
+    if (now <= endDate) {
+      return res.status(400).json({
+        message: "Cannot change archive status of a trip that has not ended"
+      });
+    }
+
+    trip.archived = !trip.archived;
+    await trip.save();
+    return res.status(200).json({
+      message: trip.archived
+        ? "Trip archived successfully"
+        : "Trip unarchived successfully",
+      tripId: trip._id,
+      archived: trip.archived
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Server error"
+    });
+  }
+};
+
+const getArchivedTrips = async (req, res) => {
+  try {
+    const trips = await Trip.find({
+      archived: {$eq: true},
+      $or: [{ ownerId: req.user.id }, { users: req.user.  id }]
+    }).sort({ createdAt: -1 });
+    const travelerIds = [...new Set(trips.flatMap((trip) =>
+      [trip.ownerId, ...trip.users].filter(Boolean).map(String)
+    ))];
+    const travelers = await User.find({ _id: { $in: travelerIds } })
+      .select("username profile_picture").lean();
+    const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
+    res.status(200).json(trips.map((trip) => ({
+      ...(typeof trip.toObject === 'function' ? trip.toObject() : trip),
+      travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
+        .map((id) => travelersById.get(id))
+        .filter(Boolean)
+        .map((traveler) => ({
+          id: String(traveler._id),
+          username: traveler.username,
+          profile_picture: traveler.profile_picture ?? null
+        }))
+    })));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getArchivedTrip = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+
+    const trip = await Trip.findById(req.params.id);
+    if (!trip || !canReadTrip(trip, req.user.id)) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    const serializedTrip = serializeTripForUser(trip, req.user.id);
+    return res.status(200).json({...serializedTrip, currentUserRole: "viewer"});
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getTripInvitations,
   respondToTripInvitation,
@@ -598,5 +697,8 @@ module.exports = {
   shareTrip,
   addUserToTrip,
   modifyGlobalVotes,
-  hideUserFromTrip
+  hideUserFromTrip,
+  archiveTrip,
+  getArchivedTrips,
+  getArchivedTrip
 };

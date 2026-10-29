@@ -1,0 +1,82 @@
+import { CalendarDays, UsersRound } from 'lucide-react';
+import { Link } from 'react-router';
+import { Text } from '../../components/common';
+import { useProtectedImage } from './useProtectedImage';
+import TripPlaceholderArt from './TripPlaceholderArt';
+
+export interface TripCardProps {
+  id: string;
+  title: string;
+  dates: string;
+  travelers: string;
+  status: string;
+  image?: string;
+  imagePath?: string;
+}
+
+/**
+ * Displays a trip photo and compact planning summary that opens the trip.
+ *
+ * @param props - Trip copy and optional protected cover-image API path.
+ * @returns A themed trip card with trip navigation.
+ */
+const TripCard = ({
+  id,
+  title,
+  dates,
+  travelers,
+  status,
+  image: publicImage,
+  imagePath,
+}: TripCardProps) => {
+  const image = useProtectedImage(imagePath, publicImage);
+
+  return (
+    <article
+      data-cy={`trip-card-container-${id}`}
+      className="relative overflow-hidden rounded-panel border border-outline-variant bg-surface-container-low hover:-translate-y-0.5 transition-transform"
+    >
+      <Link
+        data-cy={`trip-card-${id}`}
+        to={`/trip/${id}`}
+        aria-label={`View ${title}`}
+        className="absolute inset-0 z-10 cursor-pointer rounded-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+      />
+      <div className="relative">
+        {image && (
+          <img
+            src={image}
+            alt=""
+            width={1000}
+            height={563}
+            loading="lazy"
+            className="aspect-video w-full bg-surface-container object-cover"
+          />
+        )}
+        {!image && <TripPlaceholderArt />}
+        <span className="absolute left-4 top-4 rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-on-surface">
+          {status}
+        </span>
+      </div>
+
+      <div className="p-5 sm:p-6">
+        <Text as="h2" data-cy="trip-card-title" variant="title">
+          {title}
+        </Text>
+
+        <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-on-surface-variant">
+          <p className="flex items-center gap-2">
+            <CalendarDays aria-hidden size={16} className="shrink-0" />
+            {dates}
+          </p>
+          <p className="flex items-center gap-2">
+            <UsersRound aria-hidden size={16} className="shrink-0" />
+            {travelers}
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+};
+
+export default TripCard;
