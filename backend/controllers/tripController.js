@@ -86,8 +86,11 @@ const getTrip = async (req, res) => {
     if (!trip || !canReadTrip(trip, req.user.id)) {
       return res.status(404).json({ message: "Trip not found" });
     }
-
-    return res.status(200).json(serializeTripForUser(trip, req.user.id));
+    let tripData = serializeTripForUser(trip, req.user.id)
+    if (trip.archived === true) {
+      tripData = {...tripData, currentUserRole: 'viewer'}
+    }
+    return res.status(200).json(tripData);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
