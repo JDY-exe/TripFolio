@@ -22,6 +22,7 @@ test("public itinerary endpoints expose only public read data", async (t) => {
     itineraryFindOne: Itinerary.findOne,
     eventFind: Event.find,
     userFindById: User.findById,
+    userFind: User.find,
     gridFSBucketDescriptor: Object.getOwnPropertyDescriptor(mongoose.mongo, "GridFSBucket"),
   };
   const userId = new mongoose.Types.ObjectId();
@@ -100,28 +101,64 @@ test("public itinerary endpoints expose only public read data", async (t) => {
   User.findById = (id) => ({
     select: async (fields) => {
       const isCurrentUser = String(id) === String(userId);
-      assert.equal(fields, isCurrentUser ? "friends" : "username profile_picture");
+
+      assert.equal(
+        fields,
+        isCurrentUser
+          ? "friends upvotedTrips downvotedTrips"
+          : "username profile_picture"
+      );
+
       return isCurrentUser
-        ? { friends: [] }
-        : { _id: ownerId, username: "coastfriend", profile_picture: null };
+        ? {
+          friends: [],
+          upvotedTrips: [],
+          downvotedTrips: [],
+        }
+        : {
+          _id: ownerId,
+          username: "coastfriend",
+          profile_picture: null,
+        };
     },
   });
-  Object.defineProperty(mongoose.mongo, "GridFSBucket", { configurable: true, value: class {
-    find(filter) {
-      assert.equal(String(filter._id), String(publicPictureId));
+  Object.defineProperty(mongoose.mongo, "GridFSBucket", {
+    configurable: true, value: class {
+      find(filter) {
+        assert.equal(String(filter._id), String(publicPictureId));
+        return {
+          toArray: async () => [{ metadata: { contentType: "image/jpeg" } }],
+        };
+      }
+
+      openDownloadStream(id) {
+        assert.equal(String(id), String(publicPictureId));
+        const stream = new PassThrough();
+        queueMicrotask(() => stream.end(Buffer.from("trip-cover")));
+        return stream;
+      }
+    }
+  });
+  User.find = (filter) => ({
+    select: (fields) => {
+      assert.deepEqual(
+        filter._id.$in,
+        [String(ownerId)]
+      );
+
+      assert.equal(fields, "username profile_picture");
+
       return {
-        toArray: async () => [{ metadata: { contentType: "image/jpeg" } }],
+        lean: async () => [
+          {
+            _id: ownerId,
+            username: "coastfriend",
+            profile_picture: null,
+          },
+        ],
       };
-    }
-
-    openDownloadStream(id) {
-      assert.equal(String(id), String(publicPictureId));
-      const stream = new PassThrough();
-      queueMicrotask(() => stream.end(Buffer.from("trip-cover")));
-      return stream;
-    }
-  } });
-
+    },
+  });
   const app = express();
   app.use(express.json());
   app.use("/api/itineraries", publicItineraryRoutes);
@@ -141,6 +178,7 @@ test("public itinerary endpoints expose only public read data", async (t) => {
     Itinerary.findOne = originalMethods.itineraryFindOne;
     Event.find = originalMethods.eventFind;
     User.findById = originalMethods.userFindById;
+    User.find = originalMethods.userFind;
     Object.defineProperty(mongoose.mongo, "GridFSBucket", originalMethods.gridFSBucketDescriptor);
     if (previousSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = previousSecret;
@@ -157,7 +195,12 @@ test("public itinerary endpoints expose only public read data", async (t) => {
     $addFields: { isFriend: { $in: ["$ownerId", [friendId]] } },
   });
   assert.deepEqual(feedPipeline[6], {
-    $sort: { isFriend: -1, "itinerary.createdAt": -1, _id: 1 },
+    $sort: {
+      votes: -1,
+      isFriend: -1,
+      "itinerary.createdAt": -1,
+      _id: 1,
+    },
   });
   assert.deepEqual(feedPipeline[7], { $skip: 0 });
   assert.deepEqual(feedPipeline[8], { $limit: 2 });
@@ -191,7 +234,11 @@ test("public itinerary endpoints expose only public read data", async (t) => {
 
   const publicResponse = await send(`/api/itineraries/${publicTripId}`);
   const publicDetails = await publicResponse.json();
-  assert.equal(publicResponse.status, 200);
+  assert.equal(
+    publicResponse.status,
+    200,
+    JSON.stringify(publicDetails, null, 2)
+  );
   assert.equal(publicDetails.trip.name, "Coastal weekend");
   assert.equal(publicDetails.owner.username, "coastfriend");
   assert.deepEqual(publicDetails.events, [{ _id: String(events[0]._id), title: "Harbor walk" }]);

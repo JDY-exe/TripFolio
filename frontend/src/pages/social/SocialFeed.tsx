@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react';
-import { Button, LoadingIndicator, Text } from '../../components/common';
+import { useEffect, useRef, useState } from 'react';
+import { Button, LoadingIndicator, Text, TextField } from '../../components/common';
 import ErrorDisplay from '../../components/common/ErrorDisplay/ErrorDisplay';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePublicItineraryFeed } from '../../queries/itineraries';
 import ItineraryFeedCard from './ItineraryFeedCard';
+import { SearchIcon } from 'lucide-react';
+
 
 /** Displays a paginated, vertically scrollable feed of public itineraries.
  * @returns The Social page with loading, retry, empty, and pagination states.
@@ -11,6 +13,7 @@ import ItineraryFeedCard from './ItineraryFeedCard';
 const SocialFeed = () => {
   const { user } = useAuth();
   const sentinelRef = useRef<HTMLDivElement>(null);
+   const [locationFilter, setLocationFilter] = useState('');
   const {
     data,
     isPending,
@@ -19,8 +22,21 @@ const SocialFeed = () => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = usePublicItineraryFeed(user?.id);
+  } = usePublicItineraryFeed(user?.id, locationFilter);
   const items = data?.pages.flatMap((page) => page.items) ?? [];
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [locationInput, setLocationInput] = useState('');
+  const handleLocationSearch = () => {
+    setLocationFilter(locationInput.trim());
+  };
+
+  const handleCloseSearch = () => {
+    setIsSearchOpen(false);
+    setLocationInput('');
+    setLocationFilter('');
+    void refetch(); // Reset the feed to show all public itineraries
+  };
+  
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -38,11 +54,96 @@ const SocialFeed = () => {
 
   return (
     <section aria-labelledby="social-heading" className="mx-auto max-w-2xl">
-      <header className="mb-7 flex items-end justify-between gap-4">
+
+      <header className="mb-7 flex items-center justify-between gap-4">
         <Text as="h1" id="social-heading" variant="display">
           Global feed
         </Text>
+
+        <div className="flex items-center gap-2">
+          {isSearchOpen && (
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleLocationSearch();
+              }}
+            >
+              <div className="w-44 sm:w-56">
+                <TextField
+                  id="social-location-search"
+                  label="Search by location"
+                  type="text"
+                  placeholder="City or country..."
+                  value={locationInput}
+                  onChange={(event) => setLocationInput(event.target.value)}
+                />
+              </div>
+
+              <Button type="submit" size="sm">
+                Search
+              </Button>
+            </form>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen((open) => !open)}
+            aria-label={isSearchOpen ? 'Close location search' : 'Search by location'}
+            className="flex h-10 w-10 shrink-0 items-center justify-center
+        rounded-full hover:bg-surface-container"
+          >
+            {isSearchOpen ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+            )}
+          </button>
+        </div>
       </header>
+
+      {locationFilter && (
+        <div className="mb-5 flex items-center gap-2">
+          <Text color="muted" variant="caption">
+            Location: {locationFilter}
+          </Text>
+          <button
+            type="button"
+            onClick={handleCloseSearch}
+            className="text-sm underline"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
 
       {isPending && (
         <div
@@ -63,7 +164,9 @@ const SocialFeed = () => {
       {!isPending && !isError && items.length === 0 && (
         <div className="rounded-panel bg-surface-container-low px-6 py-12 text-center">
           <Text as="h2" variant="title">
-            No public itineraries yet
+            {locationFilter
+              ? 'No itineraries found for this location'
+              : 'No public itineraries yet'}
           </Text>
           <Text color="muted" className="mt-2">
             Public trips will show up here when they are shared.

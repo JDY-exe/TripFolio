@@ -43,6 +43,26 @@ export const useTrips = (userId?: string) => {
   return { trips, isPending, isError, refetch };
 };
 
+export const useArchivedTrips = (userId?: string) => {
+    const {
+    data: trips = [],
+    isPending,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: tripsQueryKey(userId),
+    queryFn: async () => {
+      const result = await getFromApi<Trip[]>('/trip/archived');
+      if (!Array.isArray(result))
+        throw new Error('Expected an array of trips.');
+      return result;
+    },
+    enabled: Boolean(userId),
+  });
+
+  return { trips, isPending, isError, refetch };
+}
+
 export interface TripInvitation {
   _id: string;
   trip: Trip & {

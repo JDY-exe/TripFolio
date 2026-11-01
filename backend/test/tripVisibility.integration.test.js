@@ -230,6 +230,7 @@ test('trip visibility routes protect private data and retain trip planning flows
       name: 'Private by default',
       startDate: '2027-04-01',
       endDate: '2027-04-05',
+      location: "Osaka, Japan"
     },
   });
   assert.equal(createOwnerTrip.response.status, 201);
@@ -527,6 +528,7 @@ test('trip visibility routes protect private data and retain trip planning flows
       name: 'Trip to remove',
       startDate: '2027-05-01',
       endDate: '2027-05-03',
+      location: "Osaka, Japan"
     },
   });
   assert.equal(deletionTrip.response.status, 201);

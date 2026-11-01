@@ -54,6 +54,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  const [location, setLocation] = useState('');
 
   /**
    * Validates trip details, creates the itinerary, and uploads the optional cover.
@@ -84,6 +85,7 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
         startDate,
         endDate,
         isPublic,
+        location
       });
       await postToApi('/itinerary', {
         tripId: newTrip.savedTrip._id,
@@ -280,6 +282,22 @@ const CreateTrip = ({ onClose, onCreated }: CreateTripProps) => {
                 disabled={isSaving}
               />
             </div>
+          </section>
+          <section className="grid gap-3 border-t border-outline-variant pt-6">
+            <Text as="h3" variant="title">
+              Location
+            </Text>
+
+            <TextField
+              data-cy="trip-location"
+              id="trip-location"
+              label="Trip location"
+              type="text"
+              placeholder="e.g. Paris, France"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              disabled={isSaving}
+            />
           </section>
         </div>
       </form>

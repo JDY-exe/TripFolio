@@ -29,11 +29,29 @@ const getPublicItineraryFeed = async (req, res) => {
     ) {
       return res.status(400).json({ message: "Invalid feed pagination" });
     }
+    const location =
+      typeof req.query.location === "string"
+        ? req.query.location.trim()
+        : "";
+
+    const locationMatch = {};
+
+    if (location) {
+      const escapedLocation = location.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+      locationMatch.location = {
+        $regex: escapedLocation,
+        $options: "i"
+      };
+    }
 
     const pageSize = Math.min(requestedPageSize, MAX_PAGE_SIZE);
     const userId = req.user.id;
     const [user, friendships] = await Promise.all([
-      User.findById(userId).select("friends"),
+      User.findById(userId).select("friends upvotedTrips downvotedTrips"),
       Friendship.find({
         status: "accepted",
         $or: [{ requester: userId }, { recipient: userId }],
@@ -54,9 +72,22 @@ const getPublicItineraryFeed = async (req, res) => {
     const friendObjectIds = [...friendIds]
       .filter(mongoose.isValidObjectId)
       .map((id) => new mongoose.Types.ObjectId(id));
+
+    const upvotedTripIds = new Set(
+      (user.upvotedTrips || []).map(String)
+    );
+
+    const downvotedTripIds = new Set(
+      (user.downvotedTrips || []).map(String)
+    );
     const [records] = await Promise.all([
       Trip.aggregate([
-        { $match: { isPublic: true } },
+        {
+          $match: {
+            isPublic: true,
+            ...locationMatch
+          }
+        },
         {
           $lookup: {
             from: "itineraries",
@@ -77,7 +108,14 @@ const getPublicItineraryFeed = async (req, res) => {
         },
         { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
         { $addFields: { isFriend: { $in: ["$ownerId", friendObjectIds] } } },
-        { $sort: { isFriend: -1, "itinerary.createdAt": -1, _id: 1 } },
+        {
+          $sort: {
+            votes: -1,
+            isFriend: -1,
+            "itinerary.createdAt": -1,
+            _id: 1
+          }
+        },
         { $skip: page * pageSize },
         { $limit: pageSize + 1 },
         {
@@ -100,6 +138,7 @@ const getPublicItineraryFeed = async (req, res) => {
             tripEndDate: "$endDate",
             isFriend: 1,
             createdAt: "$itinerary.createdAt",
+            votes: { $ifNull: ["$votes", 0] },
             owner: {
               id: "$owner._id",
               username: "$owner.username",
@@ -143,8 +182,13 @@ const getPublicItineraryFeed = async (req, res) => {
     ]);
 
     const hasMore = records.length > pageSize;
+    const items = hasMore ? records.slice(0, pageSize) : records;
     return res.status(200).json({
-      items: hasMore ? records.slice(0, pageSize) : records,
+      items: items.map((item) => ({
+        ...item,
+        hasUpvoted: upvotedTripIds.has(String(item.tripId)),
+        hasDownvoted: downvotedTripIds.has(String(item.tripId)),
+      })),
       nextPage: hasMore ? page + 1 : null,
     });
   } catch (error) {
@@ -176,11 +220,31 @@ const getPublicItinerary = async (req, res) => {
     if (!itinerary) {
       return res.status(404).json({ message: "Public itinerary not found" });
     }
+    const hiddenUserIds = new Set(
+      (trip.hiddenUsers || []).map((id) => String(id))
+    );
 
-    const [owner, events] = await Promise.all([
+    const travelerIds = [
+      ...new Set(
+        [trip.ownerId, ...(trip.users || [])]
+          .filter(Boolean)
+          .map((id) => String(id))
+      ),
+    ].filter((id) => !hiddenUserIds.has(id));
+
+    const [owner, events, travelers] = await Promise.all([
       User.findById(trip.ownerId).select("username profile_picture"),
       Event.find({ itineraryID: itinerary._id }).sort({ startTime: 1 }),
+      User.find({ _id: { $in: travelerIds } })
+        .select("username profile_picture")
+        .lean(),
     ]);
+
+    const formattedTravelers = travelers.map((traveler) => ({
+      id: String(traveler._id),
+      username: traveler.username,
+      profile_picture: traveler.profile_picture ?? null,
+    }));
 
     return res.status(200).json({
       trip: {
@@ -189,13 +253,14 @@ const getPublicItinerary = async (req, res) => {
         startDate: trip.startDate,
         endDate: trip.endDate,
       },
-      owner: owner
+      owner: owner && !hiddenUserIds.has(String(owner._id))
         ? {
-            id: owner._id,
-            username: owner.username,
-            profile_picture: owner.profile_picture,
-          }
+          id: String(owner._id),
+          username: owner.username,
+          profile_picture: owner.profile_picture,
+        }
         : null,
+      travelers: formattedTravelers,
       itinerary,
       events,
     });

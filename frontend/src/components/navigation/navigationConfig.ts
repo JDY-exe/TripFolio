@@ -19,6 +19,7 @@ export const topLevelNavItems = [
   { value: '/social', label: 'Social', icon: Globe2 },
   { value: '/my-trips', label: 'My Trips', icon: Luggage },
   { value: '/profile', label: 'Profile', icon: UserRound },
+  { value: '/archived-trips', label: 'Archived Trips', icon: Luggage}
 ] as const satisfies readonly BottomNavItem[];
 
 /** Locally controlled views displayed while an individual trip is selected. */

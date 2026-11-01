@@ -15,9 +15,9 @@ const serializeTripForUser = (trip, userId) => ({
 
 const createTrip = async (req, res) => {
   try {
-    const { name, startDate, endDate, isPublic = false } = req.body;
+    const { name, startDate, endDate, isPublic = false, location } = req.body;
 
-    if (!name || !startDate || !endDate) {
+    if (!name || !startDate || !endDate || !location) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -36,7 +36,9 @@ const createTrip = async (req, res) => {
       endDate,
       isPublic,
       ownerId: req.user.id,
-      users: [req.user.id]
+      users: [req.user.id],
+      location: location,
+      archived: false
     });
     const savedTrip = await newTrip.save();
 
@@ -49,6 +51,7 @@ const createTrip = async (req, res) => {
 const getTrips = async (req, res) => {
   try {
     const trips = await Trip.find({
+      archived: {$ne: true},
       $or: [{ ownerId: req.user.id }, { users: req.user.id }]
     }).sort({ createdAt: -1 });
     const travelerIds = [...new Set(trips.flatMap((trip) =>
@@ -83,8 +86,11 @@ const getTrip = async (req, res) => {
     if (!trip || !canReadTrip(trip, req.user.id)) {
       return res.status(404).json({ message: "Trip not found" });
     }
-
-    return res.status(200).json(serializeTripForUser(trip, req.user.id));
+    let tripData = serializeTripForUser(trip, req.user.id)
+    if (trip.archived === true) {
+      tripData = {...tripData, currentUserRole: 'viewer'}
+    }
+    return res.status(200).json(tripData);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -392,8 +398,10 @@ const addUserToTrip = async (req, res) => {
 const getTripInvitations = async (req, res) => {
   try {
     const invitations = await TripInvitation.find({ recipient: req.user.id, status: "pending" })
-      .populate({ path: "trip", select: "name startDate endDate profilePictureId ownerId users",
-        populate: { path: "ownerId", select: "username profile_picture" } })
+      .populate({
+        path: "trip", select: "name startDate endDate profilePictureId ownerId users",
+        populate: { path: "ownerId", select: "username profile_picture" }
+      })
       .populate("inviter", "username")
       .sort({ createdAt: -1 });
     const results = await Promise.all(invitations.filter((invitation) => invitation.trip).map(async (invitation) => {
@@ -402,9 +410,11 @@ const getTripInvitations = async (req, res) => {
         ? await User.findById(trip.users[0]).select("username profile_picture") : null);
       return {
         _id: invitation._id,
-        trip: { _id: trip._id, name: trip.name, startDate: trip.startDate,
+        trip: {
+          _id: trip._id, name: trip.name, startDate: trip.startDate,
           endDate: trip.endDate, profilePictureId: trip.profilePictureId,
-          owner: owner ? { username: owner.username, profile_picture: owner.profile_picture } : null },
+          owner: owner ? { username: owner.username, profile_picture: owner.profile_picture } : null
+        },
         inviter: invitation.inviter
       };
     }));
@@ -438,6 +448,244 @@ const respondToTripInvitation = async (req, res) => {
   }
 };
 
+const modifyGlobalVotes = async (req, res) => {
+  try {
+    const { tripId, isUpvote } = req.body;
+    const userId = req.user.id;
+
+    // Validate the requested vote
+    if (typeof isUpvote !== "boolean") {
+      return res.status(400).json({
+        message: "isUpvote must be a boolean"
+      });
+    }
+
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({
+        message: "Trip not found"
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found"
+      });
+    }
+
+    // Check the user's existing vote
+    const hasUpvoted = user.upvotedTrips.some(
+      id => id.equals(trip._id)
+    );
+
+    const hasDownvoted = user.downvotedTrips.some(
+      id => id.equals(trip._id)
+    );
+
+    // Initialize the aggregate vote count
+    trip.votes ??= 0;
+
+    if (isUpvote) {
+      if (hasUpvoted) {
+        // Remove the existing upvote
+        user.upvotedTrips.pull(trip._id);
+        trip.votes -= 1;
+      } else {
+        // Remove an existing downvote, if present
+        if (hasDownvoted) {
+          user.downvotedTrips.pull(trip._id);
+          trip.votes += 1;
+        }
+
+        // Add the upvote
+        user.upvotedTrips.addToSet(trip._id);
+        trip.votes += 1;
+      }
+    } else {
+      if (hasDownvoted) {
+        // Remove the existing downvote
+        user.downvotedTrips.pull(trip._id);
+        trip.votes += 1;
+      } else {
+        // Remove an existing upvote, if present
+        if (hasUpvoted) {
+          user.upvotedTrips.pull(trip._id);
+          trip.votes -= 1;
+        }
+
+        // Add the downvote
+        user.downvotedTrips.addToSet(trip._id);
+        trip.votes -= 1;
+      }
+    }
+
+    await Promise.all([
+      trip.save(),
+      user.save()
+    ]);
+
+    return res.status(200).json({
+      trip,
+      hasUpvoted: user.upvotedTrips.some(
+        id => id.equals(trip._id)
+      ),
+      hasDownvoted: user.downvotedTrips.some(
+        id => id.equals(trip._id)
+      )
+    });
+  } catch (error) {
+    console.error("Error modifying trip votes:", error);
+    return res.status(500).json({
+      message: "Server Error"
+    });
+  }
+};
+
+const hideUserFromTrip = async (req, res) => {
+  try {
+    const { tripId } = req.body;
+    const userId = req.user.id;
+
+    if (!tripId || !mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({
+        message: "A valid tripId is required"
+      });
+    }
+
+    const trip = await Trip.findById(tripId);
+
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    if (!getTripRole(trip, userId)) {
+      return res.status(403).json({
+        message: "You must be a trip member to change your visibility"
+      });
+    }
+
+    trip.hiddenUsers ??= [];
+
+    const isHidden = trip.hiddenUsers.some(
+      (id) => String(id) === String(userId)
+    );
+
+    if (isHidden) {
+      trip.hiddenUsers.pull(userId);
+    } else {
+      trip.hiddenUsers.addToSet(userId);
+    }
+
+    await trip.save();
+
+    return res.status(200).json({
+      message: "User visibility updated successfully",
+      hidden: !isHidden
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+const archiveTrip = async (req, res) => {
+  try {
+    const { tripId } = req.body;
+    const userId = req.user.id;
+
+    if (!tripId || !mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({
+        message: "A valid tripId is required"
+      });
+    }
+
+    const trip = await Trip.findById(tripId);
+
+    if (!trip) {
+      return res.status(404).json({
+        message: "Trip not found"
+      });
+    }
+
+    if (!getTripRole(trip, userId)) {
+      return res.status(403).json({
+        message: "You must be a trip member to change its archive status"
+      });
+    }
+
+    const now = new Date();
+    const endDate = new Date(trip.endDate);
+
+    if (now <= endDate) {
+      return res.status(400).json({
+        message: "Cannot change archive status of a trip that has not ended"
+      });
+    }
+
+    trip.archived = !trip.archived;
+    await trip.save();
+    return res.status(200).json({
+      message: trip.archived
+        ? "Trip archived successfully"
+        : "Trip unarchived successfully",
+      tripId: trip._id,
+      archived: trip.archived
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Server error"
+    });
+  }
+};
+
+const getArchivedTrips = async (req, res) => {
+  try {
+    const trips = await Trip.find({
+      archived: {$eq: true},
+      $or: [{ ownerId: req.user.id }, { users: req.user.  id }]
+    }).sort({ createdAt: -1 });
+    const travelerIds = [...new Set(trips.flatMap((trip) =>
+      [trip.ownerId, ...trip.users].filter(Boolean).map(String)
+    ))];
+    const travelers = await User.find({ _id: { $in: travelerIds } })
+      .select("username profile_picture").lean();
+    const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
+    res.status(200).json(trips.map((trip) => ({
+      ...(typeof trip.toObject === 'function' ? trip.toObject() : trip),
+      travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
+        .map((id) => travelersById.get(id))
+        .filter(Boolean)
+        .map((traveler) => ({
+          id: String(traveler._id),
+          username: traveler.username,
+          profile_picture: traveler.profile_picture ?? null
+        }))
+    })));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getArchivedTrip = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+
+    const trip = await Trip.findById(req.params.id);
+    if (!trip || !canReadTrip(trip, req.user.id)) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    const serializedTrip = serializeTripForUser(trip, req.user.id);
+    return res.status(200).json({...serializedTrip, currentUserRole: "viewer"});
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getTripInvitations,
   respondToTripInvitation,
@@ -450,5 +698,10 @@ module.exports = {
   getTripProfilePicture,
   getTripFromUser,
   shareTrip,
-  addUserToTrip
+  addUserToTrip,
+  modifyGlobalVotes,
+  hideUserFromTrip,
+  archiveTrip,
+  getArchivedTrips,
+  getArchivedTrip
 };

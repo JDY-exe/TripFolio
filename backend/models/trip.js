@@ -34,7 +34,18 @@ const tripSchema = new mongoose.Schema({
     type: Date,
     required: [true, "End date is required"]
   },
+  votes: {
+    type: Number,
+    required: false,
+    default: 0
+  },
   users: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }
+  ],
+  hiddenUsers: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"
@@ -45,7 +56,15 @@ const tripSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: "Reservation"
     }
-  ]
+  ],
+  location: {
+    type: String,
+    required: [true, "Location is required"]
+  },
+  archived: {
+    type: Boolean,
+    default: false,
+  }
 }, { timestamps: true });
 
 // Script for cascading delete middleware

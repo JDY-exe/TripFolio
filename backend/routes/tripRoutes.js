@@ -13,7 +13,12 @@ const {
   addUserToTrip,
   getTripFromUser,
 	updateTripProfilePicture,
-	getTripProfilePicture
+	getTripProfilePicture,
+	modifyGlobalVotes,
+	hideUserFromTrip,
+	archiveTrip,
+	getArchivedTrips,
+	getArchivedTrip
 } = require("../controllers/tripController");
 const { MAX_TRIP_PICTURE_SIZE_BYTES } = require("../utils/tripMedia");
 const authenticateToken = require("../middleware/authenticateToken");
@@ -42,6 +47,8 @@ router.post('/', createTrip);
 router.get('/', getTrips);
 router.get('/userId=:userId', getTripFromUser);
 router.get('/user', getTripFromUser);
+router.get('/archived', getArchivedTrips)
+router.get('/archived/:id', getArchivedTrip)
 router.post('/:id/share', shareTrip);
 router.get('/invitations', getTripInvitations);
 router.patch('/invitations/:invitationId', respondToTripInvitation);
@@ -51,5 +58,8 @@ router.patch('/:id/profile_picture', parseTripPicture, updateTripProfilePicture)
 router.get('/:id/profile_picture', getTripProfilePicture);
 router.delete('/:id', deleteTrip);
 router.patch('/user', addUserToTrip);
+router.patch('/votes', modifyGlobalVotes);
+router.patch('/hideUser', hideUserFromTrip);
+router.patch('/archive', archiveTrip)
 
 module.exports = router;

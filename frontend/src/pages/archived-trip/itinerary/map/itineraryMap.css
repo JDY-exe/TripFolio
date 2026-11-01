@@ -1,0 +1,62 @@
+.itinerary-map-pin {
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-outline);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  font: 500 12px var(--font-sans);
+}
+
+.itinerary-map-pin-active {
+  width: 30px;
+  height: 30px;
+  background: var(--color-primary);
+  z-index: 1;
+}
+
+.itinerary-map-pin:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.itinerary-map-pin[data-count]::after {
+  content: attr(data-count);
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 16px;
+  border-radius: 50%;
+  background: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
+  font-size: 10px;
+}
+
+.itinerary-map-popup {
+  z-index: 10;
+}
+
+.itinerary-map-popup .maplibregl-popup-content {
+  padding: 4px;
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+  box-shadow: var(--shadow-raised);
+  font-family: var(--font-sans);
+}
+
+.itinerary-map-popup .maplibregl-popup-tip {
+  display: none;
+}
+
+.maplibregl-ctrl-group {
+  background: var(--color-surface-container);
+  border-radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .maplibregl-ctrl-icon {
+    filter: invert(1);
+  }
+}
