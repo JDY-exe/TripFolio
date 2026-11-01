@@ -119,7 +119,8 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         body: JSON.stringify({
             name: "New trip",
             startDate: "2027-04-01",
-            endDate: "2027-04-10"
+            endDate: "2027-04-10",
+            location: "Osaka, Japan"
         })
     });
     assert.equal(response.status, 201);
