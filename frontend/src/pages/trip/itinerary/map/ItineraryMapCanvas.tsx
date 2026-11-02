@@ -14,6 +14,7 @@ interface ItineraryMapCanvasProps {
   events: LocatedEvent[];
   activeDate?: string;
   interactive?: boolean;
+  readOnly?: boolean;
   onEdit: (event: EventData) => void;
   onDelete: (event: EventData) => void;
 }
@@ -26,6 +27,7 @@ const ItineraryMapCanvas = ({
   events,
   activeDate,
   interactive = false,
+  readOnly = false,
   onEdit,
   onDelete,
 }: ItineraryMapCanvasProps) => {
@@ -110,6 +112,7 @@ const ItineraryMapCanvas = ({
             events={selection.events}
             onEnter={keepOpen}
             onLeave={leave}
+            readOnly={readOnly}
             onEdit={onEdit}
             onDelete={onDelete}
           />

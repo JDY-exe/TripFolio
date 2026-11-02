@@ -18,9 +18,10 @@ import RentalCarsSection from './rentals/RentalCarsSection';
 /**
  * Displays trip reservations by category and manages reservation actions.
  *
- * @returns The Logistics view with live reservation lists and editing.
+ * @param props - Whether reservation mutations should be hidden.
+ * @returns The Logistics view with live reservation lists and optional editing.
  */
-const LogisticsView = () => {
+const LogisticsView = ({ readOnly = false }: { readOnly?: boolean }) => {
   const { id: tripId } = useParams<{ id: string }>();
   const [addingType, setAddingType] = useState<ReservationType | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
@@ -34,7 +35,7 @@ const LogisticsView = () => {
    * @returns A promise that settles after the delete request.
    */
   const handleDelete = async () => {
-    if (!reservationToDelete) return;
+    if (readOnly || !reservationToDelete) return;
     try {
       await deleteReservation.mutateAsync(reservationToDelete);
       setDeleteModalOpen(false);
@@ -70,6 +71,7 @@ const LogisticsView = () => {
 
         <div className="min-w-0 space-y-10 lg:col-start-1 lg:row-start-1">
           <FlightsSection
+            readOnly={readOnly}
             tripId={tripId}
             onAdd={() => setAddingType(ReservationType.Flights)}
             onEdit={setEditing}
@@ -80,6 +82,7 @@ const LogisticsView = () => {
           />
 
           <AccommodationsSection
+            readOnly={readOnly}
             tripId={tripId}
             onAdd={() => setAddingType(ReservationType.Accommodations)}
             onEdit={setEditing}
@@ -90,6 +93,7 @@ const LogisticsView = () => {
           />
 
           <RentalCarsSection
+            readOnly={readOnly}
             tripId={tripId}
             onAdd={() => setAddingType(ReservationType.Rentals)}
             onEdit={setEditing}
@@ -100,7 +104,7 @@ const LogisticsView = () => {
           />
         </div>
       </div>
-      {reservationToDelete && (
+      {!readOnly && reservationToDelete && (
         <Modal
           data-cy="delete-reservation-dialog"
           open={deleteModalOpen}
@@ -136,42 +140,45 @@ const LogisticsView = () => {
           <Text>This reservation will be removed from your trip.</Text>
         </Modal>
       )}
-      {(addingType === ReservationType.Flights ||
-        editing?.type === ReservationType.Flights) && (
-        <FlightReservationForm
-          key={editing?._id ?? 'new'}
-          tripId={tripId}
-          reservation={editing ?? undefined}
-          onClose={() => {
-            setAddingType(null);
-            setEditing(null);
-          }}
-        />
-      )}
-      {(addingType === ReservationType.Rentals ||
-        editing?.type === ReservationType.Rentals) && (
-        <RentalCarReservationForm
-          key={editing?._id ?? 'new'}
-          tripId={tripId}
-          reservation={editing ?? undefined}
-          onClose={() => {
-            setAddingType(null);
-            setEditing(null);
-          }}
-        />
-      )}
-      {(addingType === ReservationType.Accommodations ||
-        editing?.type === ReservationType.Accommodations) && (
-        <AccommodationReservationForm
-          key={editing?._id ?? 'new'}
-          tripId={tripId}
-          reservation={editing ?? undefined}
-          onClose={() => {
-            setAddingType(null);
-            setEditing(null);
-          }}
-        />
-      )}
+      {!readOnly &&
+        (addingType === ReservationType.Flights ||
+          editing?.type === ReservationType.Flights) && (
+          <FlightReservationForm
+            key={editing?._id ?? 'new'}
+            tripId={tripId}
+            reservation={editing ?? undefined}
+            onClose={() => {
+              setAddingType(null);
+              setEditing(null);
+            }}
+          />
+        )}
+      {!readOnly &&
+        (addingType === ReservationType.Rentals ||
+          editing?.type === ReservationType.Rentals) && (
+          <RentalCarReservationForm
+            key={editing?._id ?? 'new'}
+            tripId={tripId}
+            reservation={editing ?? undefined}
+            onClose={() => {
+              setAddingType(null);
+              setEditing(null);
+            }}
+          />
+        )}
+      {!readOnly &&
+        (addingType === ReservationType.Accommodations ||
+          editing?.type === ReservationType.Accommodations) && (
+          <AccommodationReservationForm
+            key={editing?._id ?? 'new'}
+            tripId={tripId}
+            reservation={editing ?? undefined}
+            onClose={() => {
+              setAddingType(null);
+              setEditing(null);
+            }}
+          />
+        )}
     </section>
   );
 };

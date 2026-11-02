@@ -10,6 +10,7 @@ interface MapEventPopupProps {
   events: LocatedEvent[];
   onEnter: () => void;
   onLeave: () => void;
+  readOnly?: boolean;
   onEdit: (event: EventData) => void;
   onDelete: (event: EventData) => void;
 }
@@ -23,6 +24,7 @@ const MapEventPopup = ({
   events,
   onEnter,
   onLeave,
+  readOnly = false,
   onEdit,
   onDelete,
 }: MapEventPopupProps) => {
@@ -59,6 +61,7 @@ const MapEventPopup = ({
             size="lg"
             key={event._id}
             event={event}
+            readOnly={readOnly}
             onEdit={onEdit}
             onDelete={onDelete}
           />

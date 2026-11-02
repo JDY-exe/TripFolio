@@ -12,6 +12,7 @@ export interface TripCardProps {
   status: string;
   image?: string;
   imagePath?: string;
+  archived?: boolean;
 }
 
 /**
@@ -28,6 +29,7 @@ const TripCard = ({
   status,
   image: publicImage,
   imagePath,
+  archived = false,
 }: TripCardProps) => {
   const image = useProtectedImage(imagePath, publicImage);
 
@@ -38,7 +40,7 @@ const TripCard = ({
     >
       <Link
         data-cy={`trip-card-${id}`}
-        to={`/trip/${id}`}
+        to={archived ? `/trip/archived/${id}` : `/trip/${id}`}
         aria-label={`View ${title}`}
         className="absolute inset-0 z-10 cursor-pointer rounded-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
       />

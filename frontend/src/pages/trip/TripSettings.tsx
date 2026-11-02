@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
@@ -11,27 +11,21 @@ import {
   tripCoverImagePreset,
 } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
-import { tripsQueryKey, useSendTripInvitations } from '../../queries/trips';
+import {
+  archivedTripsQueryKey,
+  tripsQueryKey,
+  useSendTripInvitations,
+  useTripDetails,
+  type TripDetails,
+} from '../../queries/trips';
 import {
   deleteFromApi,
   getBlobFromApi,
   getApiErrorMessage,
-  getFromApi,
   patchToApi,
 } from '../../utils/api';
 
-type TripRole = 'owner' | 'editor' | 'viewer' | null;
-
-interface TripSettingsData {
-  _id: string;
-  name: string;
-  isPublic: boolean;
-  currentUserRole: TripRole;
-  users?: string[];
-  profilePictureId?: string;
-  hiddenUsers?: string[];
-  archived: boolean;
-}
+type TripSettingsData = TripDetails;
 
 interface TripPictureResponse {
   trip: Pick<TripSettingsData, '_id' | 'profilePictureId'>;
@@ -41,9 +35,10 @@ interface TripPictureResponse {
  * Loads trip settings and the current user's role, then lets the owner change
  * the picture or visibility and confirm deletion through the API.
  *
+ * @param props - Whether to hide trip editing while retaining personal and archive actions.
  * @returns The trip settings and their loading or failure state.
  */
-const TripSettings = () => {
+const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -57,31 +52,27 @@ const TripSettings = () => {
   }>();
   const queryClient = useQueryClient();
   const queryKey = ['trip-settings', id] as const;
-  const tripQuery = useQuery({
-    queryKey,
-    queryFn: () => getFromApi<TripSettingsData>(`/trip/${id}`),
-    enabled: Boolean(id),
-  });
+  const tripQuery = useTripDetails(id);
   const profilePictureId = tripQuery.data?.profilePictureId;
   const hideUserMutation = useMutation({
     mutationFn: () =>
-      patchToApi<{ hidden: boolean }>(
-        '/trip/hideUser',
-        { tripId: id },
-      ),
+      patchToApi<{ hidden: boolean }>('/trip/hideUser', { tripId: id }),
     onSuccess: (response) => {
       queryClient.setQueryData<TripSettingsData>(queryKey, (current) =>
         current
           ? {
-            ...current,
-            hiddenUsers: response.hidden
-              ? [...(current.hiddenUsers ?? []).filter(
-                (userId) => userId !== user?.id
-              ), user!.id]
-              : (current.hiddenUsers ?? []).filter(
-                (userId) => userId !== user?.id
-              ),
-          }
+              ...current,
+              hiddenUsers: response.hidden
+                ? [
+                    ...(current.hiddenUsers ?? []).filter(
+                      (userId) => userId !== user?.id,
+                    ),
+                    user!.id,
+                  ]
+                : (current.hiddenUsers ?? []).filter(
+                    (userId) => userId !== user?.id,
+                  ),
+            }
           : current,
       );
 
@@ -104,30 +95,26 @@ const TripSettings = () => {
   });
   const archiveMutation = useMutation({
     mutationFn: () =>
-      patchToApi<TripSettingsData>(
-        `/trip/archive`,
-        { tripId: id },
-      ),
+      patchToApi<{ archived: boolean }>(`/trip/archive`, { tripId: id }),
 
     onSuccess: (updatedTrip) => {
       // Update the settings page immediately.
-      queryClient.setQueryData<TripSettingsData>(
-        queryKey,
-        (current) =>
-          current
-            ? { ...current, isArchived: updatedTrip.archived }
-            : current,
+      queryClient.setQueryData<TripSettingsData>(queryKey, (current) =>
+        current ? { ...current, archived: updatedTrip.archived } : current,
       );
 
-      // Refresh trip lists so the trip moves between active and archived.
+      // Refresh both lists and permissions before showing the destination view.
+      void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: tripsQueryKey(user?.id) });
       void queryClient.invalidateQueries({
-        queryKey: tripsQueryKey(user?.id),
+        queryKey: archivedTripsQueryKey(user?.id),
+      });
+      navigate(updatedTrip.archived ? `/trip/archived/${id}` : `/trip/${id}`, {
+        replace: true,
       });
 
       displayAlert({
-        message: updatedTrip.archived
-          ? 'Trip archived.'
-          : 'Trip unarchived.',
+        message: updatedTrip.archived ? 'Trip archived.' : 'Trip unarchived.',
         tone: 'success',
       });
     },
@@ -261,9 +248,12 @@ const TripSettings = () => {
   }
 
   const trip = tripQuery.data;
-  const canChangeVisibility = trip.currentUserRole === 'owner';
+  const canChangeVisibility =
+    !readOnly && !trip.archived && trip.currentUserRole === 'owner';
   const canShareTrip =
-    trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor';
+    !readOnly &&
+    !trip.archived &&
+    (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor');
   const existingImageUrl =
     profilePictureId && coverImage?.pictureId === profilePictureId
       ? coverImage.url
@@ -382,9 +372,7 @@ const TripSettings = () => {
             type="checkbox"
             role="switch"
             aria-label="Hide myself"
-            checked={Boolean(
-              trip.hiddenUsers?.includes(user?.id ?? ''),
-            )}
+            checked={Boolean(trip.hiddenUsers?.includes(user?.id ?? ''))}
             disabled={hideUserMutation.isPending}
             onChange={() => hideUserMutation.mutate()}
             className="size-5 shrink-0 accent-primary"

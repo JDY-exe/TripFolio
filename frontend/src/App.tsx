@@ -26,7 +26,6 @@ import SocialFeed from './pages/social/SocialFeed';
 import Trip from './pages/trip/Trip';
 import { AuthStatus } from './types/auth';
 import MyArchivedTrips from './pages/my-trips-archived/MyTrips';
-import ArchivedTrip from './pages/archived-trip/ArchivedTrip';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,7 +74,7 @@ const AppContent = () => {
             <Route path="search" element={<Search />} />
             <Route path="my-trips" element={<MyTrips />} />
             <Route path="trip" element={<Trip />} />
-            <Route path="trip/archived/:id" element={<ArchivedTrip />} />
+            <Route path="trip/archived/:id" element={<Trip archived />} />
             <Route path="trip/:id" element={<Trip />} />
             <Route path="archived-trips" element={<MyArchivedTrips />} />
             <Route path="*" element={<Navigate to="/my-trips" replace />} />

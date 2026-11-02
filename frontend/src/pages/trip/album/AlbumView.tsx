@@ -13,9 +13,10 @@ import { useAlbumEditing } from './useAlbumEditing';
 
 /**
  * Composes album browsing, batch-edit controls, uploads, and the fixed map workspace.
+ * @param props - Whether to allow browsing only, without upload or deletion.
  * @returns A date-grouped gallery with mobile tabs and focused upload/photo dialogs.
  */
-const AlbumView = () => {
+const AlbumView = ({ readOnly = false }: { readOnly?: boolean }) => {
   const { id = '' } = useParams<{ id: string }>();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<AlbumTab>('photos');
@@ -35,49 +36,51 @@ const AlbumView = () => {
             Album
           </Text>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            leadingIcon={!edit.editing && <Pencil size={18} />}
-            disabled={edit.deleting || (!edit.editing && photos.length === 0)}
-            aria-pressed={edit.editing}
-            onClick={() => {
-              if (edit.editing) edit.finish();
-              else {
-                edit.start();
-                setMobileTab('photos');
+        {!readOnly && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              leadingIcon={!edit.editing && <Pencil size={18} />}
+              disabled={edit.deleting || (!edit.editing && photos.length === 0)}
+              aria-pressed={edit.editing}
+              onClick={() => {
+                if (edit.editing) edit.finish();
+                else {
+                  edit.start();
+                  setMobileTab('photos');
+                }
+              }}
+              data-cy="album-edit-photos"
+            >
+              {edit.editing ? 'Cancel' : 'Edit mode'}
+            </Button>
+            <Button
+              variant={edit.editing ? 'danger' : 'primary'}
+              leadingIcon={
+                <>
+                  {!edit.editing && <ImagePlus size={18} />}
+                  {edit.editing && <Trash2 size={18} />}
+                </>
               }
-            }}
-            data-cy="album-edit-photos"
-          >
-            {edit.editing ? 'Cancel' : 'Edit mode'}
-          </Button>
-          <Button
-            variant={edit.editing ? 'danger' : 'primary'}
-            leadingIcon={
-              <>
-                {!edit.editing && <ImagePlus size={18} />}
-                {edit.editing && <Trash2 size={18} />}
-              </>
-            }
-            onClick={() => {
-              if (edit.editing) edit.setConfirmOpen(true);
-              else setUploadOpen(true);
-            }}
-            disabled={
-              edit.deleting || (edit.editing && edit.selectedIds.length === 0)
-            }
-            data-cy={
-              edit.editing ? 'album-delete-selected' : 'album-add-photos'
-            }
-          >
-            {edit.editing
-              ? edit.deleting
-                ? 'Deleting…'
-                : `Delete ${edit.selectedIds.length}`
-              : 'Add photos'}
-          </Button>
-        </div>
+              onClick={() => {
+                if (edit.editing) edit.setConfirmOpen(true);
+                else setUploadOpen(true);
+              }}
+              disabled={
+                edit.deleting || (edit.editing && edit.selectedIds.length === 0)
+              }
+              data-cy={
+                edit.editing ? 'album-delete-selected' : 'album-add-photos'
+              }
+            >
+              {edit.editing
+                ? edit.deleting
+                  ? 'Deleting…'
+                  : `Delete ${edit.selectedIds.length}`
+                : 'Add photos'}
+            </Button>
+          </div>
+        )}
       </div>
       <AlbumMobileTabs
         value={mobileTab}
@@ -88,7 +91,7 @@ const AlbumView = () => {
           }
         }}
       />
-      {edit.editing && (
+      {!readOnly && edit.editing && (
         <AlbumDeleteModal
           selectedCount={edit.selectedIds.length}
           deleting={edit.deleting}
@@ -146,7 +149,7 @@ const AlbumView = () => {
             <PhotoGrid
               photos={photos}
               onOpen={setSelectedId}
-              editing={edit.editing}
+              editing={!readOnly && edit.editing}
               selectedIds={edit.selectedIds}
               disabled={edit.deleting}
               onToggle={edit.toggle}
@@ -180,11 +183,13 @@ const AlbumView = () => {
           <AlbumMap tripId={id} />
         </div>
       </div>
-      <AlbumUploadModal
-        tripId={id}
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-      />
+      {!readOnly && (
+        <AlbumUploadModal
+          tripId={id}
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+        />
+      )}
       {selectedId && (
         <PhotoViewer
           photos={photos}
