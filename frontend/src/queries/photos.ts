@@ -15,6 +15,12 @@ import {
   postToApi,
 } from '../utils/api';
 
+export interface PhotoLocation {
+  latitude: number;
+  longitude: number;
+  altitude?: number | null;
+}
+
 export interface TripPhoto {
   id: string;
   trip: string;
@@ -26,6 +32,7 @@ export interface TripPhoto {
   height: number;
   createdAt: string;
   contentUrl: string;
+  location: PhotoLocation | null;
 }
 
 interface PhotoPage {

@@ -9,7 +9,12 @@ const photoSchema = new mongoose.Schema({
   byteLength: { type: Number, required: true, min: 1 },
   width: { type: Number, required: true, min: 1 },
   height: { type: Number, required: true, min: 1 },
-  status: { type: String, enum: ["ready", "deleting"], default: "ready" }
+  status: { type: String, enum: ["ready", "deleting"], default: "ready" },
+  location: {
+    latitude: {type: Number, min: -90, max: 90},
+    longitude: {type: Number, min: -180, max: 180},
+    altitude: {type: Number}
+  }
 }, { timestamps: true });
 
 photoSchema.index({ trip: 1, status: 1, createdAt: -1, _id: -1 });

@@ -5,6 +5,7 @@ const Trip = require("../models/trip");
 const storage = require("../services/photoStorage");
 const { canReadTrip, canEditTrip } = require("../utils/tripAccess");
 const { PhotoError, processPhoto } = require("../utils/photoValidation");
+const { extractPhotoLocation } = require("../utils/photoMetadata");
 
 /** Checks trip membership before multipart parsing or access to photo records. */
 const authorizePhoto = (edit = false) => async (req, res, next) => {
@@ -33,7 +34,8 @@ const serializePhoto = (photo) => ({
   width: photo.width,
   height: photo.height,
   createdAt: photo.createdAt,
-  contentUrl: `/trip/${photo.trip}/photos/${photo._id}/content`
+  contentUrl: `/trip/${photo.trip}/photos/${photo._id}/content`,
+  location: photo.location || null
 });
 
 /** Processes a single image and compensates for failures after storing its bytes. */
@@ -42,7 +44,9 @@ const uploadPhoto = async (req, res, next) => {
   let photoId;
   try {
     if (Object.keys(req.body || {}).length > 0) throw new PhotoError("Unexpected upload fields");
-    const { data, info } = await processPhoto(req.file?.buffer);
+    const originalBuffer = req.file?.buffer;
+    const location = await extractPhotoLocation(originalBuffer);
+    const { data, info } = await processPhoto(originalBuffer);
     if (req.aborted || res.destroyed) throw new PhotoError("Upload cancelled");
     fileId = await storage.upload(data, req.params.tripId);
     const trip = await Trip.findById(req.params.tripId);
@@ -55,7 +59,8 @@ const uploadPhoto = async (req, res, next) => {
     photoId = new mongoose.Types.ObjectId();
     const photo = await Photo.create({
       _id: photoId, trip: req.params.tripId, uploadedBy: req.user.id, fileId, originalName,
-      contentType: "image/webp", byteLength: data.length, width: info.width, height: info.height
+      contentType: "image/webp", byteLength: data.length, width: info.width, height: info.height,
+      ...(location && { location})
     });
     // A trip can disappear between the first permission check and metadata creation.
     const currentTrip = await Trip.findById(req.params.tripId);
