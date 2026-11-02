@@ -33,6 +33,7 @@ export interface TripPhoto {
   createdAt: string;
   contentUrl: string;
   location: PhotoLocation | null;
+  linkedEvent: string | null;
 }
 
 interface PhotoPage {

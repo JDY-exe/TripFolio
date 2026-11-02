@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const { pipeline } = require("node:stream/promises");
 const Photo = require("../models/Photo");
 const Trip = require("../models/trip");
+const Itinerary = require("../models/itinerary")
+const Event = require("../models/event")
 const storage = require("../services/photoStorage");
 const { canReadTrip, canEditTrip } = require("../utils/tripAccess");
 const { PhotoError, processPhoto } = require("../utils/photoValidation");
@@ -11,7 +13,7 @@ const { extractPhotoLocation } = require("../utils/photoMetadata");
 const authorizePhoto = (edit = false) => async (req, res, next) => {
   try {
     if (!mongoose.isObjectIdOrHexString(req.params.tripId) ||
-        (req.params.photoId && !mongoose.isObjectIdOrHexString(req.params.photoId))) {
+      (req.params.photoId && !mongoose.isObjectIdOrHexString(req.params.photoId))) {
       throw new PhotoError("Invalid trip or photo ID");
     }
     const trip = await Trip.findById(req.params.tripId);
@@ -35,7 +37,10 @@ const serializePhoto = (photo) => ({
   height: photo.height,
   createdAt: photo.createdAt,
   contentUrl: `/trip/${photo.trip}/photos/${photo._id}/content`,
-  location: photo.location || null
+  location: photo.location || null,
+  linkedEvent: photo.linkedEvent
+  ? String(photo.linkedEvent)
+  : null,
 });
 
 /** Processes a single image and compensates for failures after storing its bytes. */
@@ -46,6 +51,18 @@ const uploadPhoto = async (req, res, next) => {
     if (Object.keys(req.body || {}).length > 0) throw new PhotoError("Unexpected upload fields");
     const originalBuffer = req.file?.buffer;
     const location = await extractPhotoLocation(originalBuffer);
+    // Find the itinerary belonging to this trip.
+    const itinerary = await Itinerary.findOne({ tripId: req.params.tripId }).select("_id");
+    let linkedEvent = null;
+    if (location && itinerary) {
+      const events = await Event.find({
+        itineraryID: itinerary._id,
+        lat: { $exists: true, $ne: null },
+        lng: { $exists: true, $ne: null },
+      }).lean();
+
+      linkedEvent = findClosestEvent(location, events);
+    }
     const { data, info } = await processPhoto(originalBuffer);
     if (req.aborted || res.destroyed) throw new PhotoError("Upload cancelled");
     fileId = await storage.upload(data, req.params.tripId);
@@ -60,7 +77,7 @@ const uploadPhoto = async (req, res, next) => {
     const photo = await Photo.create({
       _id: photoId, trip: req.params.tripId, uploadedBy: req.user.id, fileId, originalName,
       contentType: "image/webp", byteLength: data.length, width: info.width, height: info.height,
-      ...(location && { location})
+      ...(location && { location }), linkedEvent: linkedEvent?._id ?? null,
     });
     // A trip can disappear between the first permission check and metadata creation.
     const currentTrip = await Trip.findById(req.params.tripId);
@@ -94,7 +111,7 @@ const listPhotos = async (req, res, next) => {
         if (typeof req.query.cursor !== "string" || req.query.cursor.length > 256) throw new Error();
         cursor = JSON.parse(Buffer.from(req.query.cursor, "base64url").toString());
         if (!mongoose.isObjectIdOrHexString(cursor.id) || typeof cursor.createdAt !== "string" ||
-            !Number.isFinite(Date.parse(cursor.createdAt))) throw new Error();
+          !Number.isFinite(Date.parse(cursor.createdAt))) throw new Error();
       } catch {
         throw new PhotoError("Invalid photo cursor");
       }
@@ -143,6 +160,51 @@ const deletePhoto = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+const calculateDistance = (lat1, lng1, lat2, lng2) => {
+  const earthRadius = 6371000;
+
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) *
+    Math.cos(toRadians(lat2)) *
+    Math.sin(dLng / 2) ** 2;
+
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+const findClosestEvent = (photoLocation, events, maxDistance = 100) => {
+  if (!photoLocation) return null;
+
+  let closestEvent = null;
+  let shortestDistance = maxDistance;
+
+  for (const event of events) {
+    if (
+      !Number.isFinite(event.lat) ||
+      !Number.isFinite(event.lng)
+    ) {
+      continue;
+    }
+
+    const distance = calculateDistance(
+      photoLocation.latitude,
+      photoLocation.longitude,
+      event.lat,
+      event.lng,
+    );
+
+    if (distance <= shortestDistance) {
+      shortestDistance = distance;
+      closestEvent = event;
+    }
+  }
+
+  return closestEvent;
 };
 
 module.exports = { authorizePhoto, uploadPhoto, listPhotos, getPhotoContent, deletePhoto };

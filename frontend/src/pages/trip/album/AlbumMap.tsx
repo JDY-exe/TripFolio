@@ -77,123 +77,201 @@ const AlbumMap = ({ tripId }: { tripId: string }) => {
     let hasLocations = false;
 
     // Existing event markers.
+    // Event markers.
     const eventMarkers = locatedEvents.map((event) => {
       bounds.extend([event.lng, event.lat]);
       hasLocations = true;
 
-      const marker = new Marker()
+      const linkedPhotos = locatedPhotos.filter(
+        (photo) => photo.linkedEvent === event._id,
+      );
+
+      const element = document.createElement('button');
+      element.type = 'button';
+      element.textContent = linkedPhotos.length > 0 ? '📷' : '📍';
+      element.title = event.title;
+      element.setAttribute('aria-label', event.title);
+
+      const marker = new Marker({ element })
         .setLngLat([event.lng, event.lat])
         .addTo(map);
 
-      marker.getElement().setAttribute('aria-label', event.title);
-      marker.getElement().setAttribute('title', event.title);
-
       markers.push(marker);
+
+      // Only create a photo popup when photos are linked to this event.
+      if (linkedPhotos.length > 0) {
+        element.addEventListener('click', (eventClick) => {
+          eventClick.stopPropagation();
+
+          const content = document.createElement('div');
+          content.style.width = '260px';
+          content.style.maxHeight = '350px';
+          content.style.overflowY = 'auto';
+
+          const heading = document.createElement('h3');
+          heading.textContent = `${event.title} (${linkedPhotos.length} photos)`;
+          heading.style.fontWeight = '600';
+          heading.style.marginBottom = '10px';
+
+          const photoContainer = document.createElement('div');
+          photoContainer.style.display = 'grid';
+          photoContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
+          photoContainer.style.gap = '8px';
+
+          content.append(heading, photoContainer);
+
+          const popup = new Popup({
+            closeButton: true,
+            closeOnClick: true,
+            offset: 20,
+            maxWidth: '300px',
+          })
+            .setLngLat([event.lng, event.lat])
+            .setDOMContent(content)
+            .addTo(map);
+
+          linkedPhotos.forEach((photo) => {
+            const image = document.createElement('img');
+            image.alt = photo.originalName;
+            image.style.width = '100%';
+            image.style.height = '100px';
+            image.style.objectFit = 'cover';
+            image.style.borderRadius = '6px';
+
+            const wrapper = document.createElement('div');
+            wrapper.appendChild(image);
+            photoContainer.appendChild(wrapper);
+
+            void getBlobFromApi(photo.contentUrl)
+              .then((blob) => {
+                const url = URL.createObjectURL(blob);
+
+                if (popup.isOpen()) {
+                  image.src = url;
+                  image.dataset.objectUrl = url;
+                } else {
+                  URL.revokeObjectURL(url);
+                }
+              })
+              .catch(() => {
+                image.alt = 'Photo unavailable';
+              });
+          });
+
+          popup.on('close', () => {
+            photoContainer.querySelectorAll('img').forEach((image) => {
+              const url = image.dataset.objectUrl;
+              if (url) URL.revokeObjectURL(url);
+            });
+          });
+        });
+      }
+
       return marker;
     });
 
     // New photo markers.
-    locatedPhotos.forEach((photo) => {
-      const latitude = photo.location!.latitude;
-      const longitude = photo.location!.longitude;
+    locatedPhotos.filter((photo) => !photo.linkedEvent).forEach((photo) => {
+        const latitude = photo.location!.latitude;
+        const longitude = photo.location!.longitude;
 
-      bounds.extend([longitude, latitude]);
-      hasLocations = true;
+        bounds.extend([longitude, latitude]);
+        hasLocations = true;
 
-      const element = document.createElement('button');
-      element.type = 'button';
-      element.textContent = '📷';
-      element.title = `View ${photo.originalName}`;
-      element.setAttribute('aria-label', `View photo: ${photo.originalName}`);
+        const element = document.createElement('button');
+        element.type = 'button';
+        element.textContent = '📷';
+        element.title = `View ${photo.originalName}`;
+        element.setAttribute('aria-label', `View photo: ${photo.originalName}`);
 
-      Object.assign(element.style, {
-        width: '38px',
-        height: '38px',
-        borderRadius: '50%',
-        border: '2px solid white',
-        backgroundColor: '#2563eb',
-        color: 'white',
-        fontSize: '18px',
-        cursor: 'pointer',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
-      });
-
-      const marker = new Marker({
-        element,
-        anchor: 'bottom',
-      })
-        .setLngLat([longitude, latitude])
-        .addTo(map);
-
-      markers.push(marker);
-
-      element.addEventListener('click', (event) => {
-        event.stopPropagation();
-
-        const content = document.createElement('div');
-        content.style.width = '240px';
-
-        const title = document.createElement('p');
-        title.textContent = photo.originalName;
-        title.style.fontWeight = '600';
-        title.style.margin = '0 0 8px';
-
-        const image = document.createElement('img');
-        image.alt = photo.originalName;
-        image.style.width = '100%';
-        image.style.maxHeight = '200px';
-        image.style.objectFit = 'contain';
-        image.style.display = 'none';
-
-        const status = document.createElement('p');
-        status.textContent = 'Loading photo…';
-
-        content.append(title, image, status);
-
-        let objectUrl: string | null = null;
-        let closed = false;
-
-        const popup = new Popup({
-          closeButton: true,
-          closeOnClick: true,
-          offset: 20,
-          maxWidth: '280px',
-        })
-          .setLngLat([longitude, latitude])
-          .setDOMContent(content)
-          .addTo(map);
-
-        popup.on('close', () => {
-          closed = true;
-
-          if (objectUrl) {
-            URL.revokeObjectURL(objectUrl);
-            objectUrl = null;
-          }
+        Object.assign(element.style, {
+          width: '38px',
+          height: '38px',
+          borderRadius: '50%',
+          border: '2px solid white',
+          backgroundColor: '#2563eb',
+          color: 'white',
+          fontSize: '18px',
+          cursor: 'pointer',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
         });
 
-        // Fetch the image using your authenticated API utility.
-        void getBlobFromApi(photo.contentUrl)
-          .then((blob) => {
-            const url = URL.createObjectURL(blob);
+        const marker = new Marker({
+          element,
+          anchor: 'bottom',
+        })
+          .setLngLat([longitude, latitude])
+          .addTo(map);
 
-            if (closed) {
-              URL.revokeObjectURL(url);
-              return;
-            }
+        markers.push(marker);
 
-            objectUrl = url;
-            image.src = url;
-            image.style.display = 'block';
-            status.remove();
+        element.addEventListener('click', (event) => {
+          event.stopPropagation();
+
+          const content = document.createElement('div');
+          content.style.width = '240px';
+
+          const title = document.createElement('p');
+          title.textContent = photo.originalName;
+          title.style.fontWeight = '600';
+          title.style.margin = '0 0 8px';
+
+          const image = document.createElement('img');
+          image.alt = photo.originalName;
+          image.style.width = '100%';
+          image.style.maxHeight = '200px';
+          image.style.objectFit = 'contain';
+          image.style.display = 'none';
+
+          const status = document.createElement('p');
+          status.textContent = 'Loading photo…';
+
+          content.append(title, image, status);
+
+          let objectUrl: string | null = null;
+          let closed = false;
+
+          const popup = new Popup({
+            closeButton: true,
+            closeOnClick: true,
+            offset: 20,
+            maxWidth: '280px',
           })
-          .catch(() => {
-            if (!closed) {
-              status.textContent = 'Photo unavailable';
+            .setLngLat([longitude, latitude])
+            .setDOMContent(content)
+            .addTo(map);
+
+          popup.on('close', () => {
+            closed = true;
+
+            if (objectUrl) {
+              URL.revokeObjectURL(objectUrl);
+              objectUrl = null;
             }
           });
+
+          // Fetch the image using your authenticated API utility.
+          void getBlobFromApi(photo.contentUrl)
+            .then((blob) => {
+              const url = URL.createObjectURL(blob);
+
+              if (closed) {
+                URL.revokeObjectURL(url);
+                return;
+              }
+
+              objectUrl = url;
+              image.src = url;
+              image.style.display = 'block';
+              status.remove();
+            })
+            .catch(() => {
+              if (!closed) {
+                status.textContent = 'Photo unavailable';
+              }
+            });
+        });
       });
-    });
 
     // Fit around both events and photos.
     if (hasLocations) {
