@@ -2,6 +2,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const Reservation = require("../models/Reservation");
 const Trip = require("../models/trip");
+const Itinerary = require("../models/itinerary");
+const Event = require("../models/event");
 const authenticateToken = require("../middleware/authenticateToken");
 const { canEditTrip, canReadTrip, getTripRole } = require("../utils/tripAccess");
 
@@ -153,9 +155,51 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
             }
             const trip = await findTripWithAccess(req, res, tripId, true);
             if (!trip) return;
+
+            // Find the itinerary belonging to this trip.
+            const itinerary = await Itinerary.findOne({ tripId });
+            if (!itinerary) {
+                return res.status(409).json({
+                    message: "An itinerary must exist before creating a reservation event",
+                });
+            }
             const journey = isFlight ? flightJourneyFields(details.segments) : null;
-            const reservation = await Reservation.create({ type, trip: tripId, name: name.trim(), startTime, endTime, confirmationNumber, cost, notes, [type]: details, ...journey });
-            await Trip.updateOne({ _id: tripId }, { $addToSet: { reservations: reservation._id } });
+            // Create the reservation.
+            const reservation = await Reservation.create({
+                type,
+                trip: tripId,
+                name: name.trim(),
+                startTime,
+                endTime,
+                confirmationNumber,
+                cost,
+                notes,
+                [type]: details,
+                ...journey,
+            });
+            // Create an associated event.
+            const event = await Event.create({
+                itineraryID: itinerary._id,
+                reservation: reservation._id,
+                title: reservation.name,
+                startTime: reservation.startTime,
+                endTime: reservation.endTime,
+                notes: reservation.notes,
+                address: type === "accommodations"
+                    ? reservation.accommodations.address
+                    : undefined,
+                reservationMade: true,
+            });
+            // Add the reservation to the trip.
+            await Trip.updateOne(
+                { _id: tripId },
+                { $addToSet: { reservations: reservation._id } }
+            );
+            return res.status(201).json({
+                message: `${label} reservation created successfully`,
+                reservation,
+                event,
+            });
             return res.status(201).json({
                 message: `${label} reservation created successfully`,
                 reservation,

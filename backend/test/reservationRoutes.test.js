@@ -4,9 +4,12 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const Trip = require("../models/trip");
 const User = require("../models/User");
+const Itinerary = require("../models/itinerary");
+const Event = require("../models/event");
 const Reservation = require("../models/Reservation");
 const reservationRoutes = require("../routes/reservationRoutes");
 const tripRoutes = require("../routes/tripRoutes");
+const tripId = "507f1f77bcf86cd799439011";
 
 test("reservation routes scope reads and writes to trip editors", async (t) => {
     const original = {
@@ -17,6 +20,8 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         find: Reservation.find,
         findById: Reservation.findById,
         create: Reservation.create,
+        findItinerary: Itinerary.findOne,
+        createEvent: Event.create,
         saveTrip: Trip.prototype.save,
     };
     t.after(() => {
@@ -27,9 +32,10 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         Reservation.find = original.find;
         Reservation.findById = original.findById;
         Reservation.create = original.create;
+        Itinerary.findOne = original.findItinerary;
+        Event.create = original.createEvent;
         Trip.prototype.save = original.saveTrip;
     });
-    const tripId = "507f1f77bcf86cd799439011";
     User.find = () => ({ select: () => ({ lean: async () => [] }) });
     const reservationId = "507f1f77bcf86cd799439012";
     const userId = "507f1f77bcf86cd799439013";
@@ -114,6 +120,18 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
     Trip.prototype.save = async function () {
         return this;
     };
+    Itinerary.findOne = async ({ tripId: requestedTripId }) => {
+        assert.equal(String(requestedTripId), tripId);
+
+        return {
+            _id: "507f1f77bcf86cd799439014",
+            tripId,
+        };
+    };
+    Event.create = async values => ({
+        ...values,
+        _id: "507f1f77bcf86cd799439015",
+    });
     response = await request("/trip", {
         method: "POST",
         body: JSON.stringify({
@@ -453,14 +471,26 @@ test("POST /logistics/flights accepts multiple connected flight segments", async
     const originalFindById = Trip.findById;
     const originalCreate = Reservation.create;
     const originalUpdateOne = Trip.updateOne;
+    const originalFindItinerary = Itinerary.findOne;
+    const originalCreateEvent = Event.create;
+    Itinerary.findOne = async () => ({
+        _id: "507f1f77bcf86cd799439014",
+        tripId,
+    });
+
+    Event.create = async (values) => ({
+        ...values,
+        _id: "507f1f77bcf86cd799439015",
+    });
 
     t.after(() => {
         Trip.findById = originalFindById;
         Reservation.create = originalCreate;
         Trip.updateOne = originalUpdateOne;
+        Itinerary.findOne = originalFindItinerary;
+        Event.create = originalCreateEvent;
     });
 
-    const tripId = "507f1f77bcf86cd799439011";
     const userId = "507f1f77bcf86cd799439013";
 
     const previousSecret = process.env.JWT_SECRET;
@@ -1069,6 +1099,17 @@ test("POST /logistics/hotels accepts a valid hotel reservation", async () => {
     const app = express();
     app.use(express.json());
     app.use("/logistics", reservationRoutes);
+    const originalFindItinerary = Itinerary.findOne;
+    const originalCreateEvent = Event.create;
+    Itinerary.findOne = async () => ({
+        _id: "507f1f77bcf86cd799439014",
+        tripId,
+    });
+
+    Event.create = async (values) => ({
+        ...values,
+        _id: "507f1f77bcf86cd799439015",
+    });
 
     const server = app.listen(0);
     const base = `http://127.0.0.1:${server.address().port}`;
@@ -1136,6 +1177,8 @@ test("POST /logistics/hotels accepts a valid hotel reservation", async () => {
     Trip.findById = originalFindById;
     Reservation.create = originalCreate;
     Trip.updateOne = originalUpdateOne;
+    Itinerary.findOne = originalFindItinerary;
+    Event.create = originalCreateEvent;
 
     await new Promise(resolve => server.close(resolve));
 
@@ -1245,6 +1288,8 @@ test("POST /logistics/rental_cars accepts a valid rental", async () => {
     const app = express();
     app.use(express.json());
     app.use("/logistics", reservationRoutes);
+    const originalFindItinerary = Itinerary.findOne;
+    const originalCreateEvent = Event.create;
 
     const server = app.listen(0);
     const base = `http://127.0.0.1:${server.address().port}`;
@@ -1277,6 +1322,15 @@ test("POST /logistics/rental_cars accepts a valid rental", async () => {
     Trip.updateOne = async () => {
         linked = true;
     };
+    Itinerary.findOne = async () => ({
+        _id: "507f1f77bcf86cd799439014",
+        tripId,
+    });
+
+    Event.create = async (values) => ({
+        ...values,
+        _id: "507f1f77bcf86cd799439015",
+    });
 
     const response = await fetch(`${base}/logistics/rental_cars`, {
         method: "POST",
@@ -1312,6 +1366,8 @@ test("POST /logistics/rental_cars accepts a valid rental", async () => {
     Trip.findById = originalFindById;
     Reservation.create = originalCreate;
     Trip.updateOne = originalUpdateOne;
+    Itinerary.findOne = originalFindItinerary;
+    Event.create = originalCreateEvent;
 
     await new Promise(resolve => server.close(resolve));
 
