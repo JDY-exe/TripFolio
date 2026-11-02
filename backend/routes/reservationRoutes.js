@@ -266,6 +266,9 @@ for (const [path, { type, fields, requiredFields = fields, label, missingMessage
             if (!reservation || reservation.type !== type) return res.status(404).json({ message: "Reservation not found" });
             const trip = await findTripWithAccess(req, res, reservation.trip, true);
             if (!trip) return;
+            await Event.deleteMany({
+                reservation: reservation._id,
+            });
             await reservation.deleteOne();
             await Trip.updateOne({ _id: trip._id }, { $pull: { reservations: reservation._id } });
             return res.json({ message: "Reservation deleted" });

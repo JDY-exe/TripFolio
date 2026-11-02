@@ -22,6 +22,7 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         create: Reservation.create,
         findItinerary: Itinerary.findOne,
         createEvent: Event.create,
+        deleteEvents: Event.deleteMany,
         saveTrip: Trip.prototype.save,
     };
     t.after(() => {
@@ -34,6 +35,7 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         Reservation.create = original.create;
         Itinerary.findOne = original.findItinerary;
         Event.create = original.createEvent;
+        Event.deleteMany = original.deleteEvents;
         Trip.prototype.save = original.saveTrip;
     });
     User.find = () => ({ select: () => ({ lean: async () => [] }) });
@@ -326,9 +328,19 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         "AB456"
     );
     let unlinked = false;
+    let deletedEvent = false;
+
     Trip.updateOne = async (_query, update) => {
         unlinked = Boolean(update.$pull);
     };
+
+    Event.deleteMany = async (query) => {
+        assert.equal(String(query.reservation), reservationId);
+        deletedEvent = true;
+
+        return { deletedCount: 1 };
+    };
+
     response = await request(
         `/logistics/flights/${reservationId}`,
         {
@@ -338,6 +350,7 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
     assert.equal(response.status, 200);
     assert.equal(stored.deleted, true);
     assert.equal(unlinked, true);
+    assert.equal(deletedEvent, true);
 });
 test("GET /logistics/flights rejects missing trip ID", async () => {
     const app = express();
