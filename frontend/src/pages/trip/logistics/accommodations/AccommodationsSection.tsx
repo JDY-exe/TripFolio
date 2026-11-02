@@ -12,6 +12,7 @@ import { reservationDateForDisplay } from '../reservationDateInput';
 
 interface AccommodationsSectionProps {
   tripId: string;
+  readOnly?: boolean;
   onAdd: () => void;
   onEdit: (reservation: Reservation) => void;
   onDelete: (reservation: Reservation) => void;
@@ -30,6 +31,7 @@ const stayDate = new Intl.DateTimeFormat(undefined, {
  */
 const AccommodationsSection = ({
   tripId,
+  readOnly = false,
   onAdd,
   onEdit,
   onDelete,
@@ -50,15 +52,17 @@ const AccommodationsSection = ({
         <Text as="h3" id="stays-heading" variant="title">
           Accommodations
         </Text>
-        <Button
-          data-cy="add-accommodation"
-          size="sm"
-          variant="secondary"
-          leadingIcon={<Plus aria-hidden size={16} />}
-          onClick={onAdd}
-        >
-          Add accommodation
-        </Button>
+        {!readOnly && (
+          <Button
+            data-cy="add-accommodation"
+            size="sm"
+            variant="secondary"
+            leadingIcon={<Plus aria-hidden size={16} />}
+            onClick={onAdd}
+          >
+            Add accommodation
+          </Button>
+        )}
       </div>
       {isPending && (
         <LogisticsSkeletonCard
@@ -88,11 +92,13 @@ const AccommodationsSection = ({
             key={reservation._id}
             className="group relative overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low p-5 sm:p-6"
           >
-            <LogisticsCardActions
-              reservation={reservation}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
+            {!readOnly && (
+              <LogisticsCardActions
+                reservation={reservation}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            )}
             <div className="flex items-center gap-4">
               <div
                 aria-hidden="true"

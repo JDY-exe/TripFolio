@@ -1,6 +1,8 @@
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
+import { useTripDetails } from '../../queries/trips';
+import { Button, Text } from '../../components/common';
 import BottomNav from '../../components/navigation/BottomNav';
 import {
   tripNavItems,
@@ -13,25 +15,46 @@ import LogisticsView from './logistics/LogisticsView';
 import TripSettings from './TripSettings';
 
 /**
- * Presents the placeholder detail view for an individual trip.
+ * Presents shared trip sections, with archived trips restricted to browsing.
  * It switches sections locally, giving Logistics and Album the full content width.
+ * @param props - Whether this is the archived trip route.
  *
  * @returns The trip detail page.
  */
-function Trip() {
+const Trip = ({ archived = false }: { archived?: boolean }) => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const { data: trip, isPending, isError, refetch } = useTripDetails(id);
+  const readOnly =
+    archived || trip?.archived === true || trip?.currentUserRole === 'viewer';
   const [section, setSection] = useState<TripSection>('itinerary');
+
+  if (id && isPending) return <Text color="muted">Loading trip...</Text>;
+  if (isError)
+    return (
+      <section role="alert" className="space-y-4">
+        <Text color="error">Trip could not be loaded.</Text>
+        <Button variant="secondary" onClick={() => void refetch()}>
+          Retry
+        </Button>
+      </section>
+    );
 
   return (
     <section>
       <div
         className={`mt-10 grid gap-5 ${section === 'settings' ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
       >
-        {section === 'itinerary' && <ItineraryView />}
+        {section === 'itinerary' && (
+          <ItineraryView
+            readOnly={readOnly}
+            archived={archived || trip?.archived === true}
+          />
+        )}
         {section === 'ledger' && <LedgerView />}
-        {section === 'logistics' && <LogisticsView />}
-        {section === 'album' && <AlbumView />}
-        {section === 'settings' && <TripSettings />}
+        {section === 'logistics' && <LogisticsView readOnly={readOnly} />}
+        {section === 'album' && <AlbumView readOnly={readOnly} />}
+        {section === 'settings' && <TripSettings readOnly={readOnly} />}
       </div>
 
       <BottomNav
@@ -41,12 +64,12 @@ function Trip() {
         onChange={(value) => setSection(value as TripSection)}
         leadingAction={{
           icon: ArrowLeft,
-          label: 'My Trips',
-          onClick: () => navigate('/my-trips'),
+          label: archived ? 'Archived Trips' : 'My Trips',
+          onClick: () => navigate(archived ? '/archived-trips' : '/my-trips'),
         }}
       />
     </section>
   );
-}
+};
 
 export default Trip;

@@ -91,7 +91,7 @@ describe('day-following itinerary map', () => {
     visitOwnedTrip(undefined, { events: () => fixture.events });
     cy.get('[data-cy="itinerary-map"]').should(
       'contain.text',
-      'Retry location lookup',
+      'No event locations could be mapped.',
     );
     cy.get('[data-cy="event-card-map-museum"]').should('be.visible');
   });

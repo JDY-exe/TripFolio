@@ -19,20 +19,46 @@ export interface Trip {
 /** Creates the cache key for a user's trips. */
 export const tripsQueryKey = (userId?: string) => ['trips', userId] as const;
 
+/** Creates a separate cache key for archived trips without colliding with active lists. */
+export const archivedTripsQueryKey = (userId?: string) =>
+  ['archived-trips', userId] as const;
+
+export interface TripDetails extends Trip {
+  isPublic: boolean;
+  currentUserRole: 'owner' | 'editor' | 'viewer' | null;
+  users?: string[];
+  hiddenUsers?: string[];
+  archived: boolean;
+}
+
+/** Loads shared trip details, including archive status and the current user's permissions.
+ * @param tripId - Trip identifier; disables fetching when absent.
+ * @returns The cached trip detail query.
+ */
+export const useTripDetails = (tripId?: string) =>
+  useQuery({
+    queryKey: ['trip-settings', tripId],
+    queryFn: () => getFromApi<TripDetails>(`/trip/${tripId}`),
+    enabled: Boolean(tripId),
+  });
+
 /** Loads the authenticated user's trips and exposes query state as named values.
  * @param userId - Authenticated user's identifier; disables the query when absent.
+ * @param archived - Selects the archived endpoint and its separate cache key.
  * @returns Trips, loading and error state, plus refetch for retry actions.
  */
-export const useTrips = (userId?: string) => {
+export const useTrips = (userId?: string, archived = false) => {
   const {
     data: trips = [],
     isPending,
     isError,
     refetch,
   } = useQuery({
-    queryKey: tripsQueryKey(userId),
+    queryKey: archived ? archivedTripsQueryKey(userId) : tripsQueryKey(userId),
     queryFn: async () => {
-      const result = await getFromApi<Trip[]>('/trip');
+      const result = await getFromApi<Trip[]>(
+        archived ? '/trip/archived' : '/trip',
+      );
       if (!Array.isArray(result))
         throw new Error('Expected an array of trips.');
       return result;
@@ -43,25 +69,11 @@ export const useTrips = (userId?: string) => {
   return { trips, isPending, isError, refetch };
 };
 
-export const useArchivedTrips = (userId?: string) => {
-    const {
-    data: trips = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery({
-    queryKey: tripsQueryKey(userId),
-    queryFn: async () => {
-      const result = await getFromApi<Trip[]>('/trip/archived');
-      if (!Array.isArray(result))
-        throw new Error('Expected an array of trips.');
-      return result;
-    },
-    enabled: Boolean(userId),
-  });
-
-  return { trips, isPending, isError, refetch };
-}
+/** Loads the user's archived trips using an isolated archive-list cache.
+ * @param userId - Authenticated user's identifier.
+ * @returns Trips and their query state.
+ */
+export const useArchivedTrips = (userId?: string) => useTrips(userId, true);
 
 export interface TripInvitation {
   _id: string;

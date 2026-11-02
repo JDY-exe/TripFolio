@@ -23,6 +23,7 @@ interface ItineraryMapProps {
   activeDate?: string;
   startDate: string;
   loading: boolean;
+  readOnly?: boolean;
   onEdit: (event: EventData) => void;
   onDelete: (event: EventData) => void;
 }
@@ -36,6 +37,7 @@ const ItineraryMap = ({
   activeDate,
   startDate,
   loading,
+  readOnly = false,
   onEdit,
   onDelete,
 }: ItineraryMapProps) => {
@@ -54,6 +56,7 @@ const ItineraryMap = ({
   const mapProps = {
     events: locatedEvents,
     activeDate,
+    readOnly,
     onEdit: (event: EventData) => {
       pendingAction.current = () => onEdit(event);
       setExpanded(false);

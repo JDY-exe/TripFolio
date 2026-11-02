@@ -12,6 +12,7 @@ import FlightJourneyTimeline from './FlightJourneyTimeline';
 
 interface FlightsSectionProps {
   tripId: string;
+  readOnly?: boolean;
   onAdd: () => void;
   onEdit: (reservation: Reservation) => void;
   onDelete: (reservation: Reservation) => void;
@@ -24,6 +25,7 @@ interface FlightsSectionProps {
  */
 const FlightsSection = ({
   tripId,
+  readOnly = false,
   onAdd,
   onEdit,
   onDelete,
@@ -44,15 +46,17 @@ const FlightsSection = ({
         <Text as="h3" id="flights-heading" variant="title">
           Flights
         </Text>
-        <Button
-          data-cy="add-flight"
-          size="sm"
-          variant="secondary"
-          leadingIcon={<Plus aria-hidden size={16} />}
-          onClick={onAdd}
-        >
-          Add flight journey
-        </Button>
+        {!readOnly && (
+          <Button
+            data-cy="add-flight"
+            size="sm"
+            variant="secondary"
+            leadingIcon={<Plus aria-hidden size={16} />}
+            onClick={onAdd}
+          >
+            Add flight journey
+          </Button>
+        )}
       </div>
       {isPending && (
         <LogisticsSkeletonCard
@@ -82,11 +86,13 @@ const FlightsSection = ({
             key={reservation._id}
             className="group relative overflow-hidden rounded-[1.75rem_0.75rem_1.75rem_0.75rem] bg-surface-container-low"
           >
-            <LogisticsCardActions
-              reservation={reservation}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
+            {!readOnly && (
+              <LogisticsCardActions
+                reservation={reservation}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            )}
             <div className="p-5 sm:p-6">
               <div className="flex items-center gap-3">
                 <div className="grid size-12 shrink-0 place-items-center rounded-[1rem_0.5rem_1rem_0.5rem] bg-primary-container text-on-primary-container">

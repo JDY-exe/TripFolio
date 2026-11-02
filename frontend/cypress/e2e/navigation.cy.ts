@@ -1,10 +1,19 @@
 import navigation from '../fixtures/navigation.json';
+import features from '../fixtures/owned-features.json';
 import tripFixture from '../fixtures/trip-visibility.json';
 import { visitAsUser } from '../support/auth';
 
 describe('Navigation', () => {
   beforeEach(() => {
     cy.intercept({ method: 'GET', pathname: '/trip' }, { body: [] });
+    cy.intercept(
+      {
+        method: 'GET',
+        hostname: 'localhost',
+        pathname: `/trip/${features.trip._id}`,
+      },
+      { body: features.trip },
+    );
     cy.intercept(
       { method: 'GET', pathname: '/itinerary' },
       {

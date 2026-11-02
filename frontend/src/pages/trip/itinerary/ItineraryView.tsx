@@ -18,9 +18,16 @@ import ErrorDisplay from '../../../components/common/ErrorDisplay/ErrorDisplay';
 import { getItineraryDays } from './itineraryDays';
 
 /** Loads and displays the trip itinerary and event cards.
+ * @param props - Read-only permissions and whether to load archived trip metadata.
  * @returns The itinerary date, chronological event list, and sidebar details.
  */
-const ItineraryView = () => {
+const ItineraryView = ({
+  readOnly = false,
+  archived = false,
+}: {
+  readOnly?: boolean;
+  archived?: boolean;
+}) => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -28,7 +35,7 @@ const ItineraryView = () => {
     trips,
     isPending: tripsLoading,
     isError: tripsError,
-  } = useTrips(user?.id);
+  } = useTrips(user?.id, archived);
   const { itinerary, isError, refetch } = useItinerary(id);
   const {
     events = [],
@@ -52,7 +59,7 @@ const ItineraryView = () => {
    * @returns A promise that settles when deletion completes.
    */
   const handleDeleteEvent = async () => {
-    if (!eventToDelete || isDeletingEvent) return;
+    if (readOnly || !eventToDelete || isDeletingEvent) return;
     setIsDeletingEvent(true);
     try {
       await deleteFromApi(`/event/${eventToDelete._id}`);
@@ -116,7 +123,7 @@ const ItineraryView = () => {
             id="itinerary-heading"
             variant="display"
           >
-            Itinerary test
+            {archived ? 'Archived Itinerary' : 'Itinerary'}
           </Text>
           {tripName && (
             <Text as="span" variant="display" className="min-w-0 break-words">
@@ -144,6 +151,7 @@ const ItineraryView = () => {
               }
               events={eventsByDay.get(date) ?? []}
               eventsLoading={eventsLoading}
+              readOnly={readOnly}
               itineraryId={itinerary._id}
               startDate={itinerary.startDate}
               endDate={itinerary.endDate}
@@ -160,7 +168,11 @@ const ItineraryView = () => {
           ))}
       </section>
       <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-8 lg:self-start">
-        <ItineraryDescription itinerary={itinerary} tripId={id} />
+        <ItineraryDescription
+          itinerary={itinerary}
+          tripId={id}
+          readOnly={readOnly}
+        />
         <TripOverview
           startDate={trip?.startDate ?? itinerary.startDate}
           endDate={trip?.endDate ?? itinerary.endDate}
@@ -174,6 +186,7 @@ const ItineraryView = () => {
           activeDate={activeDate}
           startDate={itinerary.startDate}
           loading={eventsLoading}
+          readOnly={readOnly}
           onEdit={setMapEventBeingEdited}
           onDelete={(event) => {
             setEventToDelete(event);
@@ -181,7 +194,7 @@ const ItineraryView = () => {
           }}
         />
       </aside>
-      {mapEventBeingEdited && (
+      {!readOnly && mapEventBeingEdited && (
         <AddNewEventCard
           key={mapEventBeingEdited._id}
           event={mapEventBeingEdited}
@@ -197,7 +210,7 @@ const ItineraryView = () => {
           }
         />
       )}
-      {eventToDelete && (
+      {!readOnly && eventToDelete && (
         <Modal
           data-cy="delete-event-dialog"
           open={deleteModalOpen}

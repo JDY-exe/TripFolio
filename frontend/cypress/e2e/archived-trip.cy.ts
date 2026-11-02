@@ -1,0 +1,156 @@
+import fixture from '../fixtures/archived-trip';
+import { visitAsUser } from '../support/auth';
+
+/** Stubs trip browsing APIs with archived content while keeping active lists separate.
+ * @returns Nothing; Cypress queues the API intercepts.
+ */
+const mockArchivedTrip = () => {
+  cy.intercept('GET', '**/trip', { body: [fixture.activeTrip] });
+  cy.intercept('GET', '**/trip/archived', { body: [fixture.trip] });
+  cy.intercept(
+    {
+      method: 'GET',
+      hostname: 'localhost',
+      pathname: `/trip/${fixture.trip._id}`,
+    },
+    { body: fixture.trip },
+  );
+  cy.intercept(
+    { method: 'GET', pathname: '/itinerary' },
+    { body: fixture.itinerary },
+  );
+  cy.intercept(
+    { method: 'GET', pathname: '/event' },
+    { body: [fixture.event] },
+  );
+  cy.intercept(
+    { method: 'GET', pathname: '/event/*/photo' },
+    { body: { photo: null } },
+  );
+  cy.intercept(
+    { method: 'GET', pathname: '/logistics/flights' },
+    { body: { reservations: [fixture.flight] } },
+  );
+  cy.intercept(
+    { method: 'GET', pathname: '/logistics/hotels' },
+    { body: { reservations: [fixture.accommodation] } },
+  );
+  cy.intercept(
+    { method: 'GET', pathname: '/logistics/rental_cars' },
+    { body: { reservations: [fixture.rental] } },
+  );
+  cy.intercept(
+    { method: 'GET', pathname: '/trip/*/photos' },
+    { body: { photos: [fixture.photo], nextCursor: null } },
+  );
+  cy.intercept(
+    { method: 'GET', pathname: '/trip/*/photos/*/content' },
+    { headers: { 'content-type': 'image/png' }, fixture: 'avatar.png' },
+  );
+};
+
+describe('archived trips reuse shared views', () => {
+  beforeEach(mockArchivedTrip);
+
+  it('browses itinerary, reservations, and photos without editing controls', () => {
+    visitAsUser('/archived-trips');
+    cy.get(`[data-cy="trip-card-${fixture.trip._id}"]`)
+      .should('have.attr', 'href', `/trip/archived/${fixture.trip._id}`)
+      .click();
+    cy.get('[data-cy="trip-section-itinerary"]').should(
+      'contain.text',
+      'Archived Itinerary',
+    );
+    cy.contains(fixture.event.title).should('be.visible');
+    cy.get('[data-cy^="add-event-"]').should('not.exist');
+    cy.get('[data-cy="description-edit"]').should('not.exist');
+    cy.get('[data-cy^="edit-event-"]').should('not.exist');
+    cy.get('[data-cy^="delete-event-"]').should('not.exist');
+    cy.get('[data-cy="nav-logistics"]').click();
+    cy.contains(fixture.flight.name).should('be.visible');
+    cy.contains(fixture.accommodation.name).should('be.visible');
+    cy.contains(fixture.rental.name).should('be.visible');
+    cy.get('[data-cy^="add-"]').should('not.exist');
+    cy.get('[data-cy^="edit-reservation-"]').should('not.exist');
+    cy.get('[data-cy^="delete-reservation-"]').should('not.exist');
+    cy.get('[data-cy="nav-album"]').click();
+    cy.get('[data-cy="album-photo"]').should('be.visible').click();
+    cy.get('[data-cy="album-photo-viewer"]').should('be.visible');
+    cy.get('[role="dialog"]').trigger('keydown', { key: 'Escape' });
+    cy.get('[data-cy="album-add-photos"]').should('not.exist');
+    cy.get('[data-cy="album-edit-photos"]').should('not.exist');
+    cy.get('[data-cy="nav-settings"]').click();
+    cy.get('[data-cy="trip-visibility"]').should('be.disabled');
+    cy.get('[data-cy="share-trip-open"]').should('not.exist');
+    cy.get('[data-cy="delete-trip-open"]').should('not.exist');
+    cy.get('[data-cy="toggle-trip-archive"]').should(
+      'contain.text',
+      'Unarchive trip',
+    );
+  });
+
+  it('keeps map popup event cards read-only', () => {
+    cy.intercept('GET', 'https://tiles.openfreemap.org/styles/*', {
+      body: fixture.mapStyle,
+    });
+    cy.intercept(
+      { method: 'GET', pathname: '/event/*/location' },
+      { body: { location: fixture.location } },
+    );
+    visitAsUser(`/trip/archived/${fixture.trip._id}`);
+    cy.get('[data-cy="expand-itinerary-map"]')
+      .should('not.be.disabled')
+      .click();
+    cy.get(
+      `[data-cy="expanded-itinerary-map"] [data-cy="map-pin-${fixture.event._id}"]`,
+    ).click();
+    cy.get('[data-cy="map-event-popup"]').should(
+      'contain.text',
+      fixture.event.title,
+    );
+    cy.get('[data-cy="map-event-popup"] [data-cy^="edit-event-"]').should(
+      'not.exist',
+    );
+    cy.get('[data-cy="map-event-popup"] [data-cy^="delete-event-"]').should(
+      'not.exist',
+    );
+  });
+
+  it('also makes archived trips read-only through the normal trip URL', () => {
+    visitAsUser(`/trip/${fixture.trip._id}`);
+    cy.get('[data-cy="trip-section-itinerary"]').should(
+      'contain.text',
+      'Archived Itinerary',
+    );
+    cy.get('[data-cy^="add-event-"]').should('not.exist');
+    cy.get('[data-cy="description-edit"]').should('not.exist');
+  });
+
+  it('unarchives a trip and restores the normal editable view', () => {
+    let archived = true;
+    cy.intercept(
+      {
+        method: 'GET',
+        hostname: 'localhost',
+        pathname: `/trip/${fixture.trip._id}`,
+      },
+      (request) => {
+        request.reply({ body: archived ? fixture.trip : fixture.activeTrip });
+      },
+    );
+    cy.intercept('PATCH', '**/trip/archive', (request) => {
+      archived = false;
+      request.reply({ body: { archived: false } });
+    }).as('unarchive');
+    visitAsUser(`/trip/archived/${fixture.trip._id}`);
+    cy.get('[data-cy="nav-settings"]').click();
+    cy.get('[data-cy="toggle-trip-archive"]').click();
+    cy.wait('@unarchive')
+      .its('request.body.tripId')
+      .should('eq', fixture.trip._id);
+    cy.location('pathname').should('eq', `/trip/${fixture.trip._id}`);
+    cy.get('[data-cy="nav-itinerary"]').click();
+    cy.get('[data-cy="description-edit"]').should('be.visible');
+    cy.get('[data-cy="add-event-2030-04-01"]').should('be.visible');
+  });
+});
