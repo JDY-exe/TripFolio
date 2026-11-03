@@ -394,6 +394,67 @@ const addUserToTrip = async (req, res) => {
   }
 };
 
+/** Updates an existing trip member's editor or viewer role. */
+const updateTripMemberRole = async (req, res) => {
+  try {
+    const { id: tripId, userId } = req.params;
+    const { role } = req.body || {};
+    if (!mongoose.isValidObjectId(tripId) || !mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ message: "Invalid trip or user ID" });
+    }
+    if (role !== "editor" && role !== "viewer") {
+      return res.status(400).json({ message: "Role must be editor or viewer" });
+    }
+
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+    if (getTripRole(trip, req.user.id) !== "owner") {
+      return res.status(403).json({ message: "Only the trip owner can manage member roles" });
+    }
+    if (getTripRole(trip, userId) === "owner") {
+      return res.status(400).json({ message: "The trip owner role cannot be changed" });
+    }
+    if (!getTripRole(trip, userId)) {
+      return res.status(404).json({ message: "Trip member not found" });
+    }
+    if (!(await User.findById(userId))) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (trip.memberRoles instanceof Map) {
+      trip.memberRoles.set(String(userId), role);
+    } else {
+      trip.memberRoles = { ...(trip.memberRoles || {}), [String(userId)]: role };
+    }
+
+    trip.viewerIds ??= [];
+    if (typeof trip.viewerIds.pull === "function") {
+      trip.viewerIds.pull(userId);
+    } else {
+      trip.viewerIds = trip.viewerIds.filter((memberId) => String(memberId) !== String(userId));
+    }
+    if (role === "viewer") {
+      if (typeof trip.viewerIds.addToSet === "function") {
+        trip.viewerIds.addToSet(userId);
+      } else {
+        trip.viewerIds.push(userId);
+      }
+    }
+
+    await trip.save();
+    return res.status(200).json({
+      message: "Trip member role updated successfully",
+      trip,
+      member: { userId: String(userId), role }
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Unable to update trip member role" });
+  }
+};
+
 const resolveUserProfile = async (userId) => {
   if (!userId) return null;
   const query = User.findById(userId);
@@ -834,6 +895,7 @@ module.exports = {
   getTripFromUser,
   shareTrip,
   addUserToTrip,
+  updateTripMemberRole,
   modifyGlobalVotes,
   hideUserFromTrip,
   archiveTrip,
