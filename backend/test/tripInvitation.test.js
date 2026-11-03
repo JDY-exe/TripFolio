@@ -17,6 +17,7 @@ test("trip invitations require trip, existing-profile recipient, and inviter", a
     }
   );
   assert.equal(invitation.status, "pending");
+  assert.equal(invitation.role, "editor");
 });
 
 test("trip invitations accept only pending, accepted, or declined statuses", async () => {
@@ -30,6 +31,20 @@ test("trip invitations accept only pending, accepted, or declined statuses", asy
   await assert.rejects(
     invitation.validate(),
     (error) => error.errors.status.kind === "enum"
+  );
+});
+
+test("trip invitations accept only editor or viewer roles", async () => {
+  const invitation = new TripInvitation({
+    trip: new mongoose.Types.ObjectId(),
+    recipient: new mongoose.Types.ObjectId(),
+    inviter: new mongoose.Types.ObjectId(),
+    role: "owner"
+  });
+
+  await assert.rejects(
+    invitation.validate(),
+    (error) => error.errors.role.kind === "enum"
   );
 });
 

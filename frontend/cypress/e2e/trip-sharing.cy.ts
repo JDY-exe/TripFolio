@@ -172,6 +172,7 @@ describe('trip sharing', () => {
 
     cy.get('[data-cy="share-trip-open"]').click();
     cy.get('[data-cy="share-trip-dialog"]').should('be.visible');
+    cy.get('[data-cy="share-trip-role"]').should('have.value', 'editor');
     cy.get('[data-cy="share-trip-friend-search"]').focus();
     cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`)
       .should('be.enabled')
@@ -184,11 +185,35 @@ describe('trip sharing', () => {
 
     cy.wait('@shareTrip')
       .its('request.body')
-      .should('deep.equal', { recipientIds: [sharingFixture.friendId] });
+      .should('deep.equal', {
+        recipientIds: [sharingFixture.friendId],
+        role: 'editor',
+      });
     cy.get('[data-cy="toast"]')
       .contains('Trip invitations created')
       .should('exist');
     cy.get('[data-cy="share-trip-dialog"]').should('not.exist');
+  });
+
+  it('sends viewer-only access when selected in trip settings', () => {
+    openTripSettings();
+    cy.intercept('POST', `**/trip/${sharingFixture.tripId}/share`, {
+      statusCode: 201,
+      body: { message: 'Trip invitations created' },
+    }).as('shareTrip');
+
+    cy.get('[data-cy="share-trip-open"]').click();
+    cy.get('[data-cy="share-trip-role"]').select('viewer');
+    cy.get('[data-cy="share-trip-friend-search"]').focus();
+    cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`).click();
+    cy.get('[data-cy="share-trip-submit"]').click();
+
+    cy.wait('@shareTrip')
+      .its('request.body')
+      .should('deep.equal', {
+        recipientIds: [sharingFixture.friendId],
+        role: 'viewer',
+      });
   });
 
   it('marks existing trip members as unavailable and filters friends', () => {

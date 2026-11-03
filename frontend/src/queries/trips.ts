@@ -155,6 +155,7 @@ export interface TripInvitation {
     owner?: { username: string; profile_picture?: string | null } | null;
   };
   inviter: { username: string } | null;
+  role?: Exclude<TripMemberRole, 'owner'>;
 }
 
 interface TripInvitationsResponse {
@@ -207,6 +208,7 @@ export const useRespondToTripInvitation = (userId?: string) => {
 export interface SendTripInvitationsInput {
   tripId: string;
   recipientIds: string[];
+  role?: Exclude<TripMemberRole, 'owner'>;
 }
 
 export interface SendTripInvitationsResponse {
@@ -216,6 +218,7 @@ export interface SendTripInvitationsResponse {
     trip: string;
     recipient: string;
     inviter: string;
+    role: Exclude<TripMemberRole, 'owner'>;
     status: 'pending';
   }[];
 }
@@ -225,10 +228,16 @@ export interface SendTripInvitationsResponse {
  */
 export const useSendTripInvitations = () =>
   useMutation({
-    mutationFn: ({ tripId, recipientIds }: SendTripInvitationsInput) =>
-      postToApi<SendTripInvitationsResponse, { recipientIds: string[] }>(
-        `/trip/${tripId}/share`,
-        { recipientIds },
-      ),
+    mutationFn: ({ tripId, recipientIds, role }: SendTripInvitationsInput) =>
+      postToApi<
+        SendTripInvitationsResponse,
+        {
+          recipientIds: string[];
+          role?: Exclude<TripMemberRole, 'owner'>;
+        }
+      >(`/trip/${tripId}/share`, {
+        recipientIds,
+        ...(role ? { role } : {}),
+      }),
     retry: 0,
   });

@@ -19,6 +19,7 @@ import {
   useUpdateTripMemberRole,
   useTrips,
   type TripDetails,
+  type TripMemberRole,
 } from '../../queries/trips';
 import {
   deleteFromApi,
@@ -49,6 +50,8 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedFriendId, setSelectedFriendId] = useState<string>();
+  const [inviteRole, setInviteRole] =
+    useState<Exclude<TripMemberRole, 'owner'>>('editor');
   const [pictureFile, setPictureFile] = useState<File>();
   const [coverImage, setCoverImage] = useState<{
     pictureId: string;
@@ -252,9 +255,11 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
       const response = await shareMutation.mutateAsync({
         tripId: id,
         recipientIds: [selectedFriendId],
+        role: inviteRole,
       });
       setShareModalOpen(false);
       setSelectedFriendId(undefined);
+      setInviteRole('editor');
       displayAlert({ message: response.message, tone: 'success' });
     } catch (error) {
       displayAlert({
@@ -471,6 +476,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
         onClose={() => {
           setShareModalOpen(false);
           setSelectedFriendId(undefined);
+          setInviteRole('editor');
         }}
         dismissDisabled={shareMutation.isPending}
         footer={(requestClose) => (
@@ -494,6 +500,27 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
         )}
         panelClassName="max-w-xl"
       >
+        <label className="mb-4 grid gap-2" htmlFor="share-trip-role">
+          <Text as="span" variant="label">
+            Invite as
+          </Text>
+          <select
+            id="share-trip-role"
+            data-cy="share-trip-role"
+            aria-label="Invite as"
+            className="min-h-12 w-full rounded-xl border border-outline bg-surface-container-low px-4 py-3 text-body text-on-surface outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition-colors motion-safe:duration-200"
+            disabled={shareMutation.isPending}
+            value={inviteRole}
+            onChange={(event) =>
+              setInviteRole(
+                event.target.value === 'viewer' ? 'viewer' : 'editor',
+              )
+            }
+          >
+            <option value="editor">Editor</option>
+            <option value="viewer">View only</option>
+          </select>
+        </label>
         <ShareWithFriends
           key={String(shareModalOpen)}
           selectedFriendIds={selectedFriendId ? [selectedFriendId] : []}

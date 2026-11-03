@@ -13,6 +13,22 @@ const serializeTripForUser = (trip, userId) => ({
   currentUserRole: getTripRole(trip, userId)
 });
 
+const getInvitationMembershipUpdate = (invitation, userId) => {
+  const role = invitation.role === "viewer" ? "viewer" : "editor";
+  const update = {
+    $addToSet: { users: userId },
+    $set: { [`memberRoles.${userId}`]: role }
+  };
+
+  if (role === "viewer") {
+    update.$addToSet.viewerIds = userId;
+  } else {
+    update.$pull = { viewerIds: userId };
+  }
+
+  return update;
+};
+
 const createTrip = async (req, res) => {
   try {
     const { name, startDate, endDate, isPublic = false, location } = req.body;
@@ -257,10 +273,13 @@ const getTripFromUser = async (req, res) => {
 const shareTrip = async (req, res) => {
   try {
     const { id: tripId } = req.params;
-    const { recipientIds } = req.body || {};
+    const { recipientIds, role = "editor" } = req.body || {};
 
     if (!mongoose.isValidObjectId(tripId)) {
       return res.status(400).json({ message: "Invalid trip ID" });
+    }
+    if (role !== "editor" && role !== "viewer") {
+      return res.status(400).json({ message: "Role must be editor or viewer" });
     }
     if (
       !Array.isArray(recipientIds) ||
@@ -328,7 +347,8 @@ const shareTrip = async (req, res) => {
           normalizedIds.map((recipient) => ({
             trip: tripId,
             recipient,
-            inviter: req.user.id
+            inviter: req.user.id,
+            role
           })),
           { session, ordered: true }
         );
@@ -571,7 +591,7 @@ const acceptTripInvitation = async (req, res) => {
 
     const updatedTrip = await Trip.findByIdAndUpdate(
       invitation.trip,
-      { $addToSet: { users: req.user.id } },
+      getInvitationMembershipUpdate(invitation, req.user.id),
       { new: true }
     );
     if (!updatedTrip) {
@@ -628,9 +648,26 @@ const respondToTripInvitation = async (req, res) => {
     });
     if (!invitation) return res.status(404).json({ message: "Pending invitation not found" });
     if (status === "accepted") {
-      const trip = await Trip.findByIdAndUpdate(invitation.trip,
-        { $addToSet: { users: req.user.id } }, { new: true });
-      if (!trip) return res.status(404).json({ message: "Trip no longer exists" });
+      const currentTrip = await Trip.findById(invitation.trip);
+      if (!currentTrip) {
+        return res.status(404).json({ message: "Trip no longer exists" });
+      }
+      if (getTripRole(currentTrip, req.user.id)) {
+        invitation.status = "accepted";
+        await invitation.save();
+        return res.status(200).json({
+          message: "You are already a member of this trip.",
+          invitation
+        });
+      }
+      const updatedTrip = await Trip.findByIdAndUpdate(
+        invitation.trip,
+        getInvitationMembershipUpdate(invitation, req.user.id),
+        { new: true }
+      );
+      if (!updatedTrip) {
+        return res.status(404).json({ message: "Trip no longer exists" });
+      }
     }
     invitation.status = status;
     await invitation.save();
