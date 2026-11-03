@@ -1,291 +1,121 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { LngLatBounds, Marker, Popup } from 'maplibre-gl';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { LngLatBounds } from 'maplibre-gl';
+import { Images } from 'lucide-react';
 import { Button, Text } from '../../../components/common';
 import { useItinerary } from '../../../queries/itineraries';
 import { useEvents } from '../../../queries/events';
-import { useEventLocations } from '../../../queries/eventLocations';
-import { usePhotos } from '../../../queries/photos';
-import { getBlobFromApi } from '../../../utils/api';
+import type { TripPhoto } from '../../../queries/photos';
 import { useMapRuntime } from '../itinerary/map/useMapRuntime';
+import MemoryStack from './atlas/MemoryStack';
+import {
+  getMemoryLabel,
+  groupAtlasPhotos,
+  hasPhotoLocation,
+  type MemoryCollection,
+  type AlbumFilter,
+} from './atlas/atlasGrouping';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '../itinerary/map/itineraryMap.css';
+import './atlas/atlas.css';
 
-/** Shows saved itinerary places beside the album, without fabricating photo GPS.
- * @param props - Trip identifier used by the shared itinerary and event queries.
- * @returns A responsive interactive map, attribution, and truthful location states.
+interface AlbumMapProps {
+  tripId: string;
+  photos: TripPhoto[];
+  loadingMore: boolean;
+  hasError: boolean;
+  disabled: boolean;
+  filter?: AlbumFilter;
+  onRetry: () => void;
+  onFilter: (filter: AlbumFilter) => void;
+}
+
+/** Filters the shared album through GPS-anchored photo stacks, without a second gallery.
+ * @param props - Album records, selected collection, query status and filter callbacks.
+ * @returns A responsive memory atlas with accessible stacks and unplaced-photo filtering.
  */
-const AlbumMap = ({ tripId }: { tripId: string }) => {
-  const {
-    itinerary,
-    isError: itineraryError,
-    refetch: retryItinerary,
-  } = useItinerary(tripId);
-  const {
-    events,
-    isError: eventsError,
-    refetch: retryEvents,
-  } = useEvents(itinerary?._id);
-  const {
-    locatedEvents,
-    isLoading,
-    isError: locationError,
-    retry,
-  } = useEventLocations(events);
-  const photosQuery = usePhotos(tripId);
-
-  // Load all pages of photos, not just the first 60.
-  useEffect(() => {
-    if (
-      photosQuery.hasNextPage &&
-      !photosQuery.isFetchingNextPage &&
-      !photosQuery.isError
-    ) {
-      void photosQuery.fetchNextPage();
-    }
-  }, [
-    photosQuery.hasNextPage,
-    photosQuery.isFetchingNextPage,
-    photosQuery.isError,
-    photosQuery.fetchNextPage,
-  ]);
-
-  // Combine all photo pages and keep only photos with valid GPS coordinates.
-  const locatedPhotos = useMemo(
-    () =>
-      photosQuery.data?.pages
-        .flatMap((page) => page.photos)
-        .filter(
-          (photo) =>
-            Number.isFinite(photo.location?.latitude) &&
-            Number.isFinite(photo.location?.longitude) &&
-            photo.location!.latitude >= -90 &&
-            photo.location!.latitude <= 90 &&
-            photo.location!.longitude >= -180 &&
-            photo.location!.longitude <= 180,
-        ) ?? [],
-    [photosQuery.data],
-  );
+const AlbumMap = ({
+  tripId,
+  photos,
+  loadingMore,
+  hasError,
+  disabled,
+  filter,
+  onRetry,
+  onFilter,
+}: AlbumMapProps) => {
   const container = useRef<HTMLDivElement>(null);
+  const fitted = useRef(false);
   const { map, failed } = useMapRuntime(container, true);
-  const hasError = itineraryError || eventsError || locationError || photosQuery.isError;
+  const [viewport, setViewport] = useState<{
+    zoom: number;
+    bounds?: LngLatBounds;
+  }>({ zoom: 1 });
+  const { itinerary } = useItinerary(tripId);
+  const { events } = useEvents(itinerary?._id);
+  const titles = useMemo(
+    () => new Map(events.map((event) => [event._id, event.title])),
+    [events],
+  );
+  const collections = useMemo(
+    () => groupAtlasPhotos(photos, viewport.zoom),
+    [photos, viewport.zoom],
+  );
+  const located = useMemo(() => photos.filter(hasPhotoLocation), [photos]);
+  const unplaced = useMemo(
+    () => photos.filter((photo) => !hasPhotoLocation(photo)),
+    [photos],
+  );
 
   useEffect(() => {
     if (!map) return;
-
-    const bounds = new LngLatBounds();
-    const markers: Marker[] = [];
-    let hasLocations = false;
-
-    // Existing event markers.
-    // Event markers.
-    const eventMarkers = locatedEvents.map((event) => {
-      bounds.extend([event.lng, event.lat]);
-      hasLocations = true;
-
-      const linkedPhotos = locatedPhotos.filter(
-        (photo) => photo.linkedEvent === event._id,
-      );
-
-      const element = document.createElement('button');
-      element.type = 'button';
-      element.textContent = linkedPhotos.length > 0 ? '📷' : '📍';
-      element.title = event.title;
-      element.setAttribute('aria-label', event.title);
-
-      const marker = new Marker({ element })
-        .setLngLat([event.lng, event.lat])
-        .addTo(map);
-
-      markers.push(marker);
-
-      // Only create a photo popup when photos are linked to this event.
-      if (linkedPhotos.length > 0) {
-        element.addEventListener('click', (eventClick) => {
-          eventClick.stopPropagation();
-
-          const content = document.createElement('div');
-          content.style.width = '260px';
-          content.style.maxHeight = '350px';
-          content.style.overflowY = 'auto';
-
-          const heading = document.createElement('h3');
-          heading.textContent = `${event.title} (${linkedPhotos.length} photos)`;
-          heading.style.fontWeight = '600';
-          heading.style.marginBottom = '10px';
-
-          const photoContainer = document.createElement('div');
-          photoContainer.style.display = 'grid';
-          photoContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
-          photoContainer.style.gap = '8px';
-
-          content.append(heading, photoContainer);
-
-          const popup = new Popup({
-            closeButton: true,
-            closeOnClick: true,
-            offset: 20,
-            maxWidth: '300px',
-          })
-            .setLngLat([event.lng, event.lat])
-            .setDOMContent(content)
-            .addTo(map);
-
-          linkedPhotos.forEach((photo) => {
-            const image = document.createElement('img');
-            image.alt = photo.originalName;
-            image.style.width = '100%';
-            image.style.height = '100px';
-            image.style.objectFit = 'cover';
-            image.style.borderRadius = '6px';
-
-            const wrapper = document.createElement('div');
-            wrapper.appendChild(image);
-            photoContainer.appendChild(wrapper);
-
-            void getBlobFromApi(photo.contentUrl)
-              .then((blob) => {
-                const url = URL.createObjectURL(blob);
-
-                if (popup.isOpen()) {
-                  image.src = url;
-                  image.dataset.objectUrl = url;
-                } else {
-                  URL.revokeObjectURL(url);
-                }
-              })
-              .catch(() => {
-                image.alt = 'Photo unavailable';
-              });
-          });
-
-          popup.on('close', () => {
-            photoContainer.querySelectorAll('img').forEach((image) => {
-              const url = image.dataset.objectUrl;
-              if (url) URL.revokeObjectURL(url);
-            });
-          });
-        });
-      }
-
-      return marker;
-    });
-
-    // New photo markers.
-    locatedPhotos.filter((photo) => !photo.linkedEvent).forEach((photo) => {
-        const latitude = photo.location!.latitude;
-        const longitude = photo.location!.longitude;
-
-        bounds.extend([longitude, latitude]);
-        hasLocations = true;
-
-        const element = document.createElement('button');
-        element.type = 'button';
-        element.textContent = '📷';
-        element.title = `View ${photo.originalName}`;
-        element.setAttribute('aria-label', `View photo: ${photo.originalName}`);
-
-        Object.assign(element.style, {
-          width: '38px',
-          height: '38px',
-          borderRadius: '50%',
-          border: '2px solid white',
-          backgroundColor: '#2563eb',
-          color: 'white',
-          fontSize: '18px',
-          cursor: 'pointer',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
-        });
-
-        const marker = new Marker({
-          element,
-          anchor: 'bottom',
-        })
-          .setLngLat([longitude, latitude])
-          .addTo(map);
-
-        markers.push(marker);
-
-        element.addEventListener('click', (event) => {
-          event.stopPropagation();
-
-          const content = document.createElement('div');
-          content.style.width = '240px';
-
-          const title = document.createElement('p');
-          title.textContent = photo.originalName;
-          title.style.fontWeight = '600';
-          title.style.margin = '0 0 8px';
-
-          const image = document.createElement('img');
-          image.alt = photo.originalName;
-          image.style.width = '100%';
-          image.style.maxHeight = '200px';
-          image.style.objectFit = 'contain';
-          image.style.display = 'none';
-
-          const status = document.createElement('p');
-          status.textContent = 'Loading photo…';
-
-          content.append(title, image, status);
-
-          let objectUrl: string | null = null;
-          let closed = false;
-
-          const popup = new Popup({
-            closeButton: true,
-            closeOnClick: true,
-            offset: 20,
-            maxWidth: '280px',
-          })
-            .setLngLat([longitude, latitude])
-            .setDOMContent(content)
-            .addTo(map);
-
-          popup.on('close', () => {
-            closed = true;
-
-            if (objectUrl) {
-              URL.revokeObjectURL(objectUrl);
-              objectUrl = null;
-            }
-          });
-
-          // Fetch the image using your authenticated API utility.
-          void getBlobFromApi(photo.contentUrl)
-            .then((blob) => {
-              const url = URL.createObjectURL(blob);
-
-              if (closed) {
-                URL.revokeObjectURL(url);
-                return;
-              }
-
-              objectUrl = url;
-              image.src = url;
-              image.style.display = 'block';
-              status.remove();
-            })
-            .catch(() => {
-              if (!closed) {
-                status.textContent = 'Photo unavailable';
-              }
-            });
-        });
-      });
-
-    // Fit around both events and photos.
-    if (hasLocations) {
-      map.fitBounds(bounds, {
-        padding: 56,
-        maxZoom: 13,
-        duration: 0,
-      });
-    }
-
+    /** Captures the settled viewport without rebuilding markers during camera motion. */
+    const update = () =>
+      setViewport({ zoom: map.getZoom(), bounds: map.getBounds() });
+    map.on('moveend', update);
+    update();
     return () => {
-      markers.forEach((marker) => marker.remove());
+      map.off('moveend', update);
     };
-  }, [map, locatedEvents, locatedPhotos]);
+  }, [map]);
+
+  useEffect(() => {
+    if (!map || fitted.current || located.length === 0 || loadingMore) return;
+    /** Fits once the atlas is visible, leaving room above bottom-anchored prints. */
+    const fit = () => {
+      const { clientWidth: width, clientHeight: height } = map.getContainer();
+      if (fitted.current || width === 0 || height === 0) return;
+      fitted.current = true;
+      const bounds = new LngLatBounds();
+      located.forEach((photo) =>
+        bounds.extend([photo.location.longitude, photo.location.latitude]),
+      );
+      map.fitBounds(bounds, {
+        padding: {
+          top: Math.min(120, height * 0.5),
+          right: Math.min(64, width * 0.15),
+          bottom: Math.min(64, height * 0.2),
+          left: Math.min(64, width * 0.15),
+        },
+        maxZoom: 14,
+        duration: 0,
+        retainPadding: false,
+      });
+    };
+    map.on('resize', fit);
+    fit();
+    return () => {
+      map.off('resize', fit);
+    };
+  }, [map, located, loadingMore]);
+
+  /** Sends a snapshot of this stack's photo IDs to the shared album filter. */
+  const selectCollection = (collection: MemoryCollection) => {
+    onFilter({
+      photoIds: collection.photos.map((photo) => photo.id),
+      label: getMemoryLabel(collection.photos, titles),
+      unplaced: false,
+    });
+  };
 
   return (
     <aside
@@ -293,71 +123,134 @@ const AlbumMap = ({ tripId }: { tripId: string }) => {
       className="flex h-full min-h-0 min-w-0 flex-col"
       data-cy="album-map"
     >
-      <Text as="h3" id="album-map-heading" variant="title" className="shrink-0">
-        Trip places
+      <Text
+        as="h3"
+        id="album-map-heading"
+        variant="headline"
+        className="mb-3 shrink-0"
+      >
+        Memory Atlas
       </Text>
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-panel bg-surface-container-low">
         <div
           ref={container}
           className="h-full w-full"
-          aria-label="Map of trip itinerary locations"
+          aria-label="Map of photo memories"
+          data-cy="atlas-canvas"
         />
+        {map &&
+          !failed &&
+          collections
+            .filter(
+              (collection) =>
+                !viewport.bounds ||
+                viewport.bounds.contains([
+                  collection.longitude,
+                  collection.latitude,
+                ]),
+            )
+            .map((collection) => (
+              <MemoryStack
+                key={collection.id}
+                map={map}
+                collection={collection}
+                label={getMemoryLabel(collection.photos, titles)}
+                selected={Boolean(
+                  filter &&
+                  !filter.unplaced &&
+                  collection.photos.some((photo) =>
+                    filter.photoIds.includes(photo.id),
+                  ),
+                )}
+                subdued={Boolean(
+                  filter &&
+                  !collection.photos.some((photo) =>
+                    filter.photoIds.includes(photo.id),
+                  ),
+                )}
+                disabled={disabled}
+                onSelect={selectCollection}
+              />
+            ))}
         {failed && (
-          <div className="absolute inset-0 grid place-items-center bg-surface-container-low p-6 text-center">
-            <Text color="muted">
-              Map unavailable. You can still browse your photos.
+          <div className="absolute inset-0 overflow-y-auto bg-surface-container-low p-5">
+            <Text variant="title">The map couldn’t load</Text>
+            <Text color="muted" className="mt-2 mb-4">
+              Your memories are still here. Select a collection to filter the
+              album.
             </Text>
+            <div className="flex flex-col items-start gap-2">
+              {collections.map((collection) => (
+                <Button
+                  key={collection.id}
+                  variant="outline"
+                  disabled={disabled}
+                  onClick={() => selectCollection(collection)}
+                >
+                  {getMemoryLabel(collection.photos, titles)}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
-        {!failed && locatedEvents.length === 0 && locatedPhotos.length === 0 && (
-          <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-xl bg-surface p-4">
-            <Text variant="label">
-              {isLoading ? 'Finding trip places…' : 'No places to show yet'}
-            </Text>
-            <Text variant="caption" color="muted">
-              Add locations to your itinerary to see them here or upload photos containing GPS data.
-            </Text>
+        {unplaced.length > 0 && (
+          <div className="absolute inset-x-3 bottom-3 flex justify-start">
+            <Button
+              variant="secondary"
+              leadingIcon={<Images size={17} />}
+              disabled={disabled}
+              aria-pressed={Boolean(filter?.unplaced)}
+              aria-label={`Not placed yet, ${unplaced.length} ${unplaced.length === 1 ? 'photo' : 'photos'}`}
+              data-cy="atlas-unplaced"
+              onClick={() =>
+                onFilter({
+                  photoIds: [],
+                  label: 'Not placed yet',
+                  unplaced: true,
+                })
+              }
+            >
+              Not placed yet
+            </Button>
           </div>
         )}
       </div>
-      {hasError && (
-        <div className="mt-2 shrink-0">
-          <Text variant="caption" color="error">
-            Some trip places couldn’t load.
+      <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        {loadingMore && (
+          <Text variant="caption" color="muted" role="status">
+            Loading photos…
           </Text>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              void retryItinerary();
-              if (itinerary) void retryEvents();
-              retry();
-              void photosQuery.refetch();
-            }}
+        )}
+        <Text variant="caption" color="muted">
+          <a
+            className="underline underline-offset-2 hover:text-primary"
+            href="https://www.openmaptiles.org/"
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            Retry places
+            © OpenMapTiles
+          </a>
+          {' · '}
+          <a
+            className="underline underline-offset-2 hover:text-primary"
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            OpenStreetMap
+          </a>
+        </Text>
+      </div>
+      {hasError && (
+        <div className="mt-1 flex shrink-0 items-center gap-2">
+          <Text variant="caption" color="error">
+            Some memories couldn’t load.
+          </Text>
+          <Button variant="ghost" size="sm" onClick={onRetry}>
+            Retry memories
           </Button>
         </div>
       )}
-      <Text variant="caption" color="muted" className="mt-2 shrink-0">
-        <a
-          className="underline hover:text-primary"
-          href="https://www.openmaptiles.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          © OpenMapTiles
-        </a>
-        {' · '}
-        <a
-          className="underline hover:text-primary"
-          href="https://www.openstreetmap.org/copyright"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          OpenStreetMap
-        </a>
-      </Text>
     </aside>
   );
 };

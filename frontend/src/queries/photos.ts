@@ -31,6 +31,8 @@ export interface TripPhoto {
   width: number;
   height: number;
   createdAt: string;
+  /** Camera-local ISO capture time without an inferred timezone; absent on legacy photos. */
+  takenAt?: string | null;
   contentUrl: string;
   location: PhotoLocation | null;
   linkedEvent: string | null;

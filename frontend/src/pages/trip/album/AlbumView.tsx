@@ -1,15 +1,18 @@
 import { ImagePlus, Pencil, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { Button, Skeleton, Text } from '../../../components/common';
 import { usePhotos } from '../../../queries/photos';
 import AlbumMobileTabs, { type AlbumTab } from './AlbumMobileTabs';
 import AlbumUploadModal from './AlbumUploadModal';
 import AlbumMap from './AlbumMap';
+import AlbumEmptyState from './AlbumEmptyState';
 import PhotoGrid from './PhotoGrid';
 import PhotoViewer from './PhotoViewer';
 import AlbumDeleteModal from './AlbumDeleteModal';
 import { useAlbumEditing } from './useAlbumEditing';
+import { hasPhotoLocation, type AlbumFilter } from './atlas/atlasGrouping';
+import { groupPhotosByTakenDate } from './photoDates';
 
 /**
  * Composes album browsing, batch-edit controls, uploads, and the fixed map workspace.
@@ -21,9 +24,52 @@ const AlbumView = ({ readOnly = false }: { readOnly?: boolean }) => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<AlbumTab>('photos');
   const [selectedId, setSelectedId] = useState<string>();
+  const [filter, setFilter] = useState<AlbumFilter & { tripId: string }>();
+  const gallery = useRef<HTMLDivElement>(null);
+  const filterHeading = useRef<HTMLDivElement>(null);
+  const [desktop, setDesktop] = useState(
+    () => window.matchMedia('(min-width: 1024px)').matches,
+  );
   const album = usePhotos(id);
-  const photos = album.data?.pages.flatMap((page) => page.photos) ?? [];
+  const photos = useMemo(
+    () => album.data?.pages.flatMap((page) => page.photos) ?? [],
+    [album.data],
+  );
   const edit = useAlbumEditing(id, photos);
+  const filteredPhotos = useMemo(
+    () =>
+      photos.filter((photo) =>
+        filter?.unplaced
+          ? !hasPhotoLocation(photo)
+          : filter?.photoIds.includes(photo.id),
+      ),
+    [photos, filter],
+  );
+  const activeFilter =
+    filter?.tripId === id && filteredPhotos.length > 0 ? filter : undefined;
+  const visiblePhotos = useMemo(
+    () =>
+      groupPhotosByTakenDate(activeFilter ? filteredPhotos : photos).flatMap(
+        (group) => group.photos,
+      ),
+    [activeFilter, filteredPhotos, photos],
+  );
+  const atlasActive = desktop || mobileTab === 'map' || Boolean(activeFilter);
+  const { hasNextPage, isFetchingNextPage, isError, fetchNextPage } = album;
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    /** Keeps metadata pagination aligned with the visible atlas pane. */
+    const update = () => setDesktop(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    if (atlasActive && hasNextPage && !isFetchingNextPage && !isError) {
+      void fetchNextPage();
+    }
+  }, [atlasActive, hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
 
   return (
     <section
@@ -102,15 +148,43 @@ const AlbumView = ({ readOnly = false }: { readOnly?: boolean }) => {
           }}
         />
       )}
-      <div className="grid min-h-0 min-w-0 flex-1 gap-0 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-6">
+      <div className="grid min-h-0 min-w-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
         <div
           id="album-photos-panel"
+          ref={gallery}
           role="region"
           aria-label="Album photos"
           tabIndex={0}
           data-cy="album-photos-panel"
           className={`min-h-0 min-w-0 overflow-y-auto overscroll-contain p-1 pb-4 focus-visible:outline-2 focus-visible:outline-primary lg:pr-4 ${mobileTab === 'photos' ? 'block' : 'hidden lg:block'}`}
         >
+          {activeFilter && (
+            <div
+              ref={filterHeading}
+              tabIndex={-1}
+              className="sticky top-0 z-20 mb-4 flex items-start justify-between gap-3 bg-surface pb-3 focus:outline-none"
+              data-cy="album-filter"
+            >
+              <Text as="h3" variant="title">
+                {activeFilter.label}
+              </Text>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={edit.deleting}
+                data-cy="album-clear-filter"
+                onClick={() => {
+                  setFilter(undefined);
+                  edit.finish();
+                  requestAnimationFrame(() =>
+                    gallery.current?.focus({ preventScroll: true }),
+                  );
+                }}
+              >
+                Clear filter
+              </Button>
+            </div>
+          )}
           {album.isPending && (
             <div
               role="status"
@@ -139,15 +213,11 @@ const AlbumView = ({ readOnly = false }: { readOnly?: boolean }) => {
             </div>
           )}
           {!album.isPending && !album.isError && photos.length === 0 && (
-            <div className="flex min-h-80 flex-col items-center justify-center rounded-panel bg-surface-container-low px-6 text-center">
-              <Text color="muted" className="mt-3 max-w-sm">
-                No photos yet
-              </Text>
-            </div>
+            <AlbumEmptyState />
           )}
           {!album.isPending && photos.length > 0 && (
             <PhotoGrid
-              photos={photos}
+              photos={visiblePhotos}
               onOpen={setSelectedId}
               editing={!readOnly && edit.editing}
               selectedIds={edit.selectedIds}
@@ -180,7 +250,28 @@ const AlbumView = ({ readOnly = false }: { readOnly?: boolean }) => {
           id="album-map-panel"
           className={`min-h-0 min-w-0 ${mobileTab === 'map' ? 'block' : 'hidden lg:block'}`}
         >
-          <AlbumMap tripId={id} />
+          <AlbumMap
+            key={id}
+            tripId={id}
+            photos={photos}
+            loadingMore={Boolean(album.hasNextPage && !album.isError)}
+            hasError={album.isError}
+            onRetry={() => {
+              void album.refetch();
+            }}
+            filter={activeFilter}
+            disabled={edit.deleting}
+            onFilter={(next) => {
+              if (edit.deleting) return;
+              edit.finish();
+              setFilter({ ...next, tripId: id });
+              setMobileTab('photos');
+              requestAnimationFrame(() => {
+                gallery.current?.scrollTo({ top: 0 });
+                filterHeading.current?.focus({ preventScroll: true });
+              });
+            }}
+          />
         </div>
       </div>
       {!readOnly && (
@@ -192,7 +283,7 @@ const AlbumView = ({ readOnly = false }: { readOnly?: boolean }) => {
       )}
       {selectedId && (
         <PhotoViewer
-          photos={photos}
+          photos={visiblePhotos}
           selectedId={selectedId}
           onSelect={setSelectedId}
           onClose={() => setSelectedId(undefined)}

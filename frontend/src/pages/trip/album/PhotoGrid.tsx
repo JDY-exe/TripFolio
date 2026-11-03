@@ -2,6 +2,7 @@ import { Check, Circle } from 'lucide-react';
 import { Text } from '../../../components/common';
 import type { TripPhoto } from '../../../queries/photos';
 import AlbumPhoto from './AlbumPhoto';
+import { groupPhotosByTakenDate } from './photoDates';
 
 interface PhotoGridProps {
   photos: TripPhoto[];
@@ -12,7 +13,7 @@ interface PhotoGridProps {
   onToggle?: (id: string) => void;
 }
 
-/** Groups server-ordered photos by local upload day without implying EXIF dates.
+/** Groups photos by camera-local capture day, keeping undated memories separate.
  * @param props - Loaded photos and the photo-opening callback.
  * @returns Compact, date-grouped photo buttons with visible keyboard focus.
  */
@@ -24,31 +25,20 @@ const PhotoGrid = ({
   disabled = false,
   onToggle,
 }: PhotoGridProps) => {
-  const groups = new Map<string, TripPhoto[]>();
-  photos.forEach((photo) => {
-    const date = new Date(photo.createdAt).toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-    const group = groups.get(date) ?? [];
-    group.push(photo);
-    groups.set(date, group);
-  });
+  const groups = groupPhotosByTakenDate(photos);
 
   return (
     <div className="space-y-8" data-cy="album-photo-grid">
-      {Array.from(groups, ([date, items]) => (
-        <section key={date} aria-label={`Added ${date}`}>
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <Text as="h3" variant="title">
-              {date}
-            </Text>
-            <Text variant="caption" color="muted">
-              {items.length} {items.length === 1 ? 'photo' : 'photos'}
-            </Text>
-          </div>
+      {groups.map(({ day, label, photos: items }) => (
+        <section
+          key={day ?? 'unknown'}
+          aria-label={day ? `Taken ${label}` : label}
+          data-cy="album-date-group"
+          data-date={day ?? 'unknown'}
+        >
+          <Text as="h3" variant="title" className="mb-3">
+            {label}
+          </Text>
           <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((photo) => (
               <button

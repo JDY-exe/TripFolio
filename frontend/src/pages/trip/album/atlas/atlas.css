@@ -1,0 +1,75 @@
+.memory-stack {
+  position: relative;
+  display: block;
+  width: 88px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: center;
+  color: var(--color-on-surface);
+  transform: rotate(-3deg);
+  transition:
+    transform 220ms ease-out,
+    opacity 220ms ease-out;
+}
+.memory-stack-paper,
+.memory-stack-print {
+  display: block;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 3px;
+  background: var(--color-surface-container-lowest, var(--color-surface));
+  box-shadow: 0 5px 12px rgb(0 0 0 / 16%);
+}
+.memory-stack-paper {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.memory-stack-paper-back {
+  transform: rotate(9deg) translate(3px, -4px);
+}
+.memory-stack-paper-middle {
+  transform: rotate(-5deg) translate(-4px, -2px);
+}
+.memory-stack-print {
+  position: relative;
+  padding: 5px 5px 12px;
+}
+.memory-stack-image {
+  display: block;
+  height: 68px;
+  overflow: hidden;
+}
+.memory-stack:hover,
+.memory-stack-selected {
+  transform: translateY(-5px) rotate(0deg);
+}
+.memory-stack-selected .memory-stack-print {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.memory-stack:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 8px;
+  border-radius: 3px;
+}
+.memory-stack-subdued {
+  opacity: 0.55;
+}
+.memory-stack-subdued:hover,
+.memory-stack-subdued:focus-visible {
+  opacity: 1;
+}
+.memory-stack:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+.maplibregl-marker:has(.memory-stack-selected) {
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .memory-stack {
+    transition: none;
+  }
+}
