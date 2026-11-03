@@ -16,6 +16,7 @@ test("a trip member can archive a trip that has ended", async (t) => {
   const originalFindById = Trip.findById;
 
   const userId = new mongoose.Types.ObjectId().toString();
+  const viewerId = new mongoose.Types.ObjectId().toString();
   const tripId = new mongoose.Types.ObjectId().toString();
 
   let saveCalls = 0;
@@ -24,8 +25,9 @@ test("a trip member can archive a trip that has ended", async (t) => {
     _id: new mongoose.Types.ObjectId(tripId),
     name: "Completed Vacation",
     ownerId: userId,
-    users: [userId],
-    viewerIds: [],
+    users: [userId, viewerId],
+    viewerIds: [viewerId],
+    memberRoles: new Map([[viewerId, "viewer"]]),
     startDate: new Date("2020-01-01"),
     endDate: new Date("2020-01-05"),
     archived: false,
@@ -97,5 +99,22 @@ test("a trip member can archive a trip that has ended", async (t) => {
   assert.equal(trip.archived, true);
 
   // Verify the trip was saved.
+  assert.equal(saveCalls, 1);
+
+  trip.archived = false;
+  const viewerToken = jwt.sign({ id: viewerId }, process.env.JWT_SECRET);
+  const viewerResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/archive`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${viewerToken}`
+      },
+      body: JSON.stringify({ tripId })
+    }
+  );
+  assert.equal(viewerResponse.status, 403);
+  assert.equal(trip.archived, false);
   assert.equal(saveCalls, 1);
 });

@@ -802,9 +802,9 @@ const archiveTrip = async (req, res) => {
       });
     }
 
-    if (!getTripRole(trip, userId)) {
-      return res.status(403).json({
-        message: "You must be a trip member to change its archive status"
+    if (!canEditTrip(trip, userId)) {
+      return res.status(getTripRole(trip, userId) ? 403 : 404).json({
+        message: "You must be an owner or editor to change its archive status"
       });
     }
 

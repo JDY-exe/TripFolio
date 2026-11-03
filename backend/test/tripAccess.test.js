@@ -41,7 +41,7 @@ test('explicit member roles take precedence over legacy trip membership arrays',
   const roleTrip = {
     ownerId: 'owner-id',
     users: ['owner-id', 'editor-id', 'viewer-id'],
-    viewerIds: ['viewer-id'],
+    viewerIds: ['editor-id'],
     memberRoles: {
       'editor-id': 'editor',
       'viewer-id': 'viewer'
@@ -50,4 +50,29 @@ test('explicit member roles take precedence over legacy trip membership arrays',
 
   assert.equal(getTripRole(roleTrip, 'editor-id'), 'editor');
   assert.equal(getTripRole(roleTrip, 'viewer-id'), 'viewer');
+});
+
+test('stale explicit roles do not grant access to users outside the membership list', () => {
+  const trip = {
+    ownerId: 'owner-id',
+    users: ['owner-id', 'member-id'],
+    memberRoles: new Map([
+      ['member-id', 'viewer'],
+      ['removed-member-id', 'editor']
+    ])
+  };
+
+  assert.equal(getTripRole(trip, 'member-id'), 'viewer');
+  assert.equal(canReadTrip(trip, 'removed-member-id'), false);
+  assert.equal(canEditTrip(trip, 'removed-member-id'), false);
+});
+
+test('owners retain owner role even if a member role is present', () => {
+  const trip = {
+    ownerId: 'owner-id',
+    users: ['owner-id', 'editor-id'],
+    memberRoles: { 'owner-id': 'viewer' }
+  };
+
+  assert.equal(getTripRole(trip, 'owner-id'), 'owner');
 });
