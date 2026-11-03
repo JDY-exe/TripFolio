@@ -36,6 +36,75 @@ export interface TripDetails extends Trip {
   archived: boolean;
 }
 
+export interface UpdateTripMemberRoleInput {
+  tripId: string;
+  userId: string;
+  role: Exclude<TripMemberRole, 'owner'>;
+}
+
+interface UpdateTripMemberRoleResponse {
+  message: string;
+  member: {
+    userId: string;
+    role: Exclude<TripMemberRole, 'owner'>;
+  };
+}
+
+/**
+ * Applies a member role to cached trip data while retaining legacy viewer IDs.
+ * @param trip - Cached trip record to update.
+ * @param userId - Member whose role changed.
+ * @param role - New editable member role.
+ * @returns A trip copy with synchronized role fields.
+ */
+const applyTripMemberRole = <T extends Trip>(
+  trip: T,
+  userId: string,
+  role: Exclude<TripMemberRole, 'owner'>,
+): T => ({
+  ...trip,
+  memberRoles: { ...trip.memberRoles, [userId]: role },
+  viewerIds:
+    role === 'viewer'
+      ? [...new Set([...(trip.viewerIds ?? []), userId])]
+      : (trip.viewerIds ?? []).filter((memberId) => memberId !== userId),
+});
+
+/**
+ * Persists a trip member role and synchronizes trip detail/list caches.
+ * @param userId - Current user's identifier for the user's trip-list cache.
+ * @returns A mutation accepting the trip, member, and new role.
+ */
+export const useUpdateTripMemberRole = (userId?: string) => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      tripId,
+      userId: memberId,
+      role,
+    }: UpdateTripMemberRoleInput) =>
+      patchToApi<UpdateTripMemberRoleResponse>(
+        `/trip/${tripId}/members/${memberId}/role`,
+        { role },
+      ),
+    onSuccess: ({ member }, { tripId }) => {
+      client.setQueryData<TripDetails>(['trip-settings', tripId], (current) =>
+        current
+          ? applyTripMemberRole(current, member.userId, member.role)
+          : current,
+      );
+      client.setQueryData<Trip[]>(tripsQueryKey(userId), (current) =>
+        current?.map((trip) =>
+          trip._id === tripId
+            ? applyTripMemberRole(trip, member.userId, member.role)
+            : trip,
+        ),
+      );
+      void client.invalidateQueries({ queryKey: tripsQueryKey(userId) });
+    },
+  });
+};
+
 /** Loads shared trip details, including archive status and the current user's permissions.
  * @param tripId - Trip identifier; disables fetching when absent.
  * @returns The cached trip detail query.

@@ -16,8 +16,8 @@ import {
   tripsQueryKey,
   useSendTripInvitations,
   useTripDetails,
+  useUpdateTripMemberRole,
   useTrips,
-  type TripMemberRole,
   type TripDetails,
 } from '../../queries/trips';
 import {
@@ -217,42 +217,22 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     },
   });
   const shareMutation = useSendTripInvitations();
-  const memberRoleMutation = useMutation({
-    mutationFn: ({
-      userId,
-      role,
-    }: {
-      userId: string;
-      role: Exclude<TripMemberRole, 'owner'>;
-    }) =>
-      patchToApi<{
-        message: string;
-        member: { userId: string; role: Exclude<TripMemberRole, 'owner'> };
-      }>(`/trip/${id}/members/${userId}/role`, { role }),
-    onSuccess: ({ member }) => {
-      queryClient.setQueryData<TripSettingsData>(queryKey, (current) =>
-        current
-          ? {
-              ...current,
-              memberRoles: {
-                ...current.memberRoles,
-                [member.userId]: member.role,
-              },
-              viewerIds:
-                member.role === 'viewer'
-                  ? [...new Set([...(current.viewerIds ?? []), member.userId])]
-                  : (current.viewerIds ?? []).filter(
-                      (userId) => userId !== member.userId,
-                    ),
-            }
-          : current,
-      );
-      void queryClient.invalidateQueries({
-        queryKey: tripsQueryKey(user?.id),
-      });
+  const memberRoleMutation = useUpdateTripMemberRole(user?.id);
+
+  /** Persists a selected participant role and reports success or failure.
+   * @param userId - Member whose role is changing.
+   * @param role - New editor or viewer role.
+   * @returns Nothing; query caches are synchronized by the mutation hook.
+   */
+  const updateMemberRole = async (
+    userId: string,
+    role: 'editor' | 'viewer',
+  ) => {
+    if (!id) return;
+    try {
+      await memberRoleMutation.mutateAsync({ tripId: id, userId, role });
       displayAlert({ message: 'Trip member role updated.', tone: 'success' });
-    },
-    onError: (error) => {
+    } catch (error) {
       displayAlert({
         message: getApiErrorMessage(
           error,
@@ -260,8 +240,8 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
         ),
         tone: 'error',
       });
-    },
-  });
+    }
+  };
 
   /** Sends the selected friend's invitation and preserves the selection on failure.
    * @returns A promise that resolves after feedback and modal state are updated.
@@ -384,9 +364,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
                 ? memberRoleMutation.variables?.userId
                 : undefined
             }
-            onRoleChange={(userId, role) =>
-              memberRoleMutation.mutate({ userId, role })
-            }
+            onRoleChange={(userId, role) => void updateMemberRole(userId, role)}
           />
         )}
         <label className="flex max-w-2xl items-center justify-between gap-5 rounded-panel border border-outline-variant bg-surface-container-low p-5">
