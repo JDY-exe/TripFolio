@@ -286,6 +286,9 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor');
   const canManageMembers =
     !readOnly && !trip.archived && trip.currentUserRole === 'owner';
+  const canChangeArchive =
+    (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor') &&
+    (!readOnly || trip.archived);
   const tripListEntry = tripsQuery.trips.find(
     (candidate) => candidate._id === id,
   );
@@ -432,29 +435,31 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
             className="size-5 shrink-0 accent-primary"
           />
         </label>
-        <div className="mt-8 max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
-          <Text as="h3" variant="title">
-            {trip.archived ? 'Unarchive trip' : 'Archive trip'}
-          </Text>
+        {canChangeArchive && (
+          <div className="mt-8 max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
+            <Text as="h3" variant="title">
+              {trip.archived ? 'Unarchive trip' : 'Archive trip'}
+            </Text>
 
-          <Text color="muted" className="mt-1 mb-4">
-            {trip.archived
-              ? 'Restore this trip from your archived trips.'
-              : 'Move this trip to your archived trips. You can unarchive it later.'}
-          </Text>
+            <Text color="muted" className="mt-1 mb-4">
+              {trip.archived
+                ? 'Restore this trip from your archived trips.'
+                : 'Move this trip to your archived trips. You can unarchive it later.'}
+            </Text>
 
-          <Button
-            data-cy="toggle-trip-archive"
-            disabled={archiveMutation.isPending}
-            onClick={() => archiveMutation.mutate()}
-          >
-            {archiveMutation.isPending
-              ? 'Updating...'
-              : trip.archived
-                ? 'Unarchive trip'
-                : 'Archive trip'}
-          </Button>
-        </div>
+            <Button
+              data-cy="toggle-trip-archive"
+              disabled={archiveMutation.isPending}
+              onClick={() => archiveMutation.mutate()}
+            >
+              {archiveMutation.isPending
+                ? 'Updating...'
+                : trip.archived
+                  ? 'Unarchive trip'
+                  : 'Archive trip'}
+            </Button>
+          </div>
+        )}
       </section>
       <Modal
         data-cy="share-trip-dialog"
