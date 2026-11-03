@@ -1,6 +1,6 @@
 import tripFixture from '../fixtures/trip-visibility.json';
 
-type TripRole = 'owner' | 'viewer';
+type TripRole = 'owner' | 'editor' | 'viewer';
 
 /** @returns A future-dated token accepted by the frontend session reader. */
 export const testAccessToken = () =>

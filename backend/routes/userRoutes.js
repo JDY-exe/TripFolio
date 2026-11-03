@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const authenticateToken = require("../middleware/authenticateToken");
 const mongoose = require("mongoose");
 const Friendship = require("../models/Friendship");
+const { getTripInvitations } = require("../controllers/tripController");
 const {
     getFriendRequestError,
     getFriendshipPairKey
@@ -165,6 +166,8 @@ router.get("/me", authenticateToken, async (req, res) => {
         });
     }
 });
+
+router.get("/invites", authenticateToken, getTripInvitations);
 
 router.get("/", async (req, res) => {
     try {

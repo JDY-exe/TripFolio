@@ -1,4 +1,3 @@
-
 const assert = require("node:assert/strict");
 const { createServer } = require("node:http");
 const test = require("node:test");
@@ -16,6 +15,8 @@ test("a trip member can archive a trip that has ended", async (t) => {
   const originalFindById = Trip.findById;
 
   const userId = new mongoose.Types.ObjectId().toString();
+  const editorId = new mongoose.Types.ObjectId().toString();
+  const viewerId = new mongoose.Types.ObjectId().toString();
   const tripId = new mongoose.Types.ObjectId().toString();
 
   let saveCalls = 0;
@@ -24,8 +25,9 @@ test("a trip member can archive a trip that has ended", async (t) => {
     _id: new mongoose.Types.ObjectId(tripId),
     name: "Completed Vacation",
     ownerId: userId,
-    users: [userId],
-    viewerIds: [],
+    users: [userId, editorId, viewerId],
+    viewerIds: [viewerId],
+    memberRoles: new Map([[viewerId, "viewer"]]),
     startDate: new Date("2020-01-01"),
     endDate: new Date("2020-01-05"),
     archived: false,
@@ -56,10 +58,7 @@ test("a trip member can archive a trip that has ended", async (t) => {
     server.listen(0, "127.0.0.1", resolve);
   });
 
-  const token = jwt.sign(
-    { id: userId },
-    process.env.JWT_SECRET
-  );
+  const token = jwt.sign({ id: userId }, process.env.JWT_SECRET);
 
   t.after(async () => {
     server.closeAllConnections();
@@ -83,7 +82,7 @@ test("a trip member can archive a trip that has ended", async (t) => {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ tripId }),
-    }
+    },
   );
 
   const data = await response.json();
@@ -98,4 +97,37 @@ test("a trip member can archive a trip that has ended", async (t) => {
 
   // Verify the trip was saved.
   assert.equal(saveCalls, 1);
+
+  trip.archived = false;
+  const viewerToken = jwt.sign({ id: viewerId }, process.env.JWT_SECRET);
+  const viewerResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/archive`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${viewerToken}`,
+      },
+      body: JSON.stringify({ tripId }),
+    },
+  );
+  assert.equal(viewerResponse.status, 403);
+  assert.equal(trip.archived, false);
+  assert.equal(saveCalls, 1);
+
+  const editorToken = jwt.sign({ id: editorId }, process.env.JWT_SECRET);
+  const editorResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/archive`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${editorToken}`,
+      },
+      body: JSON.stringify({ tripId }),
+    },
+  );
+  assert.equal(editorResponse.status, 200);
+  assert.equal(trip.archived, true);
+  assert.equal(saveCalls, 2);
 });

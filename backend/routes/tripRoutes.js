@@ -3,11 +3,14 @@ const multer = require("multer");
 const router = express.Router();
 const {
   getTripInvitations,
+  acceptTripInvitation,
+  rejectTripInvitation,
   respondToTripInvitation,
 	createTrip,
 	getTrips,
 	getTrip,
 	shareTrip,
+	updateTripMemberRole,
 	updateTripVisibility,
 	deleteTrip,
   addUserToTrip,
@@ -52,6 +55,10 @@ router.get('/archived/:id', getArchivedTrip)
 router.post('/:id/share', shareTrip);
 router.get('/invitations', getTripInvitations);
 router.patch('/invitations/:invitationId', respondToTripInvitation);
+router.get('/user/invites', getTripInvitations);
+router.patch('/:id/invites/accept', acceptTripInvitation);
+router.patch('/:id/invites/reject', rejectTripInvitation);
+router.patch('/:id/members/:userId/role', updateTripMemberRole);
 router.get('/:id', getTrip);
 router.patch('/:id/visibility', updateTripVisibility);
 router.patch('/:id/profile_picture', parseTripPicture, updateTripProfilePicture);

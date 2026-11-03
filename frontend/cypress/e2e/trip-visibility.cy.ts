@@ -140,6 +140,7 @@ describe('trip visibility settings', () => {
     cy.get('[data-cy="trip-visibility"]')
       .should('be.disabled')
       .and('not.be.checked');
+    cy.get('[data-cy="toggle-trip-archive"]').should('not.exist');
     cy.contains('Only the trip owner can change visibility.').should(
       'be.visible',
     );

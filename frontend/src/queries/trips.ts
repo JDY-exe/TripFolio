@@ -7,12 +7,18 @@ export interface TripTraveler {
   profile_picture?: string | null;
 }
 
+export type TripMemberRole = 'owner' | 'editor' | 'viewer';
+
 export interface Trip {
   _id: string;
   name: string;
   startDate: string;
   endDate: string;
   profilePictureId?: string;
+  ownerId?: string;
+  users?: string[];
+  viewerIds?: string[];
+  memberRoles?: Record<string, TripMemberRole>;
   travelers?: TripTraveler[];
 }
 
@@ -25,11 +31,79 @@ export const archivedTripsQueryKey = (userId?: string) =>
 
 export interface TripDetails extends Trip {
   isPublic: boolean;
-  currentUserRole: 'owner' | 'editor' | 'viewer' | null;
-  users?: string[];
+  currentUserRole: TripMemberRole | null;
   hiddenUsers?: string[];
   archived: boolean;
 }
+
+export interface UpdateTripMemberRoleInput {
+  tripId: string;
+  userId: string;
+  role: Exclude<TripMemberRole, 'owner'>;
+}
+
+interface UpdateTripMemberRoleResponse {
+  message: string;
+  member: {
+    userId: string;
+    role: Exclude<TripMemberRole, 'owner'>;
+  };
+}
+
+/**
+ * Applies a member role to cached trip data while retaining legacy viewer IDs.
+ * @param trip - Cached trip record to update.
+ * @param userId - Member whose role changed.
+ * @param role - New editable member role.
+ * @returns A trip copy with synchronized role fields.
+ */
+const applyTripMemberRole = <T extends Trip>(
+  trip: T,
+  userId: string,
+  role: Exclude<TripMemberRole, 'owner'>,
+): T => ({
+  ...trip,
+  memberRoles: { ...trip.memberRoles, [userId]: role },
+  viewerIds:
+    role === 'viewer'
+      ? [...new Set([...(trip.viewerIds ?? []), userId])]
+      : (trip.viewerIds ?? []).filter((memberId) => memberId !== userId),
+});
+
+/**
+ * Persists a trip member role and synchronizes trip detail/list caches.
+ * @param userId - Current user's identifier for the user's trip-list cache.
+ * @returns A mutation accepting the trip, member, and new role.
+ */
+export const useUpdateTripMemberRole = (userId?: string) => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      tripId,
+      userId: memberId,
+      role,
+    }: UpdateTripMemberRoleInput) =>
+      patchToApi<UpdateTripMemberRoleResponse>(
+        `/trip/${tripId}/members/${memberId}/role`,
+        { role },
+      ),
+    onSuccess: ({ member }, { tripId }) => {
+      client.setQueryData<TripDetails>(['trip-settings', tripId], (current) =>
+        current
+          ? applyTripMemberRole(current, member.userId, member.role)
+          : current,
+      );
+      client.setQueryData<Trip[]>(tripsQueryKey(userId), (current) =>
+        current?.map((trip) =>
+          trip._id === tripId
+            ? applyTripMemberRole(trip, member.userId, member.role)
+            : trip,
+        ),
+      );
+      void client.invalidateQueries({ queryKey: tripsQueryKey(userId) });
+    },
+  });
+};
 
 /** Loads shared trip details, including archive status and the current user's permissions.
  * @param tripId - Trip identifier; disables fetching when absent.
@@ -81,6 +155,11 @@ export interface TripInvitation {
     owner?: { username: string; profile_picture?: string | null } | null;
   };
   inviter: { username: string } | null;
+  role?: Exclude<TripMemberRole, 'owner'>;
+}
+
+interface TripInvitationsResponse {
+  invites: TripInvitation[];
 }
 
 /** Loads pending invitations for a signed-in user.
@@ -90,7 +169,16 @@ export interface TripInvitation {
 export const useTripInvitations = (userId?: string) =>
   useQuery({
     queryKey: ['trip-invitations', userId],
-    queryFn: () => getFromApi<TripInvitation[]>('/trip/invitations'),
+    queryFn: async () => {
+      const response = await getFromApi<
+        TripInvitation[] | TripInvitationsResponse
+      >('/trip/invitations');
+      if (Array.isArray(response)) return response;
+      if (!Array.isArray(response.invites)) {
+        throw new Error('Expected trip invitations in the API response.');
+      }
+      return response.invites;
+    },
     enabled: Boolean(userId),
   });
 
@@ -120,6 +208,7 @@ export const useRespondToTripInvitation = (userId?: string) => {
 export interface SendTripInvitationsInput {
   tripId: string;
   recipientIds: string[];
+  role?: Exclude<TripMemberRole, 'owner'>;
 }
 
 export interface SendTripInvitationsResponse {
@@ -129,6 +218,7 @@ export interface SendTripInvitationsResponse {
     trip: string;
     recipient: string;
     inviter: string;
+    role: Exclude<TripMemberRole, 'owner'>;
     status: 'pending';
   }[];
 }
@@ -138,10 +228,16 @@ export interface SendTripInvitationsResponse {
  */
 export const useSendTripInvitations = () =>
   useMutation({
-    mutationFn: ({ tripId, recipientIds }: SendTripInvitationsInput) =>
-      postToApi<SendTripInvitationsResponse, { recipientIds: string[] }>(
-        `/trip/${tripId}/share`,
-        { recipientIds },
-      ),
+    mutationFn: ({ tripId, recipientIds, role }: SendTripInvitationsInput) =>
+      postToApi<
+        SendTripInvitationsResponse,
+        {
+          recipientIds: string[];
+          role?: Exclude<TripMemberRole, 'owner'>;
+        }
+      >(`/trip/${tripId}/share`, {
+        recipientIds,
+        ...(role ? { role } : {}),
+      }),
     retry: 0,
   });

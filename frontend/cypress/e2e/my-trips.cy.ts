@@ -6,7 +6,9 @@ describe('My Trips', () => {
   for (const status of ['accepted', 'declined']) {
     it(`responds to invitations with ${status}`, () => {
       cy.intercept({ method: 'GET', pathname: '/trip' }, { body: [] });
-      cy.intercept('GET', '**/trip/invitations', { body: invitations });
+      cy.intercept('GET', '**/trip/invitations', {
+        body: { invites: invitations },
+      });
       cy.intercept('PATCH', '**/trip/invitations/*', (request) => {
         expect(request.body.status).to.equal(status);
         request.reply({ invitation: { status } });
@@ -25,7 +27,9 @@ describe('My Trips', () => {
         invitations[0].trip.owner.profile_picture,
       );
       cy.contains(invitations[0].trip.owner.username).should('be.visible');
-      cy.intercept('GET', '**/trip/invitations', { body: [] });
+      cy.intercept('GET', '**/trip/invitations', {
+        body: { invites: [] },
+      });
       cy.get(
         status === 'accepted'
           ? '[data-cy="accept-invitation"]'
@@ -60,6 +64,21 @@ describe('My Trips', () => {
       .should('have.text', featureFixture.trip.name);
     cy.get(`[data-cy="trip-card-${featureFixture.trip._id}"]`).click();
     cy.location('pathname').should('eq', `/trip/${featureFixture.trip._id}`);
+  });
+
+  it('shows the unique number of trip travelers on the card', () => {
+    const trip = {
+      ...featureFixture.trip,
+      ownerId: 'owner-id',
+      users: ['owner-id', 'member-id', 'member-id'],
+    };
+    cy.intercept({ method: 'GET', pathname: '/trip' }, { body: [trip] });
+    visitAsUser('/my-trips');
+
+    cy.get(`[data-cy="trip-card-container-${trip._id}"]`).should(
+      'contain.text',
+      '2 Travelers',
+    );
   });
 
   it('rejects reversed dates before creating a trip', () => {

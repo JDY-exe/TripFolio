@@ -1,7 +1,7 @@
 import sharingFixture from '../fixtures/trip-sharing.json';
 import { visitAsUser } from '../support/auth';
 
-type TripRole = 'owner' | 'viewer';
+type TripRole = 'owner' | 'editor' | 'viewer';
 
 /**
  * Opens the trip settings with friends and membership state mocked.
@@ -15,12 +15,23 @@ const openTripSettings = (role: TripRole = 'owner') => {
     name: sharingFixture.tripName,
     startDate: sharingFixture.startDate,
     endDate: sharingFixture.endDate,
+    ownerId: sharingFixture.ownerId,
     isPublic: false,
     currentUserRole: role,
     users: [
       sharingFixture.ownerId,
       sharingFixture.viewerId,
       sharingFixture.memberId,
+    ],
+    viewerIds: [sharingFixture.viewerId],
+    memberRoles: {
+      [sharingFixture.viewerId]: 'viewer',
+      [sharingFixture.memberId]: 'editor',
+    },
+    travelers: [
+      { id: sharingFixture.ownerId, username: 'trip-owner' },
+      { id: sharingFixture.viewerId, username: 'trip-viewer' },
+      { id: sharingFixture.memberId, username: sharingFixture.member.username },
     ],
   };
 
@@ -161,6 +172,7 @@ describe('trip sharing', () => {
 
     cy.get('[data-cy="share-trip-open"]').click();
     cy.get('[data-cy="share-trip-dialog"]').should('be.visible');
+    cy.get('[data-cy="share-trip-role"]').should('have.value', 'editor');
     cy.get('[data-cy="share-trip-friend-search"]').focus();
     cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`)
       .should('be.enabled')
@@ -173,11 +185,35 @@ describe('trip sharing', () => {
 
     cy.wait('@shareTrip')
       .its('request.body')
-      .should('deep.equal', { recipientIds: [sharingFixture.friendId] });
+      .should('deep.equal', {
+        recipientIds: [sharingFixture.friendId],
+        role: 'editor',
+      });
     cy.get('[data-cy="toast"]')
       .contains('Trip invitations created')
       .should('exist');
     cy.get('[data-cy="share-trip-dialog"]').should('not.exist');
+  });
+
+  it('sends viewer-only access when selected in trip settings', () => {
+    openTripSettings();
+    cy.intercept('POST', `**/trip/${sharingFixture.tripId}/share`, {
+      statusCode: 201,
+      body: { message: 'Trip invitations created' },
+    }).as('shareTrip');
+
+    cy.get('[data-cy="share-trip-open"]').click();
+    cy.get('[data-cy="share-trip-role"]').select('viewer');
+    cy.get('[data-cy="share-trip-friend-search"]').focus();
+    cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`).click();
+    cy.get('[data-cy="share-trip-submit"]').click();
+
+    cy.wait('@shareTrip')
+      .its('request.body')
+      .should('deep.equal', {
+        recipientIds: [sharingFixture.friendId],
+        role: 'viewer',
+      });
   });
 
   it('marks existing trip members as unavailable and filters friends', () => {
@@ -199,6 +235,88 @@ describe('trip sharing', () => {
     cy.get('[data-cy="share-trip-friends"]').should(
       'not.contain.text',
       sharingFixture.member.username,
+    );
+  });
+
+  it('lets the owner change a participant role and hides role controls from viewers', () => {
+    openTripSettings();
+    cy.intercept(
+      'PATCH',
+      `**/trip/${sharingFixture.tripId}/members/${sharingFixture.memberId}/role`,
+      {
+        body: {
+          message: 'Trip member role updated successfully',
+          member: { userId: sharingFixture.memberId, role: 'viewer' },
+        },
+      },
+    ).as('updateMemberRole');
+
+    cy.get(`[data-cy="trip-member-role-${sharingFixture.memberId}"]`).select(
+      'viewer',
+    );
+    cy.wait('@updateMemberRole')
+      .its('request.body')
+      .should('deep.equal', { role: 'viewer' });
+    cy.get(`[data-cy="trip-member-role-${sharingFixture.memberId}"]`).should(
+      'have.value',
+      'viewer',
+    );
+    cy.get('[data-cy="toast"]')
+      .contains('Trip member role updated.')
+      .should('exist');
+
+    openTripSettings('viewer');
+    cy.get(`[data-cy="trip-member-role-${sharingFixture.memberId}"]`).should(
+      'not.exist',
+    );
+    cy.get(
+      `[data-cy="trip-member-role-label-${sharingFixture.memberId}"]`,
+    ).should('contain.text', 'Editor');
+  });
+
+  it('lets editors change another participant role', () => {
+    openTripSettings('editor');
+    cy.intercept(
+      'PATCH',
+      `**/trip/${sharingFixture.tripId}/members/${sharingFixture.viewerId}/role`,
+      {
+        body: {
+          message: 'Trip member role updated successfully',
+          member: { userId: sharingFixture.viewerId, role: 'editor' },
+        },
+      },
+    ).as('updateMemberRole');
+
+    cy.get(`[data-cy="trip-member-role-${sharingFixture.viewerId}"]`)
+      .should('have.value', 'viewer')
+      .select('editor');
+    cy.wait('@updateMemberRole')
+      .its('request.body')
+      .should('deep.equal', { role: 'editor' });
+    cy.get('[data-cy="toast"]')
+      .contains('Trip member role updated.')
+      .should('exist');
+  });
+
+  it('keeps the saved role when the role update fails', () => {
+    openTripSettings();
+    cy.intercept(
+      'PATCH',
+      `**/trip/${sharingFixture.tripId}/members/${sharingFixture.memberId}/role`,
+      {
+        statusCode: 500,
+        body: { message: 'Role update failed' },
+      },
+    ).as('updateMemberRole');
+
+    cy.get(`[data-cy="trip-member-role-${sharingFixture.memberId}"]`).select(
+      'viewer',
+    );
+    cy.wait('@updateMemberRole');
+    cy.get('[data-cy="toast"]').contains('Role update failed').should('exist');
+    cy.get(`[data-cy="trip-member-role-${sharingFixture.memberId}"]`).should(
+      'have.value',
+      'editor',
     );
   });
 

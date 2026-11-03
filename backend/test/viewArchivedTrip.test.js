@@ -1,4 +1,3 @@
-
 const assert = require("node:assert/strict");
 const { createServer } = require("node:http");
 const test = require("node:test");
@@ -9,21 +8,23 @@ const mongoose = require("mongoose");
 const Trip = require("../models/trip");
 const tripRoutes = require("../routes/tripRoutes");
 
-test("a user can view an archived trip in viewer mode", async (t) => {
+test("an archived trip preserves the user's role while the archive state remains read-only", async (t) => {
   const previousSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = "view-archived-trip-test-secret";
 
   const originalFindById = Trip.findById;
 
   const userId = new mongoose.Types.ObjectId().toString();
+  const viewerId = new mongoose.Types.ObjectId().toString();
   const tripId = new mongoose.Types.ObjectId().toString();
 
   const trip = {
     _id: new mongoose.Types.ObjectId(tripId),
     name: "Archived Vacation",
     ownerId: userId,
-    users: [userId],
-    viewerIds: [],
+    users: [userId, viewerId],
+    viewerIds: [viewerId],
+    memberRoles: new Map([[viewerId, "viewer"]]),
     archived: true,
     isPublic: false,
     startDate: new Date("2020-01-01"),
@@ -50,10 +51,7 @@ test("a user can view an archived trip in viewer mode", async (t) => {
     server.listen(0, "127.0.0.1", resolve);
   });
 
-  const token = jwt.sign(
-    { id: userId },
-    process.env.JWT_SECRET
-  );
+  const token = jwt.sign({ id: userId }, process.env.JWT_SECRET);
 
   t.after(async () => {
     server.closeAllConnections();
@@ -75,7 +73,7 @@ test("a user can view an archived trip in viewer mode", async (t) => {
       headers: {
         Authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
 
   const data = await response.json();
@@ -86,7 +84,39 @@ test("a user can view an archived trip in viewer mode", async (t) => {
   assert.equal(String(data._id), tripId);
   assert.equal(data.name, "Archived Vacation");
   assert.equal(data.archived, true);
+  assert.equal(data.currentUserRole, "owner");
 
-  // Archived trips should be returned in viewer mode.
-  assert.equal(data.currentUserRole, "viewer");
+  const regularOwnerResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer " + token },
+    },
+  );
+  const regularOwnerData = await regularOwnerResponse.json();
+  assert.equal(regularOwnerResponse.status, 200);
+  assert.equal(regularOwnerData.currentUserRole, "owner");
+
+  const viewerToken = jwt.sign({ id: viewerId }, process.env.JWT_SECRET);
+  const viewerResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/archived/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer " + viewerToken },
+    },
+  );
+  const viewerData = await viewerResponse.json();
+  assert.equal(viewerResponse.status, 200);
+  assert.equal(viewerData.currentUserRole, "viewer");
+
+  const regularViewerResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer " + viewerToken },
+    },
+  );
+  const regularViewerData = await regularViewerResponse.json();
+  assert.equal(regularViewerResponse.status, 200);
+  assert.equal(regularViewerData.currentUserRole, "viewer");
 });

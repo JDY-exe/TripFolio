@@ -150,6 +150,7 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
       for (const invitation of data.invitations) {
         assert.equal(invitation.trip, ids.trip);
         assert.equal(invitation.inviter, inviter);
+        assert.equal(invitation.role, "editor");
         assert.equal(invitation.status, "pending");
       }
       assert.deepEqual(trip.users, [
@@ -159,6 +160,16 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
         ids.member
       ]);
     }
+    invitations = [];
+  });
+  await t.test("persists viewer-only access when requested", async () => {
+    const { response, data } = await send(
+      { recipientIds: [ids.recipient], role: "viewer" },
+      ids.owner
+    );
+    assert.equal(response.status, 201);
+    assert.equal(data.invitations[0].role, "viewer");
+    assert.equal(invitations[0].role, "viewer");
     invitations = [];
   });
   await t.test(
@@ -173,7 +184,8 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
         { recipientIds: [ids.recipient, "bad-id"] },
         { recipientIds: [null] },
         { recipientIds: [ids.recipient, ids.recipient] },
-        { recipientIds: [ids.recipient, ids.recipient.toUpperCase()] }
+        { recipientIds: [ids.recipient, ids.recipient.toUpperCase()] },
+        { recipientIds: [ids.recipient], role: "owner" }
       ]) {
         const { response } = await send(body);
         assert.equal(response.status, 400);

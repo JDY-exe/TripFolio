@@ -16,7 +16,10 @@ import {
   tripsQueryKey,
   useSendTripInvitations,
   useTripDetails,
+  useUpdateTripMemberRole,
+  useTrips,
   type TripDetails,
+  type TripMemberRole,
 } from '../../queries/trips';
 import {
   deleteFromApi,
@@ -24,6 +27,8 @@ import {
   getApiErrorMessage,
   patchToApi,
 } from '../../utils/api';
+import TripMembersPanel from './settings/TripMembersPanel';
+import { getTripMembers } from './settings/tripMembers';
 
 type TripSettingsData = TripDetails;
 
@@ -45,6 +50,8 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedFriendId, setSelectedFriendId] = useState<string>();
+  const [inviteRole, setInviteRole] =
+    useState<Exclude<TripMemberRole, 'owner'>>('editor');
   const [pictureFile, setPictureFile] = useState<File>();
   const [coverImage, setCoverImage] = useState<{
     pictureId: string;
@@ -53,6 +60,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   const queryClient = useQueryClient();
   const queryKey = ['trip-settings', id] as const;
   const tripQuery = useTripDetails(id);
+  const tripsQuery = useTrips(user?.id);
   const profilePictureId = tripQuery.data?.profilePictureId;
   const hideUserMutation = useMutation({
     mutationFn: () =>
@@ -212,6 +220,31 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     },
   });
   const shareMutation = useSendTripInvitations();
+  const memberRoleMutation = useUpdateTripMemberRole(user?.id);
+
+  /** Persists a selected participant role and reports success or failure.
+   * @param userId - Member whose role is changing.
+   * @param role - New editor or viewer role.
+   * @returns Nothing; query caches are synchronized by the mutation hook.
+   */
+  const updateMemberRole = async (
+    userId: string,
+    role: 'editor' | 'viewer',
+  ) => {
+    if (!id) return;
+    try {
+      await memberRoleMutation.mutateAsync({ tripId: id, userId, role });
+      displayAlert({ message: 'Trip member role updated.', tone: 'success' });
+    } catch (error) {
+      displayAlert({
+        message: getApiErrorMessage(
+          error,
+          'Trip member role could not be updated.',
+        ),
+        tone: 'error',
+      });
+    }
+  };
 
   /** Sends the selected friend's invitation and preserves the selection on failure.
    * @returns A promise that resolves after feedback and modal state are updated.
@@ -222,9 +255,11 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
       const response = await shareMutation.mutateAsync({
         tripId: id,
         recipientIds: [selectedFriendId],
+        role: inviteRole,
       });
       setShareModalOpen(false);
       setSelectedFriendId(undefined);
+      setInviteRole('editor');
       displayAlert({ message: response.message, tone: 'success' });
     } catch (error) {
       displayAlert({
@@ -254,6 +289,23 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     !readOnly &&
     !trip.archived &&
     (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor');
+  const canManageMembers =
+    !readOnly &&
+    !trip.archived &&
+    (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor');
+  const canChangeArchive =
+    (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor') &&
+    (!readOnly || trip.archived);
+  const tripListEntry = tripsQuery.trips.find(
+    (candidate) => candidate._id === id,
+  );
+  const tripMembers = getTripMembers(
+    trip.users ?? [],
+    tripListEntry?.travelers ?? [],
+    trip.ownerId,
+    trip.viewerIds,
+    trip.memberRoles,
+  );
   const existingImageUrl =
     profilePictureId && coverImage?.pictureId === profilePictureId
       ? coverImage.url
@@ -312,6 +364,18 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
               Share trip
             </Button>
           </div>
+        )}
+        {tripMembers.length > 0 && (
+          <TripMembersPanel
+            members={tripMembers}
+            canManageMembers={canManageMembers}
+            updatingMemberId={
+              memberRoleMutation.isPending
+                ? memberRoleMutation.variables?.userId
+                : undefined
+            }
+            onRoleChange={(userId, role) => void updateMemberRole(userId, role)}
+          />
         )}
         <label className="flex max-w-2xl items-center justify-between gap-5 rounded-panel border border-outline-variant bg-surface-container-low p-5">
           <span>
@@ -378,29 +442,31 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
             className="size-5 shrink-0 accent-primary"
           />
         </label>
-        <div className="mt-8 max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
-          <Text as="h3" variant="title">
-            {trip.archived ? 'Unarchive trip' : 'Archive trip'}
-          </Text>
+        {canChangeArchive && (
+          <div className="mt-8 max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
+            <Text as="h3" variant="title">
+              {trip.archived ? 'Unarchive trip' : 'Archive trip'}
+            </Text>
 
-          <Text color="muted" className="mt-1 mb-4">
-            {trip.archived
-              ? 'Restore this trip from your archived trips.'
-              : 'Move this trip to your archived trips. You can unarchive it later.'}
-          </Text>
+            <Text color="muted" className="mt-1 mb-4">
+              {trip.archived
+                ? 'Restore this trip from your archived trips.'
+                : 'Move this trip to your archived trips. You can unarchive it later.'}
+            </Text>
 
-          <Button
-            data-cy="toggle-trip-archive"
-            disabled={archiveMutation.isPending}
-            onClick={() => archiveMutation.mutate()}
-          >
-            {archiveMutation.isPending
-              ? 'Updating...'
-              : trip.archived
-                ? 'Unarchive trip'
-                : 'Archive trip'}
-          </Button>
-        </div>
+            <Button
+              data-cy="toggle-trip-archive"
+              disabled={archiveMutation.isPending}
+              onClick={() => archiveMutation.mutate()}
+            >
+              {archiveMutation.isPending
+                ? 'Updating...'
+                : trip.archived
+                  ? 'Unarchive trip'
+                  : 'Archive trip'}
+            </Button>
+          </div>
+        )}
       </section>
       <Modal
         data-cy="share-trip-dialog"
@@ -410,6 +476,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
         onClose={() => {
           setShareModalOpen(false);
           setSelectedFriendId(undefined);
+          setInviteRole('editor');
         }}
         dismissDisabled={shareMutation.isPending}
         footer={(requestClose) => (
@@ -433,6 +500,27 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
         )}
         panelClassName="max-w-xl"
       >
+        <label className="mb-4 grid gap-2" htmlFor="share-trip-role">
+          <Text as="span" variant="label">
+            Invite as
+          </Text>
+          <select
+            id="share-trip-role"
+            data-cy="share-trip-role"
+            aria-label="Invite as"
+            className="min-h-12 w-full rounded-xl border border-outline bg-surface-container-low px-4 py-3 text-body text-on-surface outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition-colors motion-safe:duration-200"
+            disabled={shareMutation.isPending}
+            value={inviteRole}
+            onChange={(event) =>
+              setInviteRole(
+                event.target.value === 'viewer' ? 'viewer' : 'editor',
+              )
+            }
+          >
+            <option value="editor">Editor</option>
+            <option value="viewer">View only</option>
+          </select>
+        </label>
         <ShareWithFriends
           key={String(shareModalOpen)}
           selectedFriendIds={selectedFriendId ? [selectedFriendId] : []}
