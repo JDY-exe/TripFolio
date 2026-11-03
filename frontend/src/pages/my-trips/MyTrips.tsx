@@ -12,6 +12,7 @@ import CreateTrip from './CreateTrip';
 import TripCard from './TripCard';
 import TripInvitations from './TripInvitations';
 import EmptyTrips from './EmptyTrips';
+import { getTripTravelerCount } from './tripTravelerCount';
 
 /** Fetches and displays trips, with creation available from an in-page modal. @returns The My Trips page. */
 const MyTrips = () => {
@@ -64,21 +65,25 @@ const MyTrips = () => {
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             {trips.length === 0 && <EmptyTrips />}
             {trips.length > 0 &&
-              trips.map((trip) => (
-                <TripCard
-                  key={trip._id}
-                  id={trip._id}
-                  title={trip.name}
-                  dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
-                  travelers="1 Traveler"
-                  status="Upcoming"
-                  imagePath={
-                    trip.profilePictureId
-                      ? `/trip/${trip._id}/profile_picture?v=${trip.profilePictureId}`
-                      : undefined
-                  }
-                />
-              ))}
+              trips.map((trip) => {
+                const travelerCount = getTripTravelerCount(trip);
+
+                return (
+                  <TripCard
+                    key={trip._id}
+                    id={trip._id}
+                    title={trip.name}
+                    dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
+                    travelers={`${travelerCount} ${travelerCount === 1 ? 'Traveler' : 'Travelers'}`}
+                    status="Upcoming"
+                    imagePath={
+                      trip.profilePictureId
+                        ? `/trip/${trip._id}/profile_picture?v=${trip.profilePictureId}`
+                        : undefined
+                    }
+                  />
+                );
+              })}
           </div>
         )}
       </section>

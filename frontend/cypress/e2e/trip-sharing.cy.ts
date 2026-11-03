@@ -1,7 +1,7 @@
 import sharingFixture from '../fixtures/trip-sharing.json';
 import { visitAsUser } from '../support/auth';
 
-type TripRole = 'owner' | 'viewer';
+type TripRole = 'owner' | 'editor' | 'viewer';
 
 /**
  * Opens the trip settings with friends and membership state mocked.
@@ -247,6 +247,30 @@ describe('trip sharing', () => {
     cy.get(
       `[data-cy="trip-member-role-label-${sharingFixture.memberId}"]`,
     ).should('contain.text', 'Editor');
+  });
+
+  it('lets editors change another participant role', () => {
+    openTripSettings('editor');
+    cy.intercept(
+      'PATCH',
+      `**/trip/${sharingFixture.tripId}/members/${sharingFixture.viewerId}/role`,
+      {
+        body: {
+          message: 'Trip member role updated successfully',
+          member: { userId: sharingFixture.viewerId, role: 'editor' },
+        },
+      },
+    ).as('updateMemberRole');
+
+    cy.get(`[data-cy="trip-member-role-${sharingFixture.viewerId}"]`)
+      .should('have.value', 'viewer')
+      .select('editor');
+    cy.wait('@updateMemberRole')
+      .its('request.body')
+      .should('deep.equal', { role: 'editor' });
+    cy.get('[data-cy="toast"]')
+      .contains('Trip member role updated.')
+      .should('exist');
   });
 
   it('keeps the saved role when the role update fails', () => {

@@ -157,6 +157,10 @@ export interface TripInvitation {
   inviter: { username: string } | null;
 }
 
+interface TripInvitationsResponse {
+  invites: TripInvitation[];
+}
+
 /** Loads pending invitations for a signed-in user.
  * @param userId - Recipient identifier used to isolate cached data.
  * @returns The invitation query including retry and loading state.
@@ -164,7 +168,16 @@ export interface TripInvitation {
 export const useTripInvitations = (userId?: string) =>
   useQuery({
     queryKey: ['trip-invitations', userId],
-    queryFn: () => getFromApi<TripInvitation[]>('/trip/invitations'),
+    queryFn: async () => {
+      const response = await getFromApi<
+        TripInvitation[] | TripInvitationsResponse
+      >('/trip/invitations');
+      if (Array.isArray(response)) return response;
+      if (!Array.isArray(response.invites)) {
+        throw new Error('Expected trip invitations in the API response.');
+      }
+      return response.invites;
+    },
     enabled: Boolean(userId),
   });
 

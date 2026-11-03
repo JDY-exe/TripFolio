@@ -25,7 +25,7 @@ const getTripRole = (trip, userId) => {
     const explicitRole = memberRoles instanceof Map
       ? memberRoles.get(currentUserId)
       : memberRoles[currentUserId] ?? memberRoles[String(currentUserId)];
-    if (explicitRole === 'owner' || explicitRole === 'editor' || explicitRole === 'viewer') {
+    if (explicitRole === 'editor' || explicitRole === 'viewer') {
       return explicitRole;
     }
   }

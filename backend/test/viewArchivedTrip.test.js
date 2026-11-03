@@ -86,15 +86,37 @@ test("an archived trip preserves the user's role while the archive state remains
   assert.equal(data.archived, true);
   assert.equal(data.currentUserRole, "owner");
 
+  const regularOwnerResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer " + token },
+    },
+  );
+  const regularOwnerData = await regularOwnerResponse.json();
+  assert.equal(regularOwnerResponse.status, 200);
+  assert.equal(regularOwnerData.currentUserRole, "owner");
+
   const viewerToken = jwt.sign({ id: viewerId }, process.env.JWT_SECRET);
   const viewerResponse = await fetch(
     `http://127.0.0.1:${server.address().port}/trip/archived/${tripId}`,
     {
       method: "GET",
-      headers: { Authorization: `Bearer ${viewerToken}` },
+      headers: { Authorization: "Bearer " + viewerToken },
     },
   );
   const viewerData = await viewerResponse.json();
   assert.equal(viewerResponse.status, 200);
   assert.equal(viewerData.currentUserRole, "viewer");
+
+  const regularViewerResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer " + viewerToken },
+    },
+  );
+  const regularViewerData = await regularViewerResponse.json();
+  assert.equal(regularViewerResponse.status, 200);
+  assert.equal(regularViewerData.currentUserRole, "viewer");
 });

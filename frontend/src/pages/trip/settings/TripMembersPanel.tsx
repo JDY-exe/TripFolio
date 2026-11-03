@@ -4,7 +4,7 @@ import type { TripMemberRole } from '../../../queries/trips';
 import type { TripMember } from './tripMembers';
 
 /**
- * Presents trip members with their current roles and owner-only role controls.
+ * Presents trip members with their current roles and owner/editor role controls.
  * @param props - Members, edit permission, pending state, and role-change handler.
  * @returns The trip participants section.
  */

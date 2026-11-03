@@ -16,23 +16,40 @@ test("PATCH /trip/:id/members/:userId/role changes an existing member role", asy
     userFindById: User.findById
   };
   const ids = Object.fromEntries(
-    ["trip", "owner", "editor", "viewer", "stranger", "missingUser"].map((key) => [
-      key,
-      new mongoose.Types.ObjectId().toString()
-    ])
+    [
+      "trip",
+      "owner",
+      "editor",
+      "editorTwo",
+      "viewer",
+      "stranger",
+      "missingUser"
+    ].map((key) => [key, new mongoose.Types.ObjectId().toString()])
   );
-  const makeTrip = () => ({
-    _id: ids.trip,
-    ownerId: ids.owner,
-    users: [ids.owner, ids.editor, ids.viewer],
-    viewerIds: [ids.viewer],
-    memberRoles: new Map(),
-    save: async function save() {
+  const makeTrip = () => {
+    const trip = new Trip({
+      _id: ids.trip,
+      ownerId: ids.owner,
+      users: [ids.owner, ids.editor, ids.editorTwo, ids.viewer],
+      viewerIds: [ids.viewer],
+      memberRoles: new Map(),
+      name: "Role Test Trip",
+      startDate: new Date("2030-01-01"),
+      endDate: new Date("2030-01-05")
+    });
+    trip.save = async function save(options) {
+      await this.validate(options);
       return this;
-    }
-  });
+    };
+    return trip;
+  };
   let trip = makeTrip();
-  const existingUsers = new Set([ids.owner, ids.editor, ids.viewer]);
+  const existingUsers = new Set([
+    ids.owner,
+    ids.editor,
+    ids.editorTwo,
+    ids.viewer
+  ]);
   Trip.findById = async (tripId) => (String(tripId) === ids.trip ? trip : null);
   User.findById = async (userId) => (
     existingUsers.has(String(userId)) ? { _id: userId } : null
@@ -88,7 +105,15 @@ test("PATCH /trip/:id/members/:userId/role changes an existing member role", asy
     assert.equal((await updateRole(ids.stranger, "viewer")).response.status, 404);
     assert.equal((await updateRole(ids.missingUser, "viewer")).response.status, 404);
     assert.equal((await updateRole(ids.owner, "viewer")).response.status, 400);
-    assert.equal((await updateRole(ids.editor, "viewer", ids.editor)).response.status, 403);
+    assert.equal((await updateRole(ids.editor, "viewer", ids.viewer)).response.status, 403);
+  });
+
+  await t.test("an editor can change another member's role", async () => {
+    const result = await updateRole(ids.editorTwo, "viewer", ids.editor);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.data.member.role, "viewer");
+    assert.equal(trip.memberRoles.get(ids.editorTwo), "viewer");
+    assert.deepEqual(trip.viewerIds.map(String), [ids.viewer, ids.editorTwo]);
   });
 
   await t.test("returns not found for a missing trip and requires authentication", async () => {

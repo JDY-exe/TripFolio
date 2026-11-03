@@ -285,7 +285,9 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     !trip.archived &&
     (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor');
   const canManageMembers =
-    !readOnly && !trip.archived && trip.currentUserRole === 'owner';
+    !readOnly &&
+    !trip.archived &&
+    (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor');
   const canChangeArchive =
     (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor') &&
     (!readOnly || trip.archived);

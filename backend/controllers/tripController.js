@@ -86,11 +86,7 @@ const getTrip = async (req, res) => {
     if (!trip || !canReadTrip(trip, req.user.id)) {
       return res.status(404).json({ message: "Trip not found" });
     }
-    let tripData = serializeTripForUser(trip, req.user.id)
-    if (trip.archived === true) {
-      tripData = {...tripData, currentUserRole: 'viewer'}
-    }
-    return res.status(200).json(tripData);
+    return res.status(200).json(serializeTripForUser(trip, req.user.id));
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -410,8 +406,10 @@ const updateTripMemberRole = async (req, res) => {
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
-    if (getTripRole(trip, req.user.id) !== "owner") {
-      return res.status(403).json({ message: "Only the trip owner can manage member roles" });
+    if (!canEditTrip(trip, req.user.id)) {
+      return res
+        .status(403)
+        .json({ message: "Only trip owners and editors can manage member roles" });
     }
     if (getTripRole(trip, userId) === "owner") {
       return res.status(400).json({ message: "The trip owner role cannot be changed" });
@@ -443,7 +441,7 @@ const updateTripMemberRole = async (req, res) => {
       }
     }
 
-    await trip.save();
+    await trip.save({ validateModifiedOnly: true });
     return res.status(200).json({
       message: "Trip member role updated successfully",
       trip,

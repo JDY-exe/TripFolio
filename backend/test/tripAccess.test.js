@@ -76,3 +76,13 @@ test('owners retain owner role even if a member role is present', () => {
 
   assert.equal(getTripRole(trip, 'owner-id'), 'owner');
 });
+
+test('a persisted owner role cannot promote a non-owner member', () => {
+  const trip = {
+    ownerId: 'owner-id',
+    users: ['owner-id', 'member-id'],
+    memberRoles: { 'member-id': 'owner' },
+  };
+
+  assert.equal(getTripRole(trip, 'member-id'), 'editor');
+});
