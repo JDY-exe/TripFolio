@@ -394,33 +394,166 @@ const addUserToTrip = async (req, res) => {
   }
 };
 
+const resolveUserProfile = async (userId) => {
+  if (!userId) return null;
+  const query = User.findById(userId);
+  if (query && typeof query.select === "function") {
+    const selected = query.select("username profile_picture");
+    if (selected && typeof selected.lean === "function") {
+      return await selected.lean();
+    }
+    return selected;
+  }
+  return await query;
+};
+
 /** Lists pending invitations belonging to the authenticated recipient. */
 const getTripInvitations = async (req, res) => {
   try {
-    const invitations = await TripInvitation.find({ recipient: req.user.id, status: "pending" })
-      .populate({
-        path: "trip", select: "name startDate endDate profilePictureId ownerId users",
-        populate: { path: "ownerId", select: "username profile_picture" }
-      })
-      .populate("inviter", "username")
-      .sort({ createdAt: -1 });
-    const results = await Promise.all(invitations.filter((invitation) => invitation.trip).map(async (invitation) => {
-      const trip = invitation.trip;
-      const owner = trip.ownerId || (trip.users?.[0]
-        ? await User.findById(trip.users[0]).select("username profile_picture") : null);
+    let invitations = TripInvitation.find({ recipient: req.user.id, status: "pending" });
+
+    if (typeof invitations.populate === "function") {
+      invitations = invitations
+        .populate({
+          path: "trip", select: "name startDate endDate profilePictureId ownerId users",
+          populate: { path: "ownerId", select: "username profile_picture" }
+        })
+        .populate("inviter", "username");
+    }
+
+    if (typeof invitations.sort === "function") {
+      invitations = invitations.sort({ createdAt: -1 });
+    }
+
+    invitations = await invitations;
+    const results = await Promise.all(invitations.filter((invitation) => invitation.trip || invitation.tripRecord).map(async (invitation) => {
+      let trip = (invitation.trip && typeof invitation.trip === "object" && "name" in invitation.trip)
+        ? invitation.trip
+        : (invitation.tripRecord || (typeof invitation.trip === "string" ? { _id: invitation.trip } : null));
+      if (!trip || !trip.name) {
+        const tripLookup = typeof invitation.trip === "string"
+          ? await Trip.findById(invitation.trip)
+          : null;
+        trip = tripLookup || trip;
+      }
+
+      let inviter = (invitation.inviter && typeof invitation.inviter === "object" && "username" in invitation.inviter)
+        ? invitation.inviter
+        : (invitation.inviterRecord || (typeof invitation.inviter === "string" ? { _id: invitation.inviter } : null));
+      if (!inviter || !inviter.username) {
+        const inviterLookup = typeof invitation.inviter === "string"
+          ? await resolveUserProfile(invitation.inviter)
+          : null;
+        inviter = inviterLookup || inviter;
+      }
+
+      const owner = trip?.ownerId || (trip?.users?.[0]
+        ? await resolveUserProfile(trip.users[0]) : null);
       return {
         _id: invitation._id,
         trip: {
-          _id: trip._id, name: trip.name, startDate: trip.startDate,
-          endDate: trip.endDate, profilePictureId: trip.profilePictureId,
+          _id: trip?._id ?? invitation.trip,
+          name: trip?.name ?? null,
+          startDate: trip?.startDate ?? null,
+          endDate: trip?.endDate ?? null,
+          profilePictureId: trip?.profilePictureId ?? null,
           owner: owner ? { username: owner.username, profile_picture: owner.profile_picture } : null
         },
-        inviter: invitation.inviter
+        inviter: inviter ? {
+          _id: inviter._id ?? inviter.id,
+          username: inviter.username ?? null,
+          profile_picture: inviter.profile_picture ?? null
+        } : null
       };
     }));
-    return res.status(200).json(results);
+    return res.status(200).json({ invites: results });
   } catch (error) {
     return res.status(500).json({ message: "Unable to load invitations" });
+  }
+};
+
+const acceptTripInvitation = async (req, res) => {
+  try {
+    const tripId = req.params.id;
+    if (!mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+
+    const invitation = await TripInvitation.findOne({
+      trip: tripId,
+      recipient: req.user.id,
+      status: "pending"
+    });
+
+    if (!invitation) {
+      const existingInvitation = await TripInvitation.findOne({
+        trip: tripId,
+        recipient: req.user.id,
+        status: "accepted"
+      });
+      if (existingInvitation) {
+        return res.status(200).json({
+          message: "You are already a member of this trip.",
+          invitation: existingInvitation
+        });
+      }
+      return res.status(404).json({ message: "Pending invitation not found" });
+    }
+
+    const trip = await Trip.findById(invitation.trip);
+    if (trip && getTripRole(trip, req.user.id)) {
+      invitation.status = "accepted";
+      await invitation.save();
+      return res.status(200).json({
+        message: "You are already a member of this trip.",
+        invitation
+      });
+    }
+
+    const updatedTrip = await Trip.findByIdAndUpdate(
+      invitation.trip,
+      { $addToSet: { users: req.user.id } },
+      { new: true }
+    );
+    if (!updatedTrip) {
+      return res.status(404).json({ message: "Trip no longer exists" });
+    }
+
+    invitation.status = "accepted";
+    await invitation.save();
+    return res.status(200).json({
+      message: "Trip invite accepted.",
+      invitation
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to respond to invitation" });
+  }
+};
+
+const rejectTripInvitation = async (req, res) => {
+  try {
+    const tripId = req.params.id;
+    if (!mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+
+    const invitation = await TripInvitation.findOne({
+      trip: tripId,
+      recipient: req.user.id,
+      status: "pending"
+    });
+    if (!invitation) {
+      return res.status(404).json({ message: "Pending invitation not found" });
+    }
+
+    invitation.status = "declined";
+    await invitation.save();
+    return res.status(200).json({
+      message: "Trip invite declined.",
+      invitation
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to respond to invitation" });
   }
 };
 
@@ -688,6 +821,8 @@ const getArchivedTrip = async (req, res) => {
 
 module.exports = {
   getTripInvitations,
+  acceptTripInvitation,
+  rejectTripInvitation,
   respondToTripInvitation,
   createTrip,
   getTrips,
