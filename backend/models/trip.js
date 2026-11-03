@@ -12,6 +12,14 @@ const tripSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  memberRoles: {
+    type: Map,
+    of: {
+      type: String,
+      enum: ["owner", "editor", "viewer"]
+    },
+    default: {}
+  },
   viewerIds: [
     {
       type: mongoose.Schema.Types.ObjectId,

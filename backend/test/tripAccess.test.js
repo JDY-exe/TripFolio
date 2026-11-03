@@ -36,3 +36,18 @@ test('legacy trip membership keeps its first user as owner', () => {
   assert.equal(getTripRole(legacyTrip, 'legacy-owner'), 'owner');
   assert.equal(getTripRole(legacyTrip, 'legacy-member'), 'editor');
 });
+
+test('explicit member roles take precedence over legacy trip membership arrays', () => {
+  const roleTrip = {
+    ownerId: 'owner-id',
+    users: ['owner-id', 'editor-id', 'viewer-id'],
+    viewerIds: ['viewer-id'],
+    memberRoles: {
+      'editor-id': 'editor',
+      'viewer-id': 'viewer'
+    }
+  };
+
+  assert.equal(getTripRole(roleTrip, 'editor-id'), 'editor');
+  assert.equal(getTripRole(roleTrip, 'viewer-id'), 'viewer');
+});

@@ -18,6 +18,16 @@ const getTripRole = (trip, userId) => {
   const ownerId = toId(trip.ownerId);
   if (ownerId === currentUserId) return 'owner';
 
+  const memberRoles = trip.memberRoles;
+  if (memberRoles) {
+    const explicitRole = memberRoles instanceof Map
+      ? memberRoles.get(currentUserId)
+      : memberRoles[currentUserId] ?? memberRoles[String(currentUserId)];
+    if (explicitRole === 'owner' || explicitRole === 'editor' || explicitRole === 'viewer') {
+      return explicitRole;
+    }
+  }
+
   const users = Array.isArray(trip.users) ? trip.users : [];
   if (!ownerId && toId(users[0]) === currentUserId) return 'owner';
 
