@@ -16,6 +16,8 @@ import {
   tripsQueryKey,
   useSendTripInvitations,
   useTripDetails,
+  useTrips,
+  type TripMemberRole,
   type TripDetails,
 } from '../../queries/trips';
 import {
@@ -24,6 +26,8 @@ import {
   getApiErrorMessage,
   patchToApi,
 } from '../../utils/api';
+import TripMembersPanel from './settings/TripMembersPanel';
+import { getTripMembers } from './settings/tripMembers';
 
 type TripSettingsData = TripDetails;
 
@@ -53,6 +57,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   const queryClient = useQueryClient();
   const queryKey = ['trip-settings', id] as const;
   const tripQuery = useTripDetails(id);
+  const tripsQuery = useTrips(user?.id);
   const profilePictureId = tripQuery.data?.profilePictureId;
   const hideUserMutation = useMutation({
     mutationFn: () =>
@@ -212,6 +217,51 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     },
   });
   const shareMutation = useSendTripInvitations();
+  const memberRoleMutation = useMutation({
+    mutationFn: ({
+      userId,
+      role,
+    }: {
+      userId: string;
+      role: Exclude<TripMemberRole, 'owner'>;
+    }) =>
+      patchToApi<{
+        message: string;
+        member: { userId: string; role: Exclude<TripMemberRole, 'owner'> };
+      }>(`/trip/${id}/members/${userId}/role`, { role }),
+    onSuccess: ({ member }) => {
+      queryClient.setQueryData<TripSettingsData>(queryKey, (current) =>
+        current
+          ? {
+              ...current,
+              memberRoles: {
+                ...current.memberRoles,
+                [member.userId]: member.role,
+              },
+              viewerIds:
+                member.role === 'viewer'
+                  ? [...new Set([...(current.viewerIds ?? []), member.userId])]
+                  : (current.viewerIds ?? []).filter(
+                      (userId) => userId !== member.userId,
+                    ),
+            }
+          : current,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: tripsQueryKey(user?.id),
+      });
+      displayAlert({ message: 'Trip member role updated.', tone: 'success' });
+    },
+    onError: (error) => {
+      displayAlert({
+        message: getApiErrorMessage(
+          error,
+          'Trip member role could not be updated.',
+        ),
+        tone: 'error',
+      });
+    },
+  });
 
   /** Sends the selected friend's invitation and preserves the selection on failure.
    * @returns A promise that resolves after feedback and modal state are updated.
@@ -254,6 +304,18 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     !readOnly &&
     !trip.archived &&
     (trip.currentUserRole === 'owner' || trip.currentUserRole === 'editor');
+  const canManageMembers =
+    !readOnly && !trip.archived && trip.currentUserRole === 'owner';
+  const tripListEntry = tripsQuery.trips.find(
+    (candidate) => candidate._id === id,
+  );
+  const tripMembers = getTripMembers(
+    trip.users ?? [],
+    tripListEntry?.travelers ?? [],
+    trip.ownerId,
+    trip.viewerIds,
+    trip.memberRoles,
+  );
   const existingImageUrl =
     profilePictureId && coverImage?.pictureId === profilePictureId
       ? coverImage.url
@@ -312,6 +374,20 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
               Share trip
             </Button>
           </div>
+        )}
+        {tripMembers.length > 0 && (
+          <TripMembersPanel
+            members={tripMembers}
+            canManageMembers={canManageMembers}
+            updatingMemberId={
+              memberRoleMutation.isPending
+                ? memberRoleMutation.variables?.userId
+                : undefined
+            }
+            onRoleChange={(userId, role) =>
+              memberRoleMutation.mutate({ userId, role })
+            }
+          />
         )}
         <label className="flex max-w-2xl items-center justify-between gap-5 rounded-panel border border-outline-variant bg-surface-container-low p-5">
           <span>

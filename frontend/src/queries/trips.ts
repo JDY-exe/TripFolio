@@ -7,12 +7,18 @@ export interface TripTraveler {
   profile_picture?: string | null;
 }
 
+export type TripMemberRole = 'owner' | 'editor' | 'viewer';
+
 export interface Trip {
   _id: string;
   name: string;
   startDate: string;
   endDate: string;
   profilePictureId?: string;
+  ownerId?: string;
+  users?: string[];
+  viewerIds?: string[];
+  memberRoles?: Record<string, TripMemberRole>;
   travelers?: TripTraveler[];
 }
 
@@ -25,8 +31,7 @@ export const archivedTripsQueryKey = (userId?: string) =>
 
 export interface TripDetails extends Trip {
   isPublic: boolean;
-  currentUserRole: 'owner' | 'editor' | 'viewer' | null;
-  users?: string[];
+  currentUserRole: TripMemberRole | null;
   hiddenUsers?: string[];
   archived: boolean;
 }
