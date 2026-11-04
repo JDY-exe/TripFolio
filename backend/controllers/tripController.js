@@ -8,10 +8,17 @@ const mongoose = require("mongoose");
 const { validateTripProfilePicture } = require("../utils/tripMedia");
 const { canEditTrip, canReadTrip, getTripRole } = require("../utils/tripAccess");
 
-const serializeTripForUser = (trip, userId) => ({
-  ...(typeof trip.toObject === "function" ? trip.toObject() : trip),
-  currentUserRole: getTripRole(trip, userId)
-});
+const serializeTripForUser = (trip, userId) => {
+  const tripData = {
+    ...(typeof trip.toObject === "function" ? trip.toObject() : trip)
+  };
+  delete tripData.archivedSharedWith;
+
+  return {
+    ...tripData,
+    currentUserRole: getTripRole(trip, userId)
+  };
+};
 
 const getInvitationMembershipUpdate = (invitation, userId) => {
   const role = invitation.role === "viewer" ? "viewer" : "editor";
@@ -957,7 +964,11 @@ const getArchivedTrips = async (req, res) => {
   try {
     const trips = await Trip.find({
       archived: {$eq: true},
-      $or: [{ ownerId: req.user.id }, { users: req.user.  id }]
+      $or: [
+        { ownerId: req.user.id },
+        { users: req.user.id },
+        { archivedSharedWith: req.user.id }
+      ]
     }).sort({ createdAt: -1 });
     const travelerIds = [...new Set(trips.flatMap((trip) =>
       [trip.ownerId, ...trip.users].filter(Boolean).map(String)
@@ -965,17 +976,28 @@ const getArchivedTrips = async (req, res) => {
     const travelers = await User.find({ _id: { $in: travelerIds } })
       .select("username profile_picture").lean();
     const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
-    res.status(200).json(trips.map((trip) => ({
-      ...(typeof trip.toObject === 'function' ? trip.toObject() : trip),
-      travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
-        .map((id) => travelersById.get(id))
-        .filter(Boolean)
-        .map((traveler) => ({
-          id: String(traveler._id),
-          username: traveler.username,
-          profile_picture: traveler.profile_picture ?? null
-        }))
-    })));
+    res.status(200).json(trips.map((trip) => {
+      const tripData = {
+        ...(typeof trip.toObject === 'function' ? trip.toObject() : trip)
+      };
+      delete tripData.archivedSharedWith;
+
+      return {
+        ...tripData,
+        travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
+          .map((id) => travelersById.get(id))
+          .filter(Boolean)
+          .map((traveler) => ({
+            id: String(traveler._id),
+            username: traveler.username,
+            profile_picture: traveler.profile_picture ?? null
+          })),
+        sharedWithYou: Array.isArray(trip.archivedSharedWith) &&
+          trip.archivedSharedWith.some((recipientId) =>
+            String(recipientId?._id ?? recipientId) === String(req.user.id)
+          )
+      };
+    }));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

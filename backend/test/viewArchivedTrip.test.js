@@ -16,6 +16,8 @@ test("an archived trip preserves the user's role while the archive state remains
 
   const userId = new mongoose.Types.ObjectId().toString();
   const viewerId = new mongoose.Types.ObjectId().toString();
+  const sharedUserId = new mongoose.Types.ObjectId().toString();
+  const strangerId = new mongoose.Types.ObjectId().toString();
   const tripId = new mongoose.Types.ObjectId().toString();
 
   const trip = {
@@ -23,6 +25,7 @@ test("an archived trip preserves the user's role while the archive state remains
     name: "Archived Vacation",
     ownerId: userId,
     users: [userId, viewerId],
+    archivedSharedWith: [sharedUserId],
     viewerIds: [viewerId],
     memberRoles: new Map([[viewerId, "viewer"]]),
     archived: true,
@@ -119,4 +122,45 @@ test("an archived trip preserves the user's role while the archive state remains
   const regularViewerData = await regularViewerResponse.json();
   assert.equal(regularViewerResponse.status, 200);
   assert.equal(regularViewerData.currentUserRole, "viewer");
+
+  const sharedToken = jwt.sign({ id: sharedUserId }, process.env.JWT_SECRET);
+  const sharedResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/archived/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sharedToken}` },
+    },
+  );
+  const sharedData = await sharedResponse.json();
+  assert.equal(sharedResponse.status, 200);
+  assert.equal(sharedData.currentUserRole, null);
+
+  const regularSharedResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sharedToken}` },
+    },
+  );
+  assert.equal(regularSharedResponse.status, 200);
+
+  const strangerToken = jwt.sign({ id: strangerId }, process.env.JWT_SECRET);
+  const strangerResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${strangerToken}` },
+    },
+  );
+  assert.equal(strangerResponse.status, 404);
+
+  trip.archived = false;
+  const unarchivedShareResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sharedToken}` },
+    },
+  );
+  assert.equal(unarchivedShareResponse.status, 404);
 });

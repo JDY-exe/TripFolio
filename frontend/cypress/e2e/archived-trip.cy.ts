@@ -57,6 +57,18 @@ const mockArchivedTrip = () => {
 describe('archived trips reuse shared views', () => {
   beforeEach(mockArchivedTrip);
 
+  it('labels trips shared with the current user', () => {
+    cy.intercept('GET', '**/trip/archived', {
+      body: [{ ...fixture.trip, sharedWithYou: true }],
+    });
+
+    visitAsUser('/archived-trips');
+    cy.get('[data-cy="shared-with-you-badge"]').should(
+      'contain.text',
+      'Shared with you',
+    );
+  });
+
   it('shows the number of people on an archived trip', () => {
     cy.intercept('GET', '**/trip/archived', {
       body: [

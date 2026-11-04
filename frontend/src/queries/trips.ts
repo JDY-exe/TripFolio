@@ -20,6 +20,7 @@ export interface Trip {
   viewerIds?: string[];
   memberRoles?: Record<string, TripMemberRole>;
   travelers?: TripTraveler[];
+  sharedWithYou?: boolean;
 }
 
 /** Creates the cache key for a user's trips. */

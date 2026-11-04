@@ -39,6 +39,7 @@ const MyArchivedTrips = () => {
                     key={trip._id}
                     id={trip._id}
                     title={trip.name}
+                    sharedWithYou={trip.sharedWithYou}
                     dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
                     travelers={`${travelerCount} ${travelerCount === 1 ? 'Traveler' : 'Travelers'}`}
                     status="Archived"
