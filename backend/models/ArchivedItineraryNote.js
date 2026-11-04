@@ -19,7 +19,7 @@ const archivedItineraryNoteSchema = new mongoose.Schema(
     },
     content: {
       type: String,
-      required: true,
+      default: "",
     },
   },
   { timestamps: true },

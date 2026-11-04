@@ -12,11 +12,14 @@ const itineraryRoutes = require("../routes/itineraryRoutes");
 
 test("archived itinerary notes are unique per author and itinerary", () => {
   assert.ok(
-    ArchivedItineraryNote.schema.indexes().some(([fields, options]) =>
-      fields.itineraryId === 1 &&
-      fields.authorId === 1 &&
-      options.unique === true,
-    ),
+    ArchivedItineraryNote.schema
+      .indexes()
+      .some(
+        ([fields, options]) =>
+          fields.itineraryId === 1 &&
+          fields.authorId === 1 &&
+          options.unique === true,
+      ),
   );
 });
 
@@ -52,11 +55,26 @@ test("archived itinerary notes can only be read and edited by their author", asy
     archived: false,
   };
   const itineraries = new Map([
-    [tripId, { _id: new mongoose.Types.ObjectId(itineraryId), tripId }],
-    [activeTripId, { _id: new mongoose.Types.ObjectId(activeItineraryId), tripId: activeTripId }],
+    [
+      tripId,
+      {
+        _id: new mongoose.Types.ObjectId(itineraryId),
+        tripId,
+        description: "Shared itinerary description",
+      },
+    ],
+    [
+      activeTripId,
+      {
+        _id: new mongoose.Types.ObjectId(activeItineraryId),
+        tripId: activeTripId,
+      },
+    ],
   ]);
-  const noteKey = ({ itineraryId: requestedItineraryId, authorId: requestedAuthorId }) =>
-    `${requestedItineraryId}:${requestedAuthorId}`;
+  const noteKey = ({
+    itineraryId: requestedItineraryId,
+    authorId: requestedAuthorId,
+  }) => `${requestedItineraryId}:${requestedAuthorId}`;
 
   Trip.findById = async (id) =>
     String(id) === tripId
@@ -122,6 +140,29 @@ test("archived itinerary notes can only be read and edited by their author", asy
   });
 
   const path = `/itinerary/${tripId}/notes`;
+  const unauthenticatedResponse = await fetch(`${baseUrl}${path}`);
+  assert.equal(unauthenticatedResponse.status, 401);
+
+  const invalidCreateBody = await send(path, {
+    method: "POST",
+    userId: ownerId,
+    body: { content: 42 },
+  });
+  assert.equal(invalidCreateBody.response.status, 400);
+  const emptyCreateBody = await send(path, {
+    method: "POST",
+    userId: ownerId,
+    body: { content: "  " },
+  });
+  assert.equal(emptyCreateBody.response.status, 400);
+
+  const updateBeforeCreate = await send(path, {
+    method: "PATCH",
+    userId: viewerId,
+    body: { content: "No existing note" },
+  });
+  assert.equal(updateBeforeCreate.response.status, 404);
+
   const emptyViewerNote = await send(path, { userId: viewerId });
   assert.equal(emptyViewerNote.response.status, 200);
   assert.equal(emptyViewerNote.data, null);
@@ -133,6 +174,10 @@ test("archived itinerary notes can only be read and edited by their author", asy
   });
   assert.equal(createdViewerNote.response.status, 201);
   assert.equal(createdViewerNote.data.content, "My private memory");
+  assert.equal(
+    itineraries.get(tripId).description,
+    "Shared itinerary description",
+  );
 
   const ownerCannotReadViewerNote = await send(path, { userId: ownerId });
   assert.equal(ownerCannotReadViewerNote.response.status, 200);
@@ -151,6 +196,13 @@ test("archived itinerary notes can only be read and edited by their author", asy
   });
   assert.equal(updatedViewerNote.response.status, 200);
   assert.equal(updatedViewerNote.data.content, "Updated private memory");
+  const clearedViewerNote = await send(path, {
+    method: "PATCH",
+    userId: viewerId,
+    body: { content: "" },
+  });
+  assert.equal(clearedViewerNote.response.status, 200);
+  assert.equal(clearedViewerNote.data.content, "");
 
   const ownerNote = await send(path, {
     method: "POST",

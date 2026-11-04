@@ -37,7 +37,7 @@ const ArchivedItineraryNotes = ({
   const savedContent = note?.content ?? '';
   const [draft, setDraft] = useState('');
   const [editingState, setEditingState] = useState<boolean | null>(null);
-  const isEditing = editingState ?? note === null;
+  const isEditing = editingState ?? (note === null || note === undefined);
 
   /** Copies the saved note into the editor before editing. */
   const handleEdit = () => {

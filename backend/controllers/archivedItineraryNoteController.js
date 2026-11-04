@@ -56,9 +56,10 @@ const getArchivedItineraryNote = async (req, res) => {
     });
     return res.status(200).json(note);
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Error fetching archived itinerary note", error: error.message });
+    return res.status(500).json({
+      message: "Error fetching archived itinerary note",
+      error: error.message,
+    });
   }
 };
 
@@ -72,8 +73,13 @@ const getArchivedItineraryNote = async (req, res) => {
  */
 const createArchivedItineraryNote = async (req, res) => {
   try {
-    if (typeof req.body?.content !== "string") {
-      return res.status(400).json({ message: "Note content must be a string" });
+    if (
+      typeof req.body?.content !== "string" ||
+      req.body.content.trim().length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Note content must be a non-empty string" });
     }
 
     const result = await getMemberArchivedItinerary(
@@ -96,11 +102,14 @@ const createArchivedItineraryNote = async (req, res) => {
     return res.status(201).json(note);
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(409).json({ message: "A note already exists for this itinerary" });
+      return res
+        .status(409)
+        .json({ message: "A note already exists for this itinerary" });
     }
-    return res
-      .status(500)
-      .json({ message: "Error creating archived itinerary note", error: error.message });
+    return res.status(500).json({
+      message: "Error creating archived itinerary note",
+      error: error.message,
+    });
   }
 };
 
@@ -138,14 +147,17 @@ const updateArchivedItineraryNote = async (req, res) => {
       { new: true, runValidators: true },
     );
     if (!note) {
-      return res.status(404).json({ message: "Archived itinerary note not found" });
+      return res
+        .status(404)
+        .json({ message: "Archived itinerary note not found" });
     }
 
     return res.status(200).json(note);
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Error updating archived itinerary note", error: error.message });
+    return res.status(500).json({
+      message: "Error updating archived itinerary note",
+      error: error.message,
+    });
   }
 };
 
