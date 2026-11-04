@@ -1,4 +1,5 @@
 import fixture from '../fixtures/archived-trip';
+import sharedRecipientFixture from '../fixtures/archived-shared-recipient';
 import noteFixture from '../fixtures/archived-notes.json';
 import { visitAsUser } from '../support/auth';
 
@@ -56,6 +57,124 @@ const mockArchivedTrip = () => {
 
 describe('archived trips reuse shared views', () => {
   beforeEach(mockArchivedTrip);
+
+  it('labels trips shared with the current user', () => {
+    cy.intercept('GET', '**/trip/archived', {
+      body: [{ ...fixture.trip, sharedWithYou: true }],
+    });
+
+    visitAsUser('/archived-trips');
+    cy.get('[data-cy="shared-with-you-badge"]').should(
+      'contain.text',
+      'Shared with you',
+    );
+  });
+
+  it('lets an owner share an archived trip with a friend', () => {
+    cy.intercept('GET', '**/users/friends', {
+      body: {
+        friends: [fixture.friend],
+        incomingRequests: [],
+        outgoingRequests: [],
+      },
+    });
+    cy.intercept('POST', `**/trip/${fixture.trip._id}/share-archive`, {
+      statusCode: 201,
+      body: {
+        message: 'Archived trip shared successfully',
+        tripId: fixture.trip._id,
+        recipientId: fixture.friend.id,
+      },
+    }).as('shareArchivedTrip');
+
+    visitAsUser(`/trip/archived/${fixture.trip._id}`);
+    cy.get('[data-cy="share-archived-trip-open"]').click();
+    cy.get('[data-cy="share-archived-trip-dialog"]').should('be.visible');
+    cy.get('[data-cy="share-trip-friend-search"]').focus();
+    cy.get(`[data-cy="share-trip-friend-${fixture.friend.id}"]`)
+      .should('be.enabled')
+      .click();
+    cy.get('[data-cy="share-archived-trip-submit"]').click();
+
+    cy.wait('@shareArchivedTrip')
+      .its('request.body')
+      .should('deep.equal', { recipientId: fixture.friend.id });
+    cy.get('[data-cy="share-archived-trip-dialog"]').should('not.exist');
+    cy.get('[data-cy="toast"]').should(
+      'contain.text',
+      'Archived trip shared successfully',
+    );
+  });
+
+  it('keeps the share dialog open and reports a failed grant', () => {
+    cy.intercept('GET', '**/users/friends', {
+      body: {
+        friends: [fixture.friend],
+        incomingRequests: [],
+        outgoingRequests: [],
+      },
+    });
+    cy.intercept('POST', `**/trip/${fixture.trip._id}/share-archive`, {
+      statusCode: 403,
+      body: { message: 'Only trip owners and editors can share this trip' },
+    }).as('shareArchivedTrip');
+
+    visitAsUser(`/trip/archived/${fixture.trip._id}`);
+    cy.get('[data-cy="share-archived-trip-open"]').click();
+    cy.get('[data-cy="share-trip-friend-search"]').focus();
+    cy.get(`[data-cy="share-trip-friend-${fixture.friend.id}"]`).click();
+    cy.get('[data-cy="share-archived-trip-submit"]').click();
+
+    cy.wait('@shareArchivedTrip');
+    cy.get('[data-cy="share-archived-trip-dialog"]').should('be.visible');
+    cy.get('[data-cy="toast"]').should(
+      'contain.text',
+      'Only trip owners and editors can share this trip',
+    );
+  });
+
+  it('does not offer archived sharing to read-only trip participants', () => {
+    cy.intercept(
+      { method: 'GET', pathname: `/trip/${fixture.trip._id}` },
+      { body: { ...fixture.trip, currentUserRole: 'viewer' } },
+    );
+
+    visitAsUser(`/trip/archived/${fixture.trip._id}`, 'viewer');
+    cy.get('[data-cy="share-archived-trip-open"]').should('not.exist');
+  });
+
+  it('lets a recipient open a shared trip and keeps it read-only', () => {
+    cy.intercept('GET', '**/trip/archived', {
+      body: [sharedRecipientFixture.archivedTrip],
+    });
+    cy.intercept(
+      { method: 'GET', pathname: `/trip/${fixture.trip._id}` },
+      { body: sharedRecipientFixture.trip },
+    );
+
+    visitAsUser('/archived-trips', 'viewer');
+    cy.get('[data-cy="shared-with-you-badge"]').should(
+      'contain.text',
+      'Shared with you',
+    );
+    cy.get(`[data-cy="trip-card-${fixture.trip._id}"]`).click();
+
+    cy.get('[data-cy="trip-section-itinerary"]').should(
+      'contain.text',
+      'Archived Itinerary',
+    );
+    cy.contains(fixture.event.title).should('be.visible');
+    cy.get('[data-cy="share-archived-trip-open"]').should('not.exist');
+    cy.get('[data-cy^="add-event-"]').should('not.exist');
+    cy.get('[data-cy^="edit-event-"]').should('not.exist');
+    cy.get('[data-cy^="delete-event-"]').should('not.exist');
+
+    cy.get('[data-cy="nav-settings"]').click();
+    cy.get('[data-cy="trip-visibility"]').should('be.disabled');
+    cy.get('[data-cy="share-trip-open"]').should('not.exist');
+    cy.get('[data-cy="delete-trip-open"]').should('not.exist');
+    cy.get('[data-cy="toggle-trip-archive"]').should('not.exist');
+  });
 
   it('shows the number of people on an archived trip', () => {
     cy.intercept('GET', '**/trip/archived', {

@@ -43,14 +43,24 @@ const getTripRole = (trip, userId) => {
 };
 
 /**
- * Allows only users with a trip role to read the trip, even if it is marked public.
+ * Allows trip members and explicitly shared recipients to read trip content.
+ * Archive grants apply only while the trip remains archived.
  *
  * @param {object} trip - Trip document or plain trip record.
  * @param {string|object} userId - Authenticated user's ID.
- * @returns {boolean} Whether the user owns or belongs to the trip.
+ * @returns {boolean} Whether the user can read the trip.
  */
-const canReadTrip = (trip, userId) =>
-  Boolean(trip && getTripRole(trip, userId));
+const canReadTrip = (trip, userId) => {
+  if (!trip || !userId) return false;
+  if (getTripRole(trip, userId)) return true;
+  if (!trip.archived) return false;
+
+  const sharedWith = Array.isArray(trip.archivedSharedWith)
+    ? trip.archivedSharedWith
+    : [];
+  const currentUserId = toId(userId);
+  return sharedWith.some((recipientId) => toId(recipientId) === currentUserId);
+};
 
 /**
  * Restricts trip mutations to owners and editors, never read-only viewers.

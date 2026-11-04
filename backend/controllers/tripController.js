@@ -8,8 +8,17 @@ const mongoose = require("mongoose");
 const { validateTripProfilePicture } = require("../utils/tripMedia");
 const { canEditTrip, canReadTrip, getTripRole } = require("../utils/tripAccess");
 
+const serializeTrip = (trip) => {
+  const tripData = {
+    ...(typeof trip.toObject === "function" ? trip.toObject() : trip)
+  };
+  delete tripData.archivedSharedWith;
+
+  return tripData;
+};
+
 const serializeTripForUser = (trip, userId) => ({
-  ...(typeof trip.toObject === "function" ? trip.toObject() : trip),
+  ...serializeTrip(trip),
   currentUserRole: getTripRole(trip, userId)
 });
 
@@ -77,7 +86,7 @@ const getTrips = async (req, res) => {
       .select("username profile_picture").lean();
     const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
     res.status(200).json(trips.map((trip) => ({
-      ...(typeof trip.toObject === 'function' ? trip.toObject() : trip),
+      ...serializeTrip(trip),
       travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
         .map((id) => travelersById.get(id))
         .filter(Boolean)
@@ -262,7 +271,7 @@ const getTripFromUser = async (req, res) => {
     const trips = await Trip.find({
       $or: [{ ownerId: userId }, { users: userId }]
     });
-    return res.status(200).json({ trips });
+    return res.status(200).json({ trips: trips.map(serializeTrip) });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
@@ -368,6 +377,90 @@ const shareTrip = async (req, res) => {
     }
     return res.status(error.status || 500).json({
       message: error.status ? error.message : "Unable to send trip invitations"
+    });
+  }
+};
+
+/** Grants a trip participant read-only access to an archived trip. */
+const shareArchivedTrip = async (req, res) => {
+  try {
+    const { id: tripId } = req.params;
+    const { recipientId } = req.body || {};
+
+    if (!mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+    if (
+      typeof recipientId !== "string" ||
+      !mongoose.isValidObjectId(recipientId)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "A valid recipientId is required" });
+    }
+
+    const normalizedRecipientId = new mongoose.Types.ObjectId(
+      recipientId
+    ).toString();
+    const alreadyShared = await mongoose.connection.transaction(
+      async (session) => {
+        const trip = await Trip.findById(tripId).session(session);
+        if (!trip) {
+          throw Object.assign(new Error("Trip not found"), { status: 404 });
+        }
+        if (!canEditTrip(trip, req.user.id)) {
+          throw Object.assign(
+            new Error("Only trip owners and editors can share this trip"),
+            { status: 403 }
+          );
+        }
+        if (!trip.archived) {
+          throw Object.assign(
+            new Error("Trip must be archived before it can be shared"),
+            { status: 409 }
+          );
+        }
+
+        const recipient = await User.findById(normalizedRecipientId).session(
+          session
+        );
+        if (!recipient) {
+          throw Object.assign(new Error("Recipient not found"), {
+            status: 404
+          });
+        }
+        if (getTripRole(trip, normalizedRecipientId)) {
+          throw Object.assign(
+            new Error("Recipient already has access to this trip"),
+            { status: 409 }
+          );
+        }
+
+        const result = await Trip.updateOne(
+          { _id: tripId, archived: true },
+          { $addToSet: { archivedSharedWith: normalizedRecipientId } },
+          { session }
+        );
+        if (!result.matchedCount) {
+          throw Object.assign(new Error("Trip is no longer archived"), {
+            status: 409
+          });
+        }
+
+        return result.modifiedCount === 0;
+      }
+    );
+
+    return res.status(alreadyShared ? 200 : 201).json({
+      message: alreadyShared
+        ? "Archived trip is already shared with this user"
+        : "Archived trip shared successfully",
+      tripId,
+      recipientId: normalizedRecipientId
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to share archived trip"
     });
   }
 };
@@ -873,7 +966,11 @@ const getArchivedTrips = async (req, res) => {
   try {
     const trips = await Trip.find({
       archived: {$eq: true},
-      $or: [{ ownerId: req.user.id }, { users: req.user.  id }]
+      $or: [
+        { ownerId: req.user.id },
+        { users: req.user.id },
+        { archivedSharedWith: req.user.id }
+      ]
     }).sort({ createdAt: -1 });
     const travelerIds = [...new Set(trips.flatMap((trip) =>
       [trip.ownerId, ...trip.users].filter(Boolean).map(String)
@@ -881,17 +978,23 @@ const getArchivedTrips = async (req, res) => {
     const travelers = await User.find({ _id: { $in: travelerIds } })
       .select("username profile_picture").lean();
     const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
-    res.status(200).json(trips.map((trip) => ({
-      ...(typeof trip.toObject === 'function' ? trip.toObject() : trip),
-      travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
-        .map((id) => travelersById.get(id))
-        .filter(Boolean)
-        .map((traveler) => ({
-          id: String(traveler._id),
-          username: traveler.username,
-          profile_picture: traveler.profile_picture ?? null
-        }))
-    })));
+    res.status(200).json(trips.map((trip) => {
+      return {
+        ...serializeTrip(trip),
+        travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
+          .map((id) => travelersById.get(id))
+          .filter(Boolean)
+          .map((traveler) => ({
+            id: String(traveler._id),
+            username: traveler.username,
+            profile_picture: traveler.profile_picture ?? null
+          })),
+        sharedWithYou: Array.isArray(trip.archivedSharedWith) &&
+          trip.archivedSharedWith.some((recipientId) =>
+            String(recipientId?._id ?? recipientId) === String(req.user.id)
+          )
+      };
+    }));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -928,6 +1031,7 @@ module.exports = {
   getTripProfilePicture,
   getTripFromUser,
   shareTrip,
+  shareArchivedTrip,
   addUserToTrip,
   updateTripMemberRole,
   modifyGlobalVotes,
