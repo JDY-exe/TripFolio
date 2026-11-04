@@ -11,6 +11,7 @@ const eventRoutes = require("./routes/eventRoutes");
 const destinationRoutes = require("./routes/destinationRoutes");
 const publicItineraryRoutes = require("./routes/publicItineraryRoutes");
 const photoRoutes = require("./routes/photoRoutes");
+const ledgerRoutes = require('./routes/ledgerRoutes');
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use("/itinerary", itineraryRoutes);
 app.use("/api/itineraries", publicItineraryRoutes);
 app.use("/event", eventRoutes);
 app.use("/destination", destinationRoutes);
+app.use('/api/ledger', ledgerRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running!");
