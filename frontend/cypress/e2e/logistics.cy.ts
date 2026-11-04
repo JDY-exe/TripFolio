@@ -1,4 +1,5 @@
 import featureFixture from '../fixtures/owned-features.json';
+import { actionInput, bookingInput } from '../fixtures/reservation-events';
 import { visitOwnedTrip } from '../support/ownedTrip';
 
 type Reservation =
@@ -46,6 +47,7 @@ const advanceToSave = (kind: string) => {
     cy.get('[data-cy="flight-next"]').click();
     cy.get('[data-cy="flight-next"]').click();
   } else {
+    cy.get(`[data-cy="${kind}-next"]`).click();
     cy.get(`[data-cy="${kind}-next"]`).click();
   }
 };
@@ -100,7 +102,16 @@ describe('trip logistics', () => {
           'Return cannot be before pick-up.',
         );
         cy.get('[data-cy="rental-return"]').clear().type('2030-04-05');
-        cy.get('[data-cy="rental-next"]').click();
+        cy.get('[data-cy="rental-pickup-address"]').type(
+          actionInput.pickupAddress,
+        );
+        cy.get('[data-cy="rental-return-address"]').type(
+          actionInput.returnAddress,
+        );
+        cy.get('[data-cy="rentalcar_pickup-start"]').should('not.exist');
+        advanceToSave(category.kind);
+        cy.get('[data-cy="rentalcar_pickup-start"]').type(actionInput.pickup);
+        cy.get('[data-cy="rentalcar_return-start"]').type(actionInput.return);
       } else {
         cy.get('[data-cy="accommodation-name"]').type(category.record.name);
         cy.get('[data-cy="accommodation-address"]').type(
@@ -116,7 +127,14 @@ describe('trip logistics', () => {
         cy.get('[data-cy="accommodation-check-out"]')
           .clear()
           .type('2030-04-05');
-        cy.get('[data-cy="accommodation-next"]').click();
+        advanceToSave(category.kind);
+        cy.get('[data-cy="accommodation-save"]').click();
+        cy.get('[role="alert"]').should(
+          'contain.text',
+          'Enter a start and later end time',
+        );
+        cy.get('[data-cy="hotel_checkin-start"]').type(actionInput.checkin);
+        cy.get('[data-cy="hotel_checkout-start"]').type(actionInput.checkout);
       }
 
       cy.get(`[data-cy="${category.save}"]`).click();
@@ -128,6 +146,80 @@ describe('trip logistics', () => {
         category.record.name,
       );
     });
+
+    if (category.kind !== 'flight') {
+      it(`separates ${category.kind} booking fields from optional events and preserves drafts going back`, () => {
+        cy.intercept(
+          {
+            method: 'PATCH',
+            pathname: `${category.path}/${category.record._id}`,
+          },
+          (request) => {
+            expect(request.body.cost).to.equal(Number(bookingInput.cost));
+            expect(request.body.confirmationNumber).to.equal(
+              bookingInput.confirmationNumber,
+            );
+            expect(request.body.notes).to.equal(bookingInput.notes);
+            expect(request.body.itineraryActions).to.deep.equal([]);
+            request.reply({
+              body: { reservation: { ...category.record, ...request.body } },
+            });
+          },
+        ).as('saveBookingOnly');
+        visitOwnedTrip('Logistics', {
+          reservations: (path) =>
+            path === category.path ? [category.record] : [],
+        });
+        cy.get(`[data-cy="edit-reservation-${category.record._id}"]`).click({
+          force: true,
+        });
+        cy.get(`[data-cy="${category.kind}-cost"]`).should('not.exist');
+        cy.get('[data-cy="reservation-itinerary-step"]').should('not.exist');
+        cy.get(`[data-cy="${category.kind}-next"]`).click();
+        cy.get(`[data-cy="${category.kind}-notes"]`)
+          .clear()
+          .type(bookingInput.notes);
+        cy.get(`[data-cy="${category.kind}-confirmation"]`).type(
+          bookingInput.confirmationNumber,
+        );
+        cy.get(`[data-cy="${category.kind}-cost"]`)
+          .clear()
+          .type(bookingInput.invalidCost);
+        cy.get(`[data-cy="${category.kind}-next"]`).click();
+        cy.get('[role="alert"]').should(
+          'contain.text',
+          'Cost must be zero or more.',
+        );
+        cy.get('[data-cy="reservation-itinerary-step"]').should('not.exist');
+        cy.get(`[data-cy="${category.kind}-cost"]`)
+          .clear()
+          .type(bookingInput.cost);
+        cy.get(`[data-cy="${category.kind}-next"]`).click();
+        cy.get('[data-cy="reservation-itinerary-step"]').should('be.visible');
+        cy.contains(
+          'No events selected. Only the reservation will be saved.',
+        ).should('be.visible');
+        cy.get(`[data-cy="${category.kind}-cost"]`).should('not.exist');
+        cy.get('@saveBookingOnly.all').should('have.length', 0);
+        cy.get(`[data-cy="${category.kind}-back"]`).click();
+        cy.get(`[data-cy="${category.kind}-notes"]`).should(
+          'have.value',
+          bookingInput.notes,
+        );
+        cy.get(`[data-cy="${category.kind}-confirmation"]`).should(
+          'have.value',
+          bookingInput.confirmationNumber,
+        );
+        cy.get(`[data-cy="${category.kind}-back"]`).click();
+        cy.get(`[data-cy="${category.name}"]`).should(
+          'have.value',
+          category.record.name,
+        );
+        advanceToSave(category.kind);
+        cy.get(`[data-cy="${category.save}"]`).click();
+        cy.wait('@saveBookingOnly');
+      });
+    }
 
     it(`edits and deletes a ${category.kind}`, () => {
       let saved: Reservation[] = [category.record];

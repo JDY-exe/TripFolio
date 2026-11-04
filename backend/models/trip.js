@@ -53,6 +53,12 @@ const tripSchema = new mongoose.Schema({
       ref: "User"
     }
   ],
+  archivedSharedWith: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }
+  ],
   hiddenUsers: [
     {
       type: mongoose.Schema.Types.ObjectId,

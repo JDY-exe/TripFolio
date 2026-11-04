@@ -13,6 +13,7 @@
   "events": [
     {
       "_id": "map-museum",
+      "eventType": "activity",
       "title": "Museum visit",
       "address": "Museum, Miami",
       "startTime": "2030-04-01T09:00:00.000Z",
@@ -21,6 +22,7 @@
     },
     {
       "_id": "map-lunch",
+      "eventType": "restaurant",
       "title": "Museum cafe",
       "address": "Museum, Miami",
       "startTime": "2030-04-01T12:00:00.000Z",
@@ -28,6 +30,7 @@
     },
     {
       "_id": "map-beach",
+      "eventType": "activity",
       "title": "Beach walk",
       "address": "South Beach, Miami",
       "startTime": "2030-04-02T09:00:00.000Z",

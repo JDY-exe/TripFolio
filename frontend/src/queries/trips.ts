@@ -20,6 +20,7 @@ export interface Trip {
   viewerIds?: string[];
   memberRoles?: Record<string, TripMemberRole>;
   travelers?: TripTraveler[];
+  sharedWithYou?: boolean;
 }
 
 /** Creates the cache key for a user's trips. */
@@ -154,8 +155,9 @@ export interface TripInvitation {
   trip: Trip & {
     owner?: { username: string; profile_picture?: string | null } | null;
   };
-  inviter: { username: string } | null;
+  inviter: { username: string; profile_picture?: string | null } | null;
   role?: Exclude<TripMemberRole, 'owner'>;
+  archivedReadOnly?: boolean;
 }
 
 interface TripInvitationsResponse {
@@ -200,6 +202,7 @@ export const useRespondToTripInvitation = (userId?: string) => {
       await Promise.all([
         client.invalidateQueries({ queryKey: ['trip-invitations', userId] }),
         client.invalidateQueries({ queryKey: tripsQueryKey(userId) }),
+        client.invalidateQueries({ queryKey: archivedTripsQueryKey(userId) }),
       ]);
     },
   });
@@ -241,3 +244,36 @@ export const useSendTripInvitations = () =>
       }),
     retry: 0,
   });
+
+export interface ShareArchivedTripInput {
+  tripId: string;
+  recipientId: string;
+}
+
+export interface ShareArchivedTripResponse {
+  message: string;
+  tripId: string;
+  recipientId: string;
+}
+
+/**
+ * Grants an existing user access to an archived trip and refreshes the archive list.
+ * @param userId - Authenticated sharer's ID for the archived-list cache.
+ * @returns A mutation accepting the trip and recipient IDs.
+ */
+export const useShareArchivedTrip = (userId?: string) => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, recipientId }: ShareArchivedTripInput) =>
+      postToApi<ShareArchivedTripResponse, { recipientId: string }>(
+        `/trip/${tripId}/share-archive`,
+        { recipientId },
+      ),
+    onSuccess: async () => {
+      await client.invalidateQueries({
+        queryKey: archivedTripsQueryKey(userId),
+      });
+    },
+    retry: 0,
+  });
+};

@@ -1,11 +1,10 @@
-import { CalendarDays, MapPin, NotebookPen, ReceiptText } from 'lucide-react';
+import { CalendarDays, MapPin } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   Button,
   Modal,
   Stepper,
   Text,
-  TextArea,
   TextField,
 } from '../../../../components/common';
 import {
@@ -22,6 +21,11 @@ import {
   toReservationDateInput,
 } from '../reservationDateInput';
 
+import PlaceField from '../../../../components/PlaceField';
+import ReservationItineraryFields from '../ReservationItineraryFields';
+import ReservationBookingFields from '../ReservationBookingFields';
+import { useItineraryActions } from '../useItineraryActions';
+
 interface AccommodationReservationFormProps {
   tripId: string;
   reservation?: Reservation;
@@ -29,12 +33,13 @@ interface AccommodationReservationFormProps {
 }
 
 const accommodationSteps = [
-  { label: 'Stay details' },
-  { label: 'Cost' },
+  { label: 'Details' },
+  { label: 'Booking' },
+  { label: 'Itinerary' },
 ] as const;
 
 /**
- * Edits accommodation details and cost in a two-step reservation dialog.
+ * Separates stay details, optional booking records, and itinerary actions into three steps.
  * @param props - Trip, optional accommodation reservation, and close action.
  * @returns The accommodation reservation modal.
  */
@@ -44,7 +49,7 @@ const AccommodationReservationForm = ({
   onClose,
 }: AccommodationReservationFormProps) => {
   const saveReservation = useSaveReservation(tripId);
-  const [step, setStep] = useState<0 | 1>(0);
+  const [step, setStep] = useState<0 | 1 | 2>(0);
   const [name, setName] = useState(reservation?.name ?? '');
   const [address, setAddress] = useState(
     reservation?.accommodations?.address ?? '',
@@ -55,8 +60,19 @@ const AccommodationReservationForm = ({
   const [endDate, setEndDate] = useState(
     toReservationDateInput(reservation?.endTime),
   );
+  const [placeId, setPlaceId] = useState<string | null>(
+    reservation?.accommodations?.placeId ?? null,
+  );
+  const itinerary = useItineraryActions(
+    reservation,
+    ['hotel_checkin', 'hotel_checkout'],
+    [startDate, endDate],
+  );
   const [cost, setCost] = useState(reservation?.cost?.toString() ?? '');
   const [notes, setNotes] = useState(reservation?.notes ?? '');
+  const [confirmationNumber, setConfirmationNumber] = useState(
+    reservation?.confirmationNumber ?? '',
+  );
   const [error, setError] = useState('');
   const [isOpen, setIsOpen] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -65,14 +81,14 @@ const AccommodationReservationForm = ({
   useEffect(() => {
     if (previousStep.current === step) return;
     previousStep.current = step;
-    contentRef.current?.focus();
+    contentRef.current?.focus({ preventScroll: true });
+    contentRef.current?.parentElement?.scrollTo({ top: 0 });
   }, [step]);
 
-  /**
-   * Checks the property and calendar range before showing cost.
-   * @returns Nothing; the dialog advances or shows an error.
+  /** Validates only stay identity and dates, without requiring itinerary times yet.
+   * @returns A recoverable error, or an empty string when Details is complete.
    */
-  const handleNext = () => {
+  const validateDetails = () => {
     const checkIn = new Date(reservationDateToTimestamp(startDate));
     const checkOut = new Date(reservationDateToTimestamp(endDate));
     if (
@@ -83,15 +99,29 @@ const AccommodationReservationForm = ({
       Number.isNaN(checkIn.getTime()) ||
       Number.isNaN(checkOut.getTime())
     ) {
-      setError('Enter a property name, address, and both dates.');
-      return;
+      return 'Enter a property name, address, and both dates.';
     }
     if (checkOut < checkIn) {
-      setError('Check-out cannot be before check-in.');
-      return;
+      return 'Check-out cannot be before check-in.';
     }
-    setError('');
-    setStep(1);
+    return '';
+  };
+
+  /** Checks the optional booking cost without blocking on later itinerary fields.
+   * @returns A cost error or an empty string.
+   */
+  const validateBooking = () =>
+    cost.trim() && (!Number.isFinite(Number(cost)) || Number(cost) < 0)
+      ? 'Cost must be zero or more.'
+      : '';
+
+  /** Advances only after validating the currently visible step.
+   * @returns Nothing; preserves all draft values when changing steps.
+   */
+  const handleNext = () => {
+    const message = step === 0 ? validateDetails() : validateBooking();
+    setError(message);
+    if (!message) setStep(step === 0 ? 1 : 2);
   };
 
   /**
@@ -99,12 +129,17 @@ const AccommodationReservationForm = ({
    * @returns A promise that settles after the save request.
    */
   const handleSave = async () => {
+    const detailsError = validateDetails();
+    const bookingError = validateBooking();
+    if (detailsError || bookingError) {
+      setError(detailsError || bookingError);
+      setStep(detailsError ? 0 : 1);
+      return;
+    }
     const parsedCost = cost.trim() ? Number(cost) : null;
-    if (
-      parsedCost !== null &&
-      (!Number.isFinite(parsedCost) || parsedCost < 0)
-    ) {
-      setError('Cost must be zero or more.');
+    if (itinerary.loading || itinerary.isError || itinerary.error) {
+      setError(itinerary.error || 'Load itinerary entries before saving.');
+      setStep(2);
       return;
     }
     const values: ReservationInput = {
@@ -112,8 +147,10 @@ const AccommodationReservationForm = ({
       startTime: reservationDateToTimestamp(startDate),
       endTime: reservationDateToTimestamp(endDate),
       cost: parsedCost,
+      confirmationNumber: confirmationNumber.trim(),
       notes: notes.trim(),
-      accommodations: { address: address.trim() },
+      accommodations: { address: address.trim(), placeId },
+      itineraryActions: itinerary.actions,
     };
     setError('');
     try {
@@ -130,7 +167,7 @@ const AccommodationReservationForm = ({
           'Could not save the accommodation. Please try again.',
         ),
       );
-      contentRef.current?.scrollIntoView({ block: 'start' });
+      contentRef.current?.parentElement?.scrollTo({ top: 0 });
     }
   };
 
@@ -147,35 +184,43 @@ const AccommodationReservationForm = ({
       panelClassName="flex h-[min(48rem,calc(100dvh_-_2rem))] flex-col sm:h-[min(48rem,calc(100dvh_-_4rem))] sm:max-w-2xl"
       contentClassName="min-h-0 flex-1 overflow-y-auto"
       footer={(requestClose) => (
-        <div className="flex w-full items-center justify-between gap-3">
+        <div className="grid w-full grid-cols-2 items-center gap-3 sm:flex sm:justify-between">
           <Button
+            data-cy="accommodation-cancel"
+            className="sm:mr-auto"
             variant="secondary"
             disabled={saveReservation.isPending}
             onClick={requestClose}
           >
             Cancel
           </Button>
-          <div className="flex items-center gap-2">
-            {step === 1 && (
+          <div className="contents sm:flex sm:items-center sm:gap-2">
+            {step > 0 && (
               <Button
+                data-cy="accommodation-back"
                 variant="outline"
                 disabled={saveReservation.isPending}
                 onClick={() => {
                   setError('');
-                  setStep(0);
+                  setStep(step === 2 ? 1 : 0);
                 }}
               >
                 Back
               </Button>
             )}
-            {step === 0 && (
-              <Button data-cy="accommodation-next" onClick={handleNext}>
-                Next: Cost
+            {step < 2 && (
+              <Button
+                data-cy="accommodation-next"
+                className={step > 0 ? 'col-span-2' : ''}
+                onClick={handleNext}
+              >
+                Next: {accommodationSteps[step + 1].label}
               </Button>
             )}
-            {step !== 0 && (
+            {step === 2 && (
               <Button
                 data-cy="accommodation-save"
+                className="col-span-2"
                 disabled={saveReservation.isPending}
                 onClick={() => void handleSave()}
               >
@@ -190,6 +235,7 @@ const AccommodationReservationForm = ({
         steps={accommodationSteps}
         currentStep={step}
         label="Accommodation form progress"
+        className="sticky top-0 z-10 bg-surface-container py-3"
       />
       <div ref={contentRef} tabIndex={-1} className="mt-7 outline-none">
         <Text as="h3" variant="title" className="mb-4">
@@ -203,7 +249,7 @@ const AccommodationReservationForm = ({
 
         {step === 0 && (
           <>
-            <div className="overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] border border-outline-variant bg-surface-container-low">
+            <div className="rounded-[2rem_0.75rem_2rem_0.75rem] border border-outline-variant bg-surface-container-low">
               <div className="px-5 pt-5">
                 <MapPin aria-hidden size={18} className="text-primary" />
               </div>
@@ -216,13 +262,16 @@ const AccommodationReservationForm = ({
                   onChange={(event) => setName(event.target.value)}
                   required
                 />
-                <TextField
-                  data-cy="accommodation-address"
+                <PlaceField
                   id="accommodation-address"
-                  label="Address"
+                  label="Property address or place"
                   value={address}
-                  onChange={(event) => setAddress(event.target.value)}
-                  required
+                  placeId={placeId}
+                  onChange={(value, matchedPlaceId, _restaurant, placeName) => {
+                    setAddress(value);
+                    setPlaceId(matchedPlaceId);
+                    if (!name.trim() && placeName) setName(placeName);
+                  }}
                 />
               </div>
               <div className="border-t border-outline-variant p-5">
@@ -254,54 +303,26 @@ const AccommodationReservationForm = ({
                   />
                 </div>
               </div>
-              <div className="border-t border-outline-variant p-5">
-                <Text
-                  as="label"
-                  htmlFor="accommodation-notes"
-                  variant="label"
-                  className="flex items-center gap-2"
-                >
-                  <NotebookPen aria-hidden size={18} className="text-primary" />
-                  Notes
-                </Text>
-                <TextArea
-                  id="accommodation-notes"
-                  rows={3}
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  className="mt-2"
-                />
-              </div>
             </div>
           </>
         )}
-        {step !== 0 && (
-          <div className="rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low p-5 sm:p-6">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="grid size-12 place-items-center rounded-2xl bg-secondary-container text-on-secondary-container">
-                <ReceiptText aria-hidden size={22} />
-              </div>
-              <div>
-                <Text as="h4" variant="label">
-                  Accommodation cost
-                </Text>
-                <Text variant="caption" color="muted">
-                  Add the total price for this stay.
-                </Text>
-              </div>
-            </div>
-            <TextField
-              data-cy="accommodation-cost"
-              id="accommodation-cost"
-              label="Cost"
-              type="number"
-              min="0"
-              step="0.01"
-              className="max-w-64"
-              value={cost}
-              onChange={(event) => setCost(event.target.value)}
-            />
-          </div>
+        {step === 1 && (
+          <ReservationBookingFields
+            prefix="accommodation"
+            cost={cost}
+            confirmationNumber={confirmationNumber}
+            notes={notes}
+            onCostChange={setCost}
+            onConfirmationChange={setConfirmationNumber}
+            onNotesChange={setNotes}
+          />
+        )}
+        {step === 2 && (
+          <ReservationItineraryFields
+            state={itinerary}
+            dates={[startDate, endDate]}
+            locations={[address, address]}
+          />
         )}
       </div>
     </Modal>

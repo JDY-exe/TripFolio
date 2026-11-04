@@ -10,6 +10,7 @@ const {
 	getTrips,
 	getTrip,
 	shareTrip,
+	shareArchivedTrip,
 	updateTripMemberRole,
 	updateTripVisibility,
 	deleteTrip,
@@ -53,6 +54,7 @@ router.get('/user', getTripFromUser);
 router.get('/archived', getArchivedTrips)
 router.get('/archived/:id', getArchivedTrip)
 router.post('/:id/share', shareTrip);
+router.post('/:id/share-archive', shareArchivedTrip);
 router.get('/invitations', getTripInvitations);
 router.patch('/invitations/:invitationId', respondToTripInvitation);
 router.get('/user/invites', getTripInvitations);

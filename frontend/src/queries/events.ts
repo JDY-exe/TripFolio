@@ -1,7 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { getFromApi } from '../utils/api';
 
+export const EVENT_TYPE = {
+  ACTIVITY: 'activity',
+  RESTAURANT: 'restaurant',
+  HOTEL_CHECKIN: 'hotel_checkin',
+  HOTEL_CHECKOUT: 'hotel_checkout',
+  RENTALCAR_PICKUP: 'rentalcar_pickup',
+  RENTALCAR_RETURN: 'rentalcar_return',
+  FLIGHT: 'flight',
+} as const;
+export type EventType = (typeof EVENT_TYPE)[keyof typeof EVENT_TYPE];
+export interface ItineraryAction {
+  eventType: EventType;
+  startTime: string;
+  endTime: string;
+}
+
 export interface EventData {
+  eventType: EventType;
+  reservation?: string | null;
   _id: string;
   title: string;
   placeId?: string | null;
@@ -11,7 +29,6 @@ export interface EventData {
   startTime: string;
   endTime: string;
   notes?: string;
-  restaurant?: boolean;
   reservationMade?: boolean;
   cost: number;
 }

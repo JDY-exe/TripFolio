@@ -23,6 +23,11 @@ const tripInvitationSchema = new mongoose.Schema(
       default: "editor",
       required: true
     },
+    archivedReadOnly: {
+      type: Boolean,
+      default: false,
+      required: true
+    },
     status: {
       type: String,
       enum: ["pending", "accepted", "declined"],

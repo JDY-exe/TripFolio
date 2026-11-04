@@ -31,7 +31,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     userFind: User.find,
     find: Trip.find,
     findById: Trip.findById,
-    findByIdAndUpdate: Trip.findByIdAndUpdate,
+    findOneAndUpdate: Trip.findOneAndUpdate,
     updateOne: Trip.updateOne,
     findByIdAndDelete: Trip.findByIdAndDelete,
     save: Trip.prototype.save,
@@ -64,8 +64,9 @@ test('trip visibility routes protect private data and retain trip planning flows
       )),
   });
   Trip.findById = async (id) => trips.get(String(id)) || null;
-  Trip.findByIdAndUpdate = async (id, update) => {
-    const trip = trips.get(String(id));
+  Trip.findOneAndUpdate = async (filter, update) => {
+    const trip = trips.get(String(filter._id));
+    if (filter.archived?.$ne === true && trip?.archived) return null;
     if (!trip) return null;
     for (const [field, value] of Object.entries(update.$addToSet || {})) {
       if (!trip[field].some((memberId) => String(memberId) === String(value))) {
@@ -113,9 +114,9 @@ test('trip visibility routes protect private data and retain trip planning flows
     return this;
   };
 
-  Event.find = ({ itineraryID }) => ({
+  Event.find = ({ itineraryID, reservation }) => ({
     sort: async () => [...events.values()]
-      .filter((event) => String(event.itineraryID) === String(itineraryID))
+      .filter((event) => String(event.itineraryID) === String(itineraryID) && (!reservation || String(event.reservation) === String(reservation)))
       .sort((first, second) => first.startTime - second.startTime),
   });
   Event.findById = async (id) => events.get(String(id)) || null;
@@ -206,7 +207,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     Object.assign(Trip, {
       find: originalTripMethods.find,
       findById: originalTripMethods.findById,
-      findByIdAndUpdate: originalTripMethods.findByIdAndUpdate,
+      findOneAndUpdate: originalTripMethods.findOneAndUpdate,
       updateOne: originalTripMethods.updateOne,
       findByIdAndDelete: originalTripMethods.findByIdAndDelete,
     });
@@ -316,6 +317,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     startTime: '2027-04-01T15:00:00.000Z',
     endTime: '2027-04-05T11:00:00.000Z',
     accommodations: { address: '15 Example Street' },
+    itineraryActions: [{ eventType: 'hotel_checkin', startTime: '2027-04-01T15:00:00.000Z', endTime: '2027-04-01T15:30:00.000Z' }],
     tripId,
   };
   const privateHotelCreate = await send('/logistics/hotels', {

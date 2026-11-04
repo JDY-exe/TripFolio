@@ -1,11 +1,10 @@
-import { CalendarDays, CarFront, NotebookPen, ReceiptText } from 'lucide-react';
+import { CalendarDays, CarFront } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   Button,
   Modal,
   Stepper,
   Text,
-  TextArea,
   TextField,
 } from '../../../../components/common';
 import {
@@ -22,6 +21,11 @@ import {
   toReservationDateInput,
 } from '../reservationDateInput';
 
+import PlaceField from '../../../../components/PlaceField';
+import ReservationItineraryFields from '../ReservationItineraryFields';
+import ReservationBookingFields from '../ReservationBookingFields';
+import { useItineraryActions } from '../useItineraryActions';
+
 interface RentalCarReservationFormProps {
   tripId: string;
   reservation?: Reservation;
@@ -35,9 +39,14 @@ interface RentalCarDraft {
   endDate: string;
   cost: string;
   notes: string;
+  confirmationNumber: string;
 }
 
-const rentalSteps = [{ label: 'Rental details' }, { label: 'Cost' }] as const;
+const rentalSteps = [
+  { label: 'Details' },
+  { label: 'Booking' },
+  { label: 'Itinerary' },
+] as const;
 
 /**
  * Creates editable rental values from a reservation or empty fields.
@@ -51,10 +60,11 @@ const createRentalCarDraft = (reservation?: Reservation): RentalCarDraft => ({
   endDate: toReservationDateInput(reservation?.endTime),
   cost: reservation?.cost?.toString() ?? '',
   notes: reservation?.notes ?? '',
+  confirmationNumber: reservation?.confirmationNumber ?? '',
 });
 
 /**
- * Edits rental details and cost in a two-step reservation dialog.
+ * Separates rental details, optional booking records, and itinerary actions into three steps.
  * @param props - Trip, optional rental reservation, and close action.
  * @returns The rental car reservation modal.
  */
@@ -64,9 +74,26 @@ const RentalCarReservationForm = ({
   onClose,
 }: RentalCarReservationFormProps) => {
   const saveReservation = useSaveReservation(tripId);
-  const [step, setStep] = useState<0 | 1>(0);
+  const [step, setStep] = useState<0 | 1 | 2>(0);
   const [draft, setDraft] = useState<RentalCarDraft>(() =>
     createRentalCarDraft(reservation),
+  );
+  const [pickupAddress, setPickupAddress] = useState(
+    reservation?.rentals?.pickupAddress ?? '',
+  );
+  const [pickupPlaceId, setPickupPlaceId] = useState<string | null>(
+    reservation?.rentals?.pickupPlaceId ?? null,
+  );
+  const [returnAddress, setReturnAddress] = useState(
+    reservation?.rentals?.returnAddress ?? '',
+  );
+  const [returnPlaceId, setReturnPlaceId] = useState<string | null>(
+    reservation?.rentals?.returnPlaceId ?? null,
+  );
+  const itinerary = useItineraryActions(
+    reservation,
+    ['rentalcar_pickup', 'rentalcar_return'],
+    [draft.startDate, draft.endDate],
   );
   const [error, setError] = useState('');
   const [isOpen, setIsOpen] = useState(true);
@@ -76,7 +103,8 @@ const RentalCarReservationForm = ({
   useEffect(() => {
     if (previousStep.current === step) return;
     previousStep.current = step;
-    contentRef.current?.focus();
+    contentRef.current?.focus({ preventScroll: true });
+    contentRef.current?.parentElement?.scrollTo({ top: 0 });
   }, [step]);
 
   /**
@@ -90,10 +118,10 @@ const RentalCarReservationForm = ({
   };
 
   /**
-   * Checks the rental identity and calendar range before showing cost.
-   * @returns Nothing; the dialog advances or shows an error.
+   * Checks rental identity and dates independently of optional itinerary actions.
+   * @returns A Details error or an empty string.
    */
-  const handleNext = () => {
+  const validateDetails = () => {
     const pickup = new Date(reservationDateToTimestamp(draft.startDate));
     const returnDate = new Date(reservationDateToTimestamp(draft.endDate));
     if (
@@ -104,15 +132,30 @@ const RentalCarReservationForm = ({
       Number.isNaN(pickup.getTime()) ||
       Number.isNaN(returnDate.getTime())
     ) {
-      setError('Enter a vehicle, rental company, and both dates.');
-      return;
+      return 'Enter a vehicle, rental company, and both dates.';
     }
     if (returnDate < pickup) {
-      setError('Return cannot be before pick-up.');
-      return;
+      return 'Return cannot be before pick-up.';
     }
-    setError('');
-    setStep(1);
+    return '';
+  };
+
+  /** Checks the optional booking cost before advancing to event creation.
+   * @returns A cost error or an empty string.
+   */
+  const validateBooking = () =>
+    draft.cost.trim() &&
+    (!Number.isFinite(Number(draft.cost)) || Number(draft.cost) < 0)
+      ? 'Cost must be zero or more.'
+      : '';
+
+  /** Validates only the visible step and keeps drafts intact when advancing.
+   * @returns Nothing; changes the step or displays an actionable error.
+   */
+  const handleNext = () => {
+    const message = step === 0 ? validateDetails() : validateBooking();
+    setError(message);
+    if (!message) setStep(step === 0 ? 1 : 2);
   };
 
   /**
@@ -120,12 +163,27 @@ const RentalCarReservationForm = ({
    * @returns A promise that settles after the save request.
    */
   const handleSave = async () => {
+    const detailsError = validateDetails();
+    const bookingError = validateBooking();
+    if (detailsError || bookingError) {
+      setError(detailsError || bookingError);
+      setStep(detailsError ? 0 : 1);
+      return;
+    }
     const parsedCost = draft.cost.trim() ? Number(draft.cost) : null;
+    if (itinerary.loading || itinerary.isError || itinerary.error) {
+      setError(itinerary.error || 'Load itinerary entries before saving.');
+      setStep(2);
+      return;
+    }
     if (
-      parsedCost !== null &&
-      (!Number.isFinite(parsedCost) || parsedCost < 0)
+      (itinerary.drafts[0].selected && !pickupAddress.trim()) ||
+      (itinerary.drafts[1].selected && !returnAddress.trim())
     ) {
-      setError('Cost must be zero or more.');
+      setError(
+        'Add a location for each selected itinerary action here in Details, then return to Itinerary.',
+      );
+      setStep(0);
       return;
     }
     const values: ReservationInput = {
@@ -133,8 +191,16 @@ const RentalCarReservationForm = ({
       startTime: reservationDateToTimestamp(draft.startDate),
       endTime: reservationDateToTimestamp(draft.endDate),
       cost: parsedCost,
+      confirmationNumber: draft.confirmationNumber.trim(),
       notes: draft.notes.trim(),
-      rentals: { company: draft.company.trim() },
+      rentals: {
+        company: draft.company.trim(),
+        pickupAddress: pickupAddress.trim(),
+        pickupPlaceId,
+        returnAddress: returnAddress.trim(),
+        returnPlaceId,
+      },
+      itineraryActions: itinerary.actions,
     };
     setError('');
     try {
@@ -151,7 +217,7 @@ const RentalCarReservationForm = ({
           'Could not save the rental car. Please try again.',
         ),
       );
-      contentRef.current?.scrollIntoView({ block: 'start' });
+      contentRef.current?.parentElement?.scrollTo({ top: 0 });
     }
   };
 
@@ -168,35 +234,43 @@ const RentalCarReservationForm = ({
       panelClassName="flex h-[min(42rem,calc(100dvh_-_2rem))] flex-col sm:h-[min(42rem,calc(100dvh_-_4rem))] sm:max-w-2xl"
       contentClassName="min-h-0 flex-1 overflow-y-auto"
       footer={(requestClose) => (
-        <div className="flex w-full items-center justify-between gap-3">
+        <div className="grid w-full grid-cols-2 items-center gap-3 sm:flex sm:justify-between">
           <Button
+            data-cy="rental-cancel"
+            className="sm:mr-auto"
             variant="secondary"
             disabled={saveReservation.isPending}
             onClick={requestClose}
           >
             Cancel
           </Button>
-          <div className="flex items-center gap-2">
-            {step === 1 && (
+          <div className="contents sm:flex sm:items-center sm:gap-2">
+            {step > 0 && (
               <Button
+                data-cy="rental-back"
                 variant="outline"
                 disabled={saveReservation.isPending}
                 onClick={() => {
                   setError('');
-                  setStep(0);
+                  setStep(step === 2 ? 1 : 0);
                 }}
               >
                 Back
               </Button>
             )}
-            {step === 0 && (
-              <Button data-cy="rental-next" onClick={handleNext}>
-                Next: Cost
+            {step < 2 && (
+              <Button
+                data-cy="rental-next"
+                className={step > 0 ? 'col-span-2' : ''}
+                onClick={handleNext}
+              >
+                Next: {rentalSteps[step + 1].label}
               </Button>
             )}
-            {step !== 0 && (
+            {step === 2 && (
               <Button
                 data-cy="rental-save"
+                className="col-span-2"
                 disabled={saveReservation.isPending}
                 onClick={() => void handleSave()}
               >
@@ -211,6 +285,7 @@ const RentalCarReservationForm = ({
         steps={rentalSteps}
         currentStep={step}
         label="Rental car form progress"
+        className="sticky top-0 z-10 bg-surface-container py-3"
       />
       <div ref={contentRef} tabIndex={-1} className="mt-7 outline-none">
         <Text as="h3" variant="title" className="mb-4">
@@ -224,7 +299,7 @@ const RentalCarReservationForm = ({
 
         {step === 0 && (
           <>
-            <div className="overflow-hidden rounded-[0.75rem_2rem_0.75rem_2rem] border border-outline-variant bg-surface-container-low">
+            <div className="rounded-[0.75rem_2rem_0.75rem_2rem] border border-outline-variant bg-surface-container-low">
               <div className="px-5 pt-5">
                 <Text
                   as="h4"
@@ -295,56 +370,64 @@ const RentalCarReservationForm = ({
                   />
                 </div>
               </div>
-              <div className="border-t border-outline-variant p-5">
-                <Text
-                  as="label"
-                  htmlFor="rental-notes"
-                  variant="label"
-                  className="flex items-center gap-2"
+              <div className="grid gap-4 border-t border-outline-variant p-5">
+                <PlaceField
+                  id="rental-pickup-address"
+                  label="Pickup address or place"
+                  value={pickupAddress}
+                  placeId={pickupPlaceId}
+                  onChange={(value, id) => {
+                    setPickupAddress(value);
+                    setPickupPlaceId(id);
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setReturnAddress(pickupAddress);
+                    setReturnPlaceId(pickupPlaceId);
+                  }}
                 >
-                  <NotebookPen aria-hidden size={18} className="text-primary" />
-                  Notes
-                </Text>
-                <TextArea
-                  id="rental-notes"
-                  rows={3}
-                  value={draft.notes}
-                  onChange={(event) =>
-                    updateDraft({ notes: event.target.value })
-                  }
-                  className="mt-2"
+                  Use pickup location for return
+                </Button>
+                <PlaceField
+                  id="rental-return-address"
+                  label="Return address or place"
+                  value={returnAddress}
+                  placeId={returnPlaceId}
+                  onChange={(value, id) => {
+                    setReturnAddress(value);
+                    setReturnPlaceId(id);
+                  }}
                 />
               </div>
             </div>
           </>
         )}
-        {step !== 0 && (
-          <div className="rounded-[0.75rem_2rem_0.75rem_2rem] bg-surface-container-low p-5 sm:p-6">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="grid size-12 place-items-center rounded-2xl bg-secondary-container text-on-secondary-container">
-                <ReceiptText aria-hidden size={22} />
-              </div>
-              <div>
-                <Text as="h4" variant="label">
-                  Rental cost
-                </Text>
-                <Text variant="caption" color="muted">
-                  Add the total price for this rental.
-                </Text>
-              </div>
-            </div>
-            <TextField
-              data-cy="rental-cost"
-              id="rental-cost"
-              label="Cost"
-              type="number"
-              min="0"
-              step="0.01"
-              className="max-w-64"
-              value={draft.cost}
-              onChange={(event) => updateDraft({ cost: event.target.value })}
-            />
-          </div>
+        {step === 1 && (
+          <ReservationBookingFields
+            prefix="rental"
+            cost={draft.cost}
+            confirmationNumber={draft.confirmationNumber}
+            notes={draft.notes}
+            onCostChange={(cost) => updateDraft({ cost })}
+            onConfirmationChange={(confirmationNumber) =>
+              updateDraft({ confirmationNumber })
+            }
+            onNotesChange={(notes) => updateDraft({ notes })}
+          />
+        )}
+        {step === 2 && (
+          <ReservationItineraryFields
+            state={itinerary}
+            dates={[draft.startDate, draft.endDate]}
+            locations={[pickupAddress, returnAddress]}
+            onEditDetails={() => {
+              setError('');
+              setStep(0);
+            }}
+          />
         )}
       </div>
     </Modal>

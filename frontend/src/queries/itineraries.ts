@@ -1,6 +1,11 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import type { EventData } from './events';
-import { getFromApi } from '../utils/api';
+import { getFromApi, patchToApi, postToApi } from '../utils/api';
 
 export interface Itinerary {
   _id: string;
@@ -9,6 +14,77 @@ export interface Itinerary {
   startDate: string;
   endDate: string;
 }
+
+export interface ArchivedItineraryNote {
+  _id: string;
+  tripId: string;
+  itineraryId: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Creates an archived-note cache key isolated by user and trip. */
+export const archivedItineraryNoteQueryKey = (
+  userId?: string,
+  tripId?: string,
+) => ['archived-itinerary-note', userId, tripId] as const;
+
+/**
+ * Loads the current user's note for one archived trip.
+ * @param userId - Authenticated user identifier; disables the query when absent.
+ * @param tripId - Archived trip identifier; disables the query when absent.
+ * @returns The private note and query status, or null when no note exists.
+ */
+export const useArchivedItineraryNote = (userId?: string, tripId?: string) => {
+  const query = useQuery({
+    queryKey: archivedItineraryNoteQueryKey(userId, tripId),
+    queryFn: () =>
+      getFromApi<ArchivedItineraryNote | null>(`/itinerary/${tripId}/notes`),
+    enabled: Boolean(userId && tripId),
+  });
+
+  return {
+    note: query.data,
+    isPending: query.isPending,
+    isError: query.isError,
+    refetch: query.refetch,
+  };
+};
+
+interface SaveArchivedItineraryNoteInput {
+  content: string;
+  noteId?: string;
+}
+
+/**
+ * Creates or updates a private archived-itinerary note and synchronizes its cache.
+ * @param userId - Authenticated user owning the note cache.
+ * @param tripId - Archived trip containing the note.
+ * @returns A mutation accepting note content and the existing note ID, if present.
+ */
+export const useSaveArchivedItineraryNote = (
+  userId: string,
+  tripId: string,
+) => {
+  const queryClient = useQueryClient();
+  const queryKey = archivedItineraryNoteQueryKey(userId, tripId);
+
+  return useMutation({
+    mutationFn: ({ content, noteId }: SaveArchivedItineraryNoteInput) =>
+      noteId
+        ? patchToApi<ArchivedItineraryNote>(`/itinerary/${tripId}/notes`, {
+            content,
+          })
+        : postToApi<ArchivedItineraryNote>(`/itinerary/${tripId}/notes`, {
+            content,
+          }),
+    onSuccess: (note) => {
+      queryClient.setQueryData(queryKey, note);
+    },
+  });
+};
 
 export interface PublicItineraryTraveler {
   id: string;
@@ -54,22 +130,16 @@ export interface PublicItineraryDetails {
   events: EventData[];
 }
 
-
 /** Creates a cache key for each user's location-filtered feed. */
-export const publicItineraryFeedQueryKey = (
-  userId?: string,
-  location = '',
-) => ['public-itinerary-feed', userId, location] as const;
+export const publicItineraryFeedQueryKey = (userId?: string, location = '') =>
+  ['public-itinerary-feed', userId, location] as const;
 
 /** Loads public itineraries filtered by location as the user scrolls.
  * @param userId - Authenticated account ID.
  * @param location - Optional location search filter.
  * @returns Infinite-query pages and controls for loading subsequent pages.
  */
-export const usePublicItineraryFeed = (
-  userId?: string,
-  location = '',
-) =>
+export const usePublicItineraryFeed = (userId?: string, location = '') =>
   useInfiniteQuery({
     queryKey: publicItineraryFeedQueryKey(userId, location),
     queryFn: ({ pageParam }) =>
@@ -84,7 +154,6 @@ export const usePublicItineraryFeed = (
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
     enabled: Boolean(userId),
   });
-
 
 /** Creates the cache key for a public itinerary detail view. */
 export const publicItineraryQueryKey = (tripId?: string) =>

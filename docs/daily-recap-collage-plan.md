@@ -1,254 +1,188 @@
-# Daily recap collage: implementation plan
+# Share highlights: automatic recap collages
 
-Status: proposed implementation plan; no generator has been implemented yet.
+Status: implemented in the frontend. Real iOS Safari and Android Chrome native
+share/download handoffs still need manual device verification.
 
 Related: [Other collage ideas](collage-ideas.md) · [Photo API](photo-api.md) ·
 [Shared design system](../.agents/design-system.md).
 
-## Goal
+## Scope
 
-Automatically turn a trip day's photographed events into a shareable image:
-**"What we did today"**. Users should not have to choose a template, select
-photos, arrange a collage, or configure export settings.
+Automatically turn event-linked album photos into individually shareable images.
+No compulsory photo selection, templates, crop editor, manual arrangement,
+caption authoring, public links, or export settings.
 
-For past days, use **"A day on [trip name]"** rather than calling it today.
-Do not infer a destination from a trip name, an arbitrary address, or coordinates.
-A verified destination name can be added later.
+- Entry point: **Share highlights** in Album, outside edit mode. Available to
+  private album readers, including viewers and archived-trip participants.
+- Choose Daily recap, Dining recap, or Single-experience recap from three
+  compact, vertically stacked icon-and-label rows without decorative artwork
+  or secondary descriptions.
+- All choices lead to the same preview/export interface. Back returns focus to
+  the selected format row, unmounts the browser, and releases generated output.
+- Daily recap: open the most recent eligible day; one photo per event in
+  chronological order. Split days with more than four events into more images.
+- Dining recap: one photo per restaurant event across the trip, in chronological
+  order. Four-photo images use a hero above three supporting photos; smaller
+  sets adapt without fillers. More than four events produce additional images.
+  Multi-day images display their actual covered date range.
+- Single-experience recap: require at least three distinct photos linked to one
+  eligible event. Prefer a landscape establishing photo, then two supporting
+  photos, with unused photos as fallbacks. Choose the most recent eligible event
+  automatically; other events are selectable independently, even on the same day.
+  Use neutral “At [event title]” wording, without inventing a time of day.
+- Export **1080 × 1350 (4:5) JPEG**, with a fixed light composition regardless of
+  application theme. Transparent photos composite onto the background.
+- Preview the actual export Blob. Share/download only the currently shown image.
+- Keep Add photos as the existing primary Album action.
+- Do not persist generated images on the server or change trip visibility.
 
-### MVP decisions
+## Existing linking contract and limitation
 
-- Entry point: **Daily recap** in the trip's Album, outside album edit mode.
-- Open a preview of the most recent eligible day automatically.
-- Include one uploaded album photo per linked event, in event order.
-- Include only events whose start time has passed, inside the itinerary dates.
-  A scheduled event alone is not evidence of a visit; a valid photo association
-  is required. Link confidence/confirmation belongs to the linking feature.
-- Produce as many images as needed, with at most four events per image.
-- Use one automatic visual style and one export size: **1080 × 1350 (4:5)**.
-- Share or download the currently previewed image, one at a time.
-- Do not save generated images on the server or create public share links.
+`backend/models/Photo.js`, the metadata serializer, and `TripPhoto` already expose
+`linkedEvent`, optional camera-local `takenAt`, and optional location metadata.
+There is no need for a second `eventId` field or another automatic linker.
 
-## Current repository constraints
+The current upload handler chooses the nearest geolocated event within 500 m
+from the trip's itinerary. It does not confirm the association or disambiguate
+multiple nearby events using capture time. The recap follows this existing
+association; it must not describe it as a verified visit. Improving association
+confidence and adding correction/removal controls belong to the linking feature,
+not the collage generator. Inaccurate associations can yield inaccurate recaps.
 
-- `backend/models/Photo.js` and `frontend/src/queries/photos.ts` have dimensions
-  and upload timestamps, but no event link, capture timestamp, or photo GPS.
-- `backend/utils/photoValidation.js` strips embedded metadata; originals are
-  discarded. Historical capture dates/GPS cannot be recovered from stored files.
-- Events already have titles, start/end times, optional coordinates, and a
-  `restaurant` flag. The itinerary currently groups events by the UTC date of
-  `startTime`; there is no trip-timezone field.
-- `usePhotos` is cursor-paginated. The photos already visible in the Album are
-  not necessarily the entire trip album.
-- Album content is private and requires bearer authentication. A public trip
-  does not make its album public.
-- Images displayed on event cards by `useEventPhoto` come from Google Places;
-  they are not the user's uploaded photos and must not be used in these recaps.
+The generator is read-only:
 
-## Dependency: photo-to-event linking
+- Match `linkedEvent` against the current itinerary's event collection.
+- Ignore unlinked photos, cross-trip photo metadata, and missing/deleted events.
+- Never infer a link from upload dates or use Google Places event-card photos.
+- Never delete an album photo when its event disappears.
+- Use event itinerary dates, not capture dates, to group this format.
+- Legacy records without capture/location metadata remain usable if linked.
 
-**Production release is blocked until usable photo-to-event associations exist.**
-The generator can be developed and tested with fixtures in parallel, but it must
-not guess associations from upload dates or substitute Google place photos.
+Future link mutations must invalidate the affected trip's shared photo query.
+Event edits must refresh the shared event query. The recap derives from both.
 
-Proposed minimal interface to agree with that feature:
+## Data preparation
 
-- Add an optional `eventId` to Photo metadata and the shared `TripPhoto` type.
-  Existing records remain valid and unlinked.
-- A photo has at most one primary event association for this MVP. The linker
-  owns creating, correcting, and removing it; the generator is read-only.
-- Validate on the server that the linked event belongs to the photo's trip via
-  its itinerary. Reject cross-trip associations and require existing edit
-  permission for link mutations. Do not relax the photo upload route's current
-  multipart contract merely to support this field.
-- Expose the association through the existing authenticated photo metadata API.
-- Linking mutations invalidate the affected trip's photo query. Event changes
-  refresh the event query; the recap derives its content from both sources.
-- Missing/deleted event references are ignored safely. Deleting an event must
-  not delete the user's album photo. The linking feature owns unlink cleanup.
-- No compulsory linking UI is added inside the generator. Any upstream review
-  of uncertain location/time matches belongs to the photo-linking workflow.
+Implementation: `frontend/src/pages/trip/album/collage/dailyRecap.ts`,
+`highlights.ts`, and `useHighlights.ts`. Every format reuses the daily selector’s
+validated event/photo pool and the same complete-metadata query hook.
 
-GPS extraction, capture-date preservation, proximity thresholds, and automatic
-matching are separate work. If they are needed by the linker, extract permitted
-metadata from originals before normalization; this cannot backfill old uploads.
-A confirmed event link alone is enough for this generator's day grouping.
+1. Compose existing `usePhotos`, `useItinerary`, `useEvents`, and `useTripDetails`
+   hooks; retain all server state in React Query.
+2. Fetch all album metadata pages on demand, respecting ongoing query fetches.
+   Do not finalize a recap from the first 60 photos. Errors stop automatic
+   pagination and offer retry.
+3. Deduplicate metadata by photo ID; group by same-trip linked event.
+4. Exclude invalid timestamps, events outside itinerary date bounds, and events
+   whose start time has not passed. A scheduled event alone contributes nothing.
+5. Follow existing itinerary UTC date semantics, including date labels and
+   “today”; do not shift days to browser-local time. A 30-second clock refresh
+   admits newly started events and updates wording across midnight.
+6. Sort events by start time, then event ID. Rank photos per event by greatest
+   stored pixel area, then photo ID. This is a resolution heuristic, not a claim
+   of aesthetic quality.
+7. Split each day into consecutive groups of at most four events. Keep ranked
+   photo alternatives for load failures. Do not repeat photos to fill cells.
 
-## User flow and layout
+## Rendering
 
-1. From **Album**, tap **Daily recap**. Keep Add photos as the existing primary
-   album action; do not add another navigation section or a creation wizard.
-2. Load the itinerary, events, and complete album metadata, then build the recap
-   list. Show progress in the dialog, with cancellation available.
-3. Open the most recent eligible day. A compact date selector lists only days
-   with eligible photos; changing it regenerates that day's preview automatically.
-4. Show one large image preview. When the day produces multiple images, provide
-   Previous/Next controls and **"Image 1 of 2"**. No manual slide arrangement.
-5. Show **Share image** where file sharing is supported and **Download image**
-   everywhere. Unsupported devices get Download with brief Instagram guidance.
+Implementation: shared `renderRecap.ts`.
 
-Use the shared `Modal`, `Button`, `IconButton`, `Text`, and loading components
-from the common barrel. On desktop, use a bounded wide dialog with a large
-preview; on phones, use most of the viewport while keeping actions reachable
-and the content scrollable. Preserve dialog focus management, visible focus,
-44px-or-larger action targets, and reduced-motion behavior.
+- Canvas 2D at final resolution; no DOM screenshot dependency or server endpoint.
+- One photo: large single cell.
+- Two photos: side by side when both selected photos are portrait, otherwise
+  stacked.
+- Three photos: one wide cell above two supporting cells.
+- Four photos: two-by-two grid for daily recaps; one hero above three smaller
+  cells for dining recaps.
+- Experience recaps use the three-photo hero layout with the event title in the
+  header, not repeated under every image. Never reuse a fallback photo in two
+  cells; fail with Retry rather than exporting duplicates or a partial image.
+- Center crops, consistent gutters, reserved caption space, bounded labels with
+  two-line limits and final-line ellipsis. No face detection or crop editing.
+- Title, trip name, date, small TripFolio footer, and image position within day.
+  Past-day wording is “A day on our trip”; the trip name is shown separately.
+- Figtree uses the app's bundled/self-hosted font, awaited before drawing; the
+  export does not depend on the remote Instrument Serif stylesheet.
+- Load authenticated photo Blobs through shared account-scoped photo-content
+  query options. Never embed bearer tokens in URLs.
+- Decode/draw/release one photo at a time. Try the next ranked candidate on load
+  failure. If all candidates fail, show Retry image, not a partial export.
+- Encode JPEG at quality 0.9 and verify the MIME type and non-null result.
+- Abort obsolete work, ignore late results, revoke preview/decode object URLs,
+  and clear canvas backing storage on completion/failure.
 
-The preview needs a readable text equivalent listing the date and included
-events; important labels must not exist solely inside the raster image.
+## Dialog and exports
 
-### Automatic image composition
+Implementation: `HighlightsModal.tsx` owns scope and navigation;
+`HighlightChooser.tsx` renders compact format rows; `RecapBrowser.tsx` provides shared
+selection and navigation; `RecapPreview.tsx` owns generation, skeleton and file
+actions. The Album entry point is in `AlbumView.tsx`; file handoffs are in
+`frontend/src/utils/shareImage.ts`.
 
-Keep images photo-led and consistent with TripFolio's existing typography and
-restrained teal identity, rather than creating a new scrapbook theme.
+Use the shared Modal, Button, IconButton, Text, and Skeleton components.
+The compact dialog provides a day or experience selector (none for trip-wide
+dining), Previous/Next controls and image count only for multi-image groups,
+accessible date/event descriptions, and mutually
+exclusive loading, error, empty, and preview states. A shared 4:5 frame reserves
+identical space for the image skeleton and final export, with a reserved action
+row so generation does not resize the modal. The mobile content scrolls; the
+image is bounded to leave room for navigation and actions.
 
-- Reserve a short header for the title, trip name, and date.
-- **1 photo:** a large single-photo layout; never duplicate it to fill slots.
-- **2 photos:** two equal cells; use side-by-side for two portrait photos,
-  otherwise stacked cells.
-- **3 photos:** one larger photo followed by two smaller cells.
-- **4 photos:** a two-by-two grid.
-- Put short event labels in reserved caption space, not over busy photographs.
-  Bound/wrap long titles and ellipsize only after a defined line limit.
-- Use center crops with deterministic layout rules. No face detection or claims
-  of intelligent subject selection in v1. Crop editing is outside MVP scope.
-- Export a fixed light composition regardless of the user's app color scheme,
-  and composite transparent photos onto its background.
+Generation runs only while the dialog is mounted. Account/trip changes unmount
+private output; source changes rebuild the image and immediately disable stale
+export actions. Selected date and image position are local UI state.
 
-## Generation rules
+- Construct a JPEG File before enabling Share.
+- Detect secure-context `navigator.share` and `navigator.canShare({files})`.
+- Invoke sharing immediately from the click handler with the prepared file so
+  user activation is retained.
+- Use **Share**, not “Post to Instagram”. The native share sheet controls
+  available apps/destinations; resolution of its promise is not publication.
+- Treat cancellation normally. Other failures offer retry and Download.
+- Always provide **Download**, using the exact same file. Revoke download
+  object URLs after a short consumption window.
+- Unsupported browsers show Download as the primary action, without a disabled
+  Share button or extra app-specific instructions.
 
-Implement these as pure, independently tested functions:
+Exports intentionally allow private photos to leave TripFolio and cannot be
+revoked afterward. Do not export GPS, precise addresses, notes, confirmation
+numbers, or spending. No social login, publishing API, or public share URL.
 
-1. Deduplicate photo metadata by ID across loaded pages.
-2. Keep ready, accessible album photos with a valid same-trip event link.
-3. Group by linked event, then by that event's itinerary day. Never use
-   `Photo.createdAt` as the date the photo was taken.
-4. Match current itinerary semantics: derive `YYYY-MM-DD` in UTC and format
-   date labels in UTC too. Use the same convention to determine "today".
-   Explicit trip-local timezones are deferred; do not silently use the browser's
-   timezone and shift a recap to a different day than its itinerary.
-5. Sort events by `startTime`, then event ID for a stable tie-breaker.
-6. Select one representative photo per event: greatest stored pixel area, then
-   photo ID as the stable tie-breaker. This is a simple resolution heuristic,
-   not an assertion that the image is aesthetically best.
-7. Split that ordered list into consecutive groups of at most four. An event
-   and its photo appear once per daily recap. Distinct events at the same place
-   remain distinct; location-level deduplication is deferred.
-8. Produce a serializable slide description containing its date, event labels,
-   selected photo IDs, layout, and image position within the day.
+## Validation
 
-No selectable templates, caption authoring, statistics, route maps, image
-recognition, photo replacement controls, ZIP exports, or bulk sharing in v1.
+Unit tests mirror source paths under `frontend/test/` and cover selection,
+ordering, date grouping, deduplication, all layouts, fallback candidates,
+cancellation, font/encoding failures, resource cleanup, sharing detection,
+cancellation handling, and download file identity.
 
-## Technical implementation sequence
+Cypress coverage: `frontend/cypress/e2e/share-highlights.cy.ts`, with fixture data in
+`frontend/cypress/fixtures/share-highlights.json`. It exercises the actual Canvas
+renderer, complete pagination, all three formats, chooser/back/reopen behavior,
+date/event/image navigation, JPEG download, mocked native sharing, unlinked
+content, fixed modal geometry during generation, and image-load retry. Unit tests
+also cover restaurant filtering, distinct experience photos and fallback reuse.
+OS share sheet contents
+and actual publication cannot be asserted in browser automation.
 
-### 1. Establish the linking contract
+Run from `frontend/`:
 
-Agree on and implement the association interface above with the photo-linking
-feature. Update the Photo model, metadata serializer, `TripPhoto`, and
-`docs/photo-api.md` as appropriate. Test trip membership, cross-trip rejection,
-legacy unlinked records, link removal, and deletion behavior.
+```
+npm run typecheck
+npm run format
+npm run lint
+npm run test
+npm run e2e:ci
+```
 
-This step is a release prerequisite, not permission to build a second automatic
-linker inside the collage feature.
+Inspect actual JPEG output and phone/desktop previews. Real-device checks still
+needed before release: iOS Safari and Android Chrome native file sharing,
+download location/opening behavior, unsupported-browser fallback, and large
+real-world portrait/landscape photos with long captions. Review the upstream
+proximity-linking limitation before presenting recaps as reliable trip records.
 
-### 2. Add data preparation and selection
+## Deferred
 
-- Keep feature code under `frontend/src/pages/trip/album/collage/`.
-- Add a pure `dailyRecap.ts` module for grouping, selection, and slide descriptions.
-- Add a focused `useDailyRecap` hook to compose existing `useItinerary`, `useEvents`,
-  and `usePhotos` hooks. Continue server state in React Query; do not copy it into
-  a separate feature store or create a second HTTP client.
-- On demand, fetch remaining metadata pages sequentially through the shared photo
-  query, respecting its existing in-flight fetches. Do not generate a supposedly
-  complete recap from the first 60 photos. Expose page-load errors and allow retry.
-- Keep selected date, image index, generation state, and output Blob in local UI
-  state. Recompute when photo associations, event dates/titles, or photos change;
-  discard obsolete output and ignore late results after closing/changing trips.
-
-### 3. Render the actual export and reuse it as the preview
-
-- Add a `renderDailyRecap.ts` Canvas 2D renderer. No DOM screenshot library or
-  server rendering endpoint is needed for this fixed image composition.
-- Fetch protected photo Blobs through the existing authenticated API transport
-  and account-scoped photo-content cache, exposing shared query helpers from
-  `queries/photos.ts` if necessary. Do not load content URLs directly via `<img>`
-  or embed bearer tokens in URLs.
-- Decode only the current image's photos, at most four, with bounded concurrency.
-  Wait for the required fonts before drawing; handle font or image-load failures
-  explicitly. Confirm export font assets can load reliably on deployed devices.
-- Draw at final resolution and encode a JPEG with `canvas.toBlob`, initially at
-  quality 0.9. Verify the actual MIME type and handle a null/failed result.
-- Preview this exact generated Blob so the download and share match the preview.
-- Release object URLs, decoded bitmaps, and canvas resources on replacement/close.
-  Avoid retaining a decoded full album or generating every slide at once.
-
-### 4. Add the minimal dialog
-
-- Add `DailyRecapModal.tsx` and a focused preview component as needed.
-- Wire the Album entry point in `AlbumView.tsx`; keep it out of edit/delete mode.
-- Add the date selector, current-image navigation, status, and export actions.
-- Keep loading, error, empty, and successful preview states mutually exclusive.
-- Request generation only when the dialog is open; do not slow normal album browsing.
-
-### 5. Add one-image download and sharing
-
-- Add a focused export utility, for example `utils/shareImage.ts`.
-- Construct a JPEG `File` before enabling Share, with a safe filename such as
-  `trip-recap-2026-06-12-01.jpg`.
-- Feature-detect secure-context file sharing with `navigator.share` and
-  `navigator.canShare({ files: [file] })`. This requires HTTPS in production.
-- Call `navigator.share` directly from the Share click handler with the prepared
-  file. Do not fetch/render first inside that handler and lose user activation.
-- Use the native share sheet. Do not label this "Post to Instagram" or promise
-  Instagram is installed/available, a Feed/Story destination, or publish completion.
-- Treat user cancellation as normal. On other failures, offer retry and Download.
-  Do not show "Posted to Instagram" after a share promise resolves.
-- Download the same Blob using an object URL; release the URL after the browser
-  has had time to consume it. Test phone-browser download behavior explicitly.
-- No social login, public URL, Instagram publishing API, or native deep-link hack.
-
-### 6. Validate and ship
-
-- Add unit tests under `frontend/test/pages/trip/album/collage/` and
-  `frontend/test/utils/`, mirroring implementation paths.
-- Add Cypress coverage with stable `data-cy` tags and separate fixtures under
-  `frontend/cypress/fixtures/`. Mock browser sharing; browser tests cannot assert
-  the real OS share-sheet contents or that Instagram published an image.
-- Manually inspect generated JPEGs and responsive previews at phone and desktop
-  sizes. Test real iOS Safari and Android Chrome share/download handoffs, plus
-  desktop and unsupported-browser fallback behavior.
-- Run `npm run typecheck`, `npm run format`, `npm run lint`, `npm run test`, and
-  `npm run e2e:ci` from `frontend/` before committing. The current formatter script
-  is `format`, not `format:fix`. Run backend photo/linking tests when that code changes.
-- Run the Impeccable detector once over changed web UI files after implementation.
-
-## Required states and acceptance checks
-
-| Situation | Expected behavior |
-| --- | --- |
-| No album photos | Explain that photos are needed; retain the existing Add photos path. |
-| Photos exist but none are linked | Explain that event-linked photos are needed; never fabricate a daily story from upload dates. |
-| Some events have no linked photos | Omit those events without blank cells or third-party placeholders. |
-| 1 / 2 / 3 / 4 eligible events | Use the corresponding automatic layout with one photo per event. |
-| More than 4 eligible events | Generate additional images in chronological order, individually shareable. |
-| Album has more than one metadata page | Consider every page before finalizing the available days and slides. |
-| Future event, missing event, invalid date, or out-of-trip event | Exclude safely; do not crash or imply a future activity already happened. |
-| Portrait, landscape, transparent, small, or long-caption content | Produce a valid bounded layout; inspect crop and text readability in the actual JPEG. |
-| A selected photo fails to load | Try the next ranked photo for that event; if none load, show retry rather than silently exporting an incomplete preview. |
-| Photos/links/events change while open | Invalidate stale output and rebuild; never share an image from a different selected day. |
-| User signs out or changes trips | Close/discard private output and pending results; retain no cross-account generated-image cache. |
-| Sharing supported | Native share sheet receives exactly the currently previewed JPEG. |
-| Sharing unsupported or rejected | Download remains available; cancellation is not displayed as an error. |
-
-Read/export permission follows existing private album read access, including
-trip viewers; generation does not modify trip data or visibility. Share and
-Download are explicit user actions, and exported images can leave TripFolio.
-Exclude GPS, confirmation numbers, notes, precise addresses, and spending from
-exports. This does not make an exported image revocable after it has left the app.
-
-## Suggested delivery slices
-
-1. **Prerequisite:** same-trip event associations exposed on photo metadata.
-2. **Generator:** tested automatic selection and 1–4-photo JPEG compositions.
-3. **UI:** Album dialog, date/image browsing, and download.
-4. **Sharing and release:** native file sharing, fallback states, device checks,
-   and full validation. Release only when slice 1 supplies real associations.
+Postcards, whole-trip recaps, map/statistic formats, trip-local
+timezones, photo replacement, face-aware crops, custom captions, style controls,
+manual slide arrangement, ZIP export, bulk sharing, and direct social publishing.

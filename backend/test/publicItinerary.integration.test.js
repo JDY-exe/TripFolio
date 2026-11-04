@@ -59,7 +59,7 @@ test("public itinerary endpoints expose only public read data", async (t) => {
     startDate: new Date("2026-08-01"),
     endDate: new Date("2026-08-03"),
   };
-  const events = [{ _id: new mongoose.Types.ObjectId(), title: "Harbor walk" }];
+  const events = [{ _id: new mongoose.Types.ObjectId(), title: "Harbor walk", reservation: new mongoose.Types.ObjectId(), eventType: 'activity' }];
   let feedPipeline;
   let itineraryLookupCount = 0;
 
@@ -241,7 +241,7 @@ test("public itinerary endpoints expose only public read data", async (t) => {
   );
   assert.equal(publicDetails.trip.name, "Coastal weekend");
   assert.equal(publicDetails.owner.username, "coastfriend");
-  assert.deepEqual(publicDetails.events, [{ _id: String(events[0]._id), title: "Harbor walk" }]);
+  assert.deepEqual(publicDetails.events, [{ _id: String(events[0]._id), title: "Harbor walk", eventType: 'activity' }]);
 
   const coverResponse = await send(`/api/itineraries/${publicTripId}/cover`);
   assert.equal(coverResponse.status, 200, await coverResponse.clone().text());

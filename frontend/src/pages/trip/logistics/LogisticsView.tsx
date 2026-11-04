@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 import { Button, Modal, Text, displayAlert } from '../../../components/common';
 import {
   ReservationType,
   useDeleteReservation,
+  useReservations,
 } from '../../../queries/reservations';
 import type { Reservation } from '../../../queries/reservations';
 import { getApiErrorMessage } from '../../../utils/api';
@@ -24,7 +25,32 @@ import RentalCarsSection from './rentals/RentalCarsSection';
 const LogisticsView = ({ readOnly = false }: { readOnly?: boolean }) => {
   const { id: tripId } = useParams<{ id: string }>();
   const [addingType, setAddingType] = useState<ReservationType | null>(null);
-  const [editing, setEditing] = useState<Reservation | null>(null);
+  const [manualEditing, setEditing] = useState<Reservation | null>(null);
+  const [params, setParams] = useSearchParams();
+  const linkedTripId =
+    params.has('reservation') && !readOnly ? tripId : undefined;
+  const linkedFlights = useReservations(linkedTripId, ReservationType.Flights);
+  const linkedHotels = useReservations(
+    linkedTripId,
+    ReservationType.Accommodations,
+  );
+  const linkedRentals = useReservations(linkedTripId, ReservationType.Rentals);
+  const linkedQueries = [linkedFlights, linkedHotels, linkedRentals];
+  const linkedLoading = linkedQueries.some((query) => query.isPending);
+  const linkedError = linkedQueries.some((query) => query.isError);
+  const editing =
+    manualEditing ||
+    linkedQueries
+      .flatMap((query) => query.reservations)
+      .find((item) => item._id === params.get('reservation')) ||
+    null;
+  /** Closes reservation editing and removes the optional deep link from the URL. */
+  const closeEditing = () => {
+    setAddingType(null);
+    setEditing(null);
+    if (params.has('reservation'))
+      setParams({ section: 'logistics' }, { replace: true });
+  };
   const [reservationToDelete, setReservationToDelete] =
     useState<Reservation | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -66,6 +92,24 @@ const LogisticsView = ({ readOnly = false }: { readOnly?: boolean }) => {
         </Text>
       </header>
 
+      {params.has('reservation') && !readOnly && linkedLoading && (
+        <Text role="status">Loading reservation…</Text>
+      )}
+      {params.has('reservation') && linkedError && (
+        <>
+          <Text role="alert" color="error">
+            Could not load the linked reservation.
+          </Text>
+          <Button
+            variant="outline"
+            onClick={() =>
+              void Promise.all(linkedQueries.map((query) => query.refetch()))
+            }
+          >
+            Retry
+          </Button>
+        </>
+      )}
       <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_13rem] lg:gap-12">
         <LogisticsChapterNav />
 
@@ -137,7 +181,10 @@ const LogisticsView = ({ readOnly = false }: { readOnly?: boolean }) => {
             </>
           )}
         >
-          <Text>This reservation will be removed from your trip.</Text>
+          <Text>
+            This reservation and all its linked itinerary entries will be
+            removed from your trip.
+          </Text>
         </Modal>
       )}
       {!readOnly &&
@@ -147,10 +194,7 @@ const LogisticsView = ({ readOnly = false }: { readOnly?: boolean }) => {
             key={editing?._id ?? 'new'}
             tripId={tripId}
             reservation={editing ?? undefined}
-            onClose={() => {
-              setAddingType(null);
-              setEditing(null);
-            }}
+            onClose={closeEditing}
           />
         )}
       {!readOnly &&
@@ -160,10 +204,7 @@ const LogisticsView = ({ readOnly = false }: { readOnly?: boolean }) => {
             key={editing?._id ?? 'new'}
             tripId={tripId}
             reservation={editing ?? undefined}
-            onClose={() => {
-              setAddingType(null);
-              setEditing(null);
-            }}
+            onClose={closeEditing}
           />
         )}
       {!readOnly &&
@@ -173,10 +214,7 @@ const LogisticsView = ({ readOnly = false }: { readOnly?: boolean }) => {
             key={editing?._id ?? 'new'}
             tripId={tripId}
             reservation={editing ?? undefined}
-            onClose={() => {
-              setAddingType(null);
-              setEditing(null);
-            }}
+            onClose={closeEditing}
           />
         )}
     </section>

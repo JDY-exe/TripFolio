@@ -1,7 +1,45 @@
 const Event = require('../models/event');
+const mongoose = require('mongoose');
+const Reservation = require('../models/Reservation');
+const { EVENT_TYPE } = require('../utils/eventTypes');
+const {
+  validateActions,
+  actionLocation,
+} = require('../utils/reservationEvents');
+
+/** Validates a required chronological event slot. */
+const validSlot = (start, end) =>
+  Boolean(
+    start &&
+    end &&
+    Number.isFinite(new Date(start).getTime()) &&
+    Number.isFinite(new Date(end).getTime()) &&
+    new Date(end) > new Date(start),
+  );
+/** Restricts updates to editable fields, excluding identity and booking references. */
+const editableChanges = (body) =>
+  Object.fromEntries(
+    [
+      'title',
+      'placeId',
+      'address',
+      'startTime',
+      'endTime',
+      'notes',
+      'eventType',
+      'reservationMade',
+      'cost',
+    ]
+      .filter((key) => body[key] !== undefined)
+      .map((key) => [key, body[key]]),
+  );
 const Itinerary = require('../models/itinerary');
 const Trip = require('../models/trip');
-const { canEditTrip, canReadTrip, getTripRole } = require('../utils/tripAccess');
+const {
+  canEditTrip,
+  canReadTrip,
+  getTripRole,
+} = require('../utils/tripAccess');
 const { tryPlaceCoordinates } = require('../utils/eventCoordinates');
 const Expense = require('../models/Expense');
 
@@ -13,13 +51,25 @@ const findEventTrip = async (event) => {
 const denyTripAccess = (res, trip, userId) => {
   const role = getTripRole(trip, userId);
   return res.status(role ? 403 : 404).json({
-    message: role ? 'You do not have permission to edit this trip' : 'Trip not found'
+    message: role
+      ? 'You do not have permission to edit this trip'
+      : 'Trip not found',
   });
 };
 
 const createEvent = async (req, res) => {
   try {
-    const { itineraryID, title, placeId, address, startTime, endTime, notes, restaurant, reservationMade, cost } = req.body;
+    const {
+      itineraryID,
+      title,
+      placeId,
+      address,
+      startTime,
+      endTime,
+      notes,
+      reservationMade,
+      cost
+    } = req.body;
     const itinerary = await Itinerary.findById(itineraryID);
     if (!itinerary) {
       return res.status(404).json({ message: 'Itinerary not found' });
@@ -32,8 +82,32 @@ const createEvent = async (req, res) => {
       return denyTripAccess(res, trip, req.user.id);
     }
 
-    const coordinates = await tryPlaceCoordinates(placeId);
-    const newEvent = new Event ({
+    const eventType =
+      req.body.eventType === undefined ? EVENT_TYPE.ACTIVITY : req.body.eventType;
+    if (
+      !Object.values(EVENT_TYPE).includes(eventType) ||
+      !validSlot(startTime, endTime)
+    )
+      return res
+        .status(400)
+        .json({
+          message: 'Choose a valid event type and a start and later end time',
+        });
+    let booking = null;
+    let location = {};
+    if (![EVENT_TYPE.ACTIVITY, EVENT_TYPE.RESTAURANT].includes(eventType)) {
+      if (!mongoose.isValidObjectId(req.body.reservation))
+        return res
+          .status(400)
+          .json({ message: 'Choose a reservation for this action' });
+      booking = await Reservation.findById(req.body.reservation);
+      if (!booking || String(booking.trip) !== String(trip._id))
+        return res.status(404).json({ message: 'Reservation not found' });
+      validateActions(booking, [{ eventType, startTime, endTime }], trip);
+      location = actionLocation(booking, eventType);
+    }
+    const coordinates = await tryPlaceCoordinates(location.placeId || placeId);
+    const newEvent = new Event({
       itineraryID,
       title: title || 'New Event',
       placeId: placeId || undefined,
@@ -42,8 +116,10 @@ const createEvent = async (req, res) => {
       startTime,
       endTime,
       notes: notes || '',
-      restaurant: false || restaurant,
-      reservationMade: false || reservationMade,
+      eventType,
+      reservation: booking?._id || null,
+      ...(booking ? { title: booking.name, ...location } : {}),
+      reservationMade: booking ? true : Boolean(reservationMade),
       cost: cost || 0
     });
 
@@ -61,9 +137,45 @@ const createEvent = async (req, res) => {
       });
     }
 
+    if (booking) {
+      await mongoose.connection.transaction(async (session) => {
+        await Trip.updateOne(
+          { _id: trip._id },
+          { $inc: { __v: 1 } },
+          { session },
+        );
+        const current = await Reservation.findById(booking._id, null, {
+          session,
+        });
+        if (!current)
+          throw Object.assign(new Error('Reservation no longer exists'), {
+            status: 404,
+          });
+        validateActions(current, [{ eventType, startTime, endTime }], trip);
+        const currentLocation = actionLocation(current, eventType);
+        if (
+          currentLocation.address !== newEvent.address ||
+          currentLocation.placeId !== newEvent.placeId
+        )
+          newEvent.set({ lat: null, lng: null });
+        newEvent.set({ title: current.name, ...currentLocation });
+        await newEvent.save({ session });
+      });
+    } else await newEvent.save();
     res.status(201).json(newEvent);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating event', error: error.message });
+    res
+      .status(
+        error.code === 11000
+          ? 409
+          : error.status || (error.name === 'ValidationError' ? 400 : 500),
+      )
+      .json({
+        message:
+          error.code === 11000
+            ? 'This itinerary action already exists'
+            : error.message,
+      });
   }
 };
 
@@ -84,10 +196,14 @@ const getEvents = async (req, res) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
-    const events = await Event.find({ itineraryID: itinerary_id }).sort({ startTime: 1 });
+    const events = await Event.find({ itineraryID: itinerary_id }).sort({
+      startTime: 1,
+    });
     res.status(200).json(events);
   } catch (error) {
-    res.status(500).json({ message: 'Error getting events', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Error getting events', error: error.message });
   }
 };
 
@@ -121,12 +237,16 @@ const getEventPhoto = async (req, res) => {
     }
 
     const details = await detailsResponse.json();
-    const photo = details.photos?.find((candidate) => candidate.name && candidate.googleMapsUri);
+    const photo = details.photos?.find(
+      (candidate) => candidate.name && candidate.googleMapsUri,
+    );
     if (!photo) {
       return res.status(200).json({ photo: null });
     }
 
-    const mediaUrl = new URL(`https://places.googleapis.com/v1/${photo.name}/media`);
+    const mediaUrl = new URL(
+      `https://places.googleapis.com/v1/${photo.name}/media`,
+    );
     mediaUrl.searchParams.set('maxWidthPx', '360');
     mediaUrl.searchParams.set('skipHttpRedirect', 'true');
     mediaUrl.searchParams.set('key', process.env.GOOGLE_API_KEY);
@@ -167,21 +287,96 @@ const updateEvent = async (req, res) => {
       return denyTripAccess(res, trip, req.user.id);
     }
 
-    const changes = { ...req.body };
+    const changes = editableChanges(req.body);
+    if (
+      changes.eventType !== undefined &&
+      !Object.values(EVENT_TYPE).includes(changes.eventType)
+    )
+      return res.status(400).json({ message: 'Invalid event type' });
+    if (
+      !validSlot(
+        changes.startTime !== undefined ? changes.startTime : event.startTime,
+        changes.endTime !== undefined ? changes.endTime : event.endTime,
+      )
+    )
+      return res
+        .status(400)
+        .json({ message: 'Enter a start and later end time' });
+    if (event.reservation) {
+      if (changes.eventType && changes.eventType !== event.eventType)
+        return res
+          .status(400)
+          .json({
+            message: 'Change linked action types from the reservation form',
+          });
+      for (const field of ['title', 'address', 'placeId'])
+        delete changes[field];
+    } else if (
+      changes.eventType &&
+      !['activity', 'restaurant'].includes(changes.eventType)
+    )
+      return res
+        .status(400)
+        .json({
+          message: 'Link a reservation when creating a logistics action',
+        });
     // Re-resolve when the selected place or custom address changes.
     delete changes.lat;
     delete changes.lng;
-    if ((changes.address !== undefined && changes.address !== event.address)
-      || (changes.placeId !== undefined && changes.placeId !== event.placeId)) {
+    if (
+      (changes.address !== undefined && changes.address !== event.address) ||
+      (changes.placeId !== undefined && changes.placeId !== event.placeId)
+    ) {
       changes.lat = null;
       changes.lng = null;
-      Object.assign(changes, await tryPlaceCoordinates(changes.placeId !== undefined ? changes.placeId : event.placeId));
+      Object.assign(
+        changes,
+        await tryPlaceCoordinates(
+          changes.placeId !== undefined ? changes.placeId : event.placeId,
+        ),
+      );
     }
-    const updatedEvent = await Event.findByIdAndUpdate(
-      id,
-      { $set: changes },
-      { returnDocument: 'after', runValidators: true }
-    );
+    const persist = async (session) => {
+      if (session) {
+        await Trip.updateOne(
+          { _id: trip._id },
+          { $inc: { __v: 1 } },
+          { session },
+        );
+        const current = await Event.findById(id, null, { session });
+        const booking = await Reservation.findById(event.reservation, null, {
+          session,
+        });
+        if (!current || !booking || String(booking.trip) !== String(trip._id))
+          throw Object.assign(
+            new Error('Event or reservation no longer exists'),
+            { status: 404 },
+          );
+        validateActions(
+          booking,
+          [
+            {
+              eventType: current.eventType,
+              startTime: changes.startTime ?? current.startTime,
+              endTime: changes.endTime ?? current.endTime,
+            },
+          ],
+          trip,
+        );
+      }
+      return Event.findByIdAndUpdate(
+        id,
+        { $set: changes },
+        {
+          returnDocument: 'after',
+          runValidators: true,
+          ...(session ? { session } : {}),
+        },
+      );
+    };
+    const updatedEvent = event.reservation
+      ? await mongoose.connection.transaction(persist)
+      : await persist();
 
     if (!updatedEvent) {
       return res.status(400).json({ message: 'Event not found' });
@@ -205,7 +400,9 @@ const updateEvent = async (req, res) => {
 
     res.status(200).json(updatedEvent);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating event', error: error.message });
+    res
+      .status(error.status || (error.name === 'ValidationError' ? 400 : 500))
+      .json({ message: error.message });
   }
 };
 
@@ -233,8 +430,16 @@ const deleteEvent = async (req, res) => {
     }
     res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting event', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Error deleting event', error: error.message });
   }
 };
 
-module.exports = { createEvent, getEvents, getEventPhoto, updateEvent, deleteEvent };
+module.exports = {
+  createEvent,
+  getEvents,
+  getEventPhoto,
+  updateEvent,
+  deleteEvent,
+};

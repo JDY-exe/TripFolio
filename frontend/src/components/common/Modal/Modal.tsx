@@ -222,6 +222,7 @@ function Modal({
     >
       <div
         ref={panelRef}
+        data-cy="modal-panel"
         className={[
           'relative w-full rounded-3xl bg-surface-container p-5 text-on-surface sm:p-7',
           panelClassName ?? 'max-w-xl',

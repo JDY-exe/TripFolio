@@ -16,6 +16,7 @@ const booking = {
   tripId: ids.trip, name: "Harbor Hotel",
   startTime: "2027-04-01T15:00:00Z", endTime: "2027-04-05T11:00:00Z",
   notes: "Original notes", accommodations: { address: "Old address" },
+  itineraryActions: [{ eventType: 'hotel_checkin', startTime: '2027-04-01T15:00:00Z', endTime: '2027-04-01T15:30:00Z' }],
 };
 
 // This contract harness stages all writes and rejects any operation missing the
@@ -94,6 +95,7 @@ test("reservation writes commit together and keep linked events current", async 
       return this;
     });
   }
+  t.mock.method(Event, 'find', (filter, projection, options) => ({ sort: async () => Object.values(check(options).events).filter(record => matches(record, filter)).map(record => Event.hydrate(record)) }));
   t.mock.method(Reservation.prototype, "deleteOne", async function(options) {
     delete check(options).reservations[String(this._id)];
     fail("reservation-delete");
@@ -147,8 +149,8 @@ test("reservation writes commit together and keep linked events current", async 
     const result = await send("POST");
     assert.equal(result.status, 201);
     reservationId = result.body.reservation._id;
-    eventId = result.body.event._id;
-    assert.equal(result.body.event.reservation, reservationId);
+    eventId = result.body.events[0]._id;
+    assert.equal(result.body.events[0].reservation, reservationId);
     assert.equal(Object.keys(committed.itineraries).length, 1);
     assert.deepEqual(committed.trip.reservations, [reservationId]);
   });
@@ -159,22 +161,22 @@ test("reservation writes commit together and keep linked events current", async 
     assert.equal(Object.keys(committed.itineraries).length, 1);
   });
   await t.test("updates synchronize booking fields, preserve event-only fields and clear stale location", async () => {
-    Object.assign(committed.events[eventId], { restaurant: true, placeId: "old-place", lat: 1, lng: 2 });
+    Object.assign(committed.events[eventId], { notes: 'Personal itinerary notes', placeId: "old-place", lat: 1, lng: 2 });
     const foreignId = new mongoose.Types.ObjectId().toString();
     committed.events[foreignId] = { ...committed.events[eventId], _id: foreignId, itineraryID: ids.foreignItinerary };
     const beforeForeign = structuredClone(committed.events[foreignId]);
     const result = await send("PATCH", `/${reservationId}`, {
-      name: "New hotel", startTime: "2027-04-02T15:00:00Z", endTime: "2027-04-06T11:00:00Z",
+      name: "New hotel",
       notes: "New notes", accommodations: { address: "New address" },
     });
     assert.equal(result.status, 200);
     const event = committed.events[eventId];
     assert.equal(event.title, "New hotel");
-    assert.equal(event.startTime, "2027-04-02T15:00:00.000Z");
-    assert.equal(event.endTime, "2027-04-06T11:00:00.000Z");
-    assert.equal(event.notes, "New notes");
+    assert.equal(event.startTime, "2027-04-01T15:00:00.000Z");
+    assert.equal(event.endTime, "2027-04-01T15:30:00.000Z");
+    assert.equal(event.notes, "Personal itinerary notes");
     assert.equal(event.address, "New address");
-    assert.equal(event.restaurant, true);
+    assert.equal(event.eventType, 'hotel_checkin');
     assert.equal(event.lat, null);
     assert.equal(event.lng, null);
     assert.equal(event.placeId, null);
@@ -203,9 +205,56 @@ test("reservation writes commit together and keep linked events current", async 
     assert.deepEqual(committed.trip.reservations, []);
     assert.equal(Object.keys(committed.events).length, 1);
   });
+  const actionSlots = [
+    { eventType: 'hotel_checkin', startTime: '2027-04-01T15:00:00Z', endTime: '2027-04-01T15:30:00Z' },
+    { eventType: 'hotel_checkout', startTime: '2027-04-05T11:00:00Z', endTime: '2027-04-05T11:30:00Z' },
+  ];
+  await t.test('explicit actions create two short entries and keep personal slots and notes', async () => {
+    const created = await send('POST', '', { ...booking, itineraryActions: actionSlots });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.events.length, 2);
+    const id = created.body.reservation._id;
+    const first = created.body.events[0]._id;
+    committed.events[first].notes = 'Arrive after lunch';
+    const edited = await send('PATCH', `/${id}`, { name: 'Renamed hotel', notes: 'Booking-only notes', accommodations: { address: 'New place', placeId: 'google-place' } });
+    assert.equal(edited.status, 200);
+    assert.equal(committed.events[first].notes, 'Arrive after lunch');
+    assert.equal(committed.events[first].startTime, '2027-04-01T15:00:00.000Z');
+    assert.equal(committed.events[first].placeId, 'google-place');
+    assert.equal(Object.values(committed.events).filter(event => event.reservation === id).length, 2);
+    const before = structuredClone(committed);
+    assert.equal((await send('PATCH', `/${id}`, { startTime: '2027-04-02T00:00:00Z' })).status, 400);
+    assert.deepEqual(committed, before);
+    assert.equal((await send('PATCH', `/${id}`, { itineraryActions: [actionSlots[0]] })).status, 200);
+    assert.equal(Object.values(committed.events).filter(event => event.reservation === id).length, 1);
+    assert.equal((await send('DELETE', `/${id}`)).status, 200);
+    assert.equal(Object.values(committed.events).filter(event => event.reservation === id).length, 0);
+  });
+  await t.test('invalid or duplicate selections abort all writes', async () => {
+    for (const itineraryActions of [[actionSlots[0], actionSlots[0]], [{ ...actionSlots[0], startTime: null }], [{ ...actionSlots[0], eventType: 'rentalcar_pickup' }], [{ ...actionSlots[0], startTime: '2027-04-02T15:00:00Z', endTime: '2027-04-02T15:30:00Z' }]]) {
+      const before = structuredClone(committed);
+      assert.equal((await send('POST', '', { ...booking, itineraryActions })).status, 400);
+      assert.deepEqual(committed, before);
+    }
+  });
+  await t.test('explicit empty selection removes actions without recreating them on metadata edits', async () => {
+    const created = await send('POST');
+    const id = created.body.reservation._id;
+    assert.equal((await send('PATCH', `/${id}`, { itineraryActions: [] })).status, 200);
+    assert.equal(Object.values(committed.events).filter(event => event.reservation === id).length, 0);
+    assert.equal((await send('PATCH', `/${id}`, { name: 'Still no actions' })).status, 200);
+    assert.equal(Object.values(committed.events).filter(event => event.reservation === id).length, 0);
+    const empty = await send('POST', '', { ...booking, itineraryActions: [] });
+    assert.equal(empty.status, 201);
+    assert.deepEqual(empty.body.events, []);
+    const { itineraryActions, ...bookingOnly } = booking;
+    const omitted = await send('POST', '', bookingOnly);
+    assert.equal(omitted.status, 201);
+    assert.deepEqual(omitted.body.events, []);
+  });
   await t.test("editing a reservation does not recreate an explicitly deleted event", async () => {
     const created = await send("POST");
-    delete committed.events[created.body.event._id];
+    delete committed.events[created.body.events[0]._id];
     const beforeCount = Object.keys(committed.events).length;
     const result = await send("PATCH", `/${created.body.reservation._id}`, { name: "Updated without event" });
     assert.equal(result.status, 200);
