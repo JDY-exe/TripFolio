@@ -70,6 +70,7 @@ const ItineraryView = ({
       await queryClient.invalidateQueries({
         queryKey: eventsQueryKey(itinerary?._id ?? ''),
       });
+      await queryClient.invalidateQueries({ queryKey: ['reservation-events'] });
       setDeleteModalOpen(false);
     } catch (error) {
       displayAlert({
@@ -236,7 +237,7 @@ const ItineraryView = ({
         <Modal
           data-cy="delete-event-dialog"
           open={deleteModalOpen}
-          title={`Delete ${eventToDelete.title}?`}
+          title={`${eventToDelete.reservation ? 'Remove' : 'Delete'} ${eventToDelete.title}?`}
           onClose={() => {
             if (!isDeletingEvent) setEventToDelete(null);
           }}
@@ -258,12 +259,16 @@ const ItineraryView = ({
                 disabled={isDeletingEvent}
                 onClick={() => void handleDeleteEvent()}
               >
-                {isDeletingEvent ? 'Deleting...' : 'Delete event'}
+                {isDeletingEvent ? 'Removing...' : 'Remove from itinerary'}
               </Button>
             </>
           )}
         >
-          <Text>This event will be removed from your itinerary.</Text>
+          <Text>
+            This event will be removed from your itinerary.
+            {eventToDelete.reservation &&
+              ' The reservation will remain in Logistics.'}
+          </Text>
         </Modal>
       )}
     </>

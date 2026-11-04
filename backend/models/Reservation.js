@@ -72,6 +72,7 @@ const reservationSchema = new mongoose.Schema(
             }
         },
         accommodations: {
+            placeId: { type: String, default: null },
             address: {
                 type: String,
                 required: function () { return this.type === "accommodations"; },
@@ -79,6 +80,10 @@ const reservationSchema = new mongoose.Schema(
             }
         },
         rentals: {
+            pickupAddress: String,
+            pickupPlaceId: { type: String, default: null },
+            returnAddress: String,
+            returnPlaceId: { type: String, default: null },
             company: {
                 type: String,
                 required: function () { return this.type === "rentals"; },

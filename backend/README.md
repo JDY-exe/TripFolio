@@ -1,7 +1,7 @@
 # Reservation and itinerary consistency
 
 Creating, updating, and deleting a reservation uses a MongoDB transaction. Its
-linked itinerary event and the trip's reservation references commit together or
+linked itinerary events and the trip's reservation references commit together or
 not at all. A reservation may be created before the itinerary has been opened;
 the transaction initializes the itinerary using the trip dates when needed.
 
@@ -12,10 +12,17 @@ Existing duplicate itineraries are not merged by this change. Explicit itinerary
 creation returns the existing itinerary if one is already present; use PATCH to
 change its fields.
 
-Reservation edits synchronize event title, times, notes, and hotel address.
-Event-only fields are preserved. Changing a hotel address clears stale place and
-coordinate metadata so the location endpoint can resolve the new address.
-Editing a reservation does not recreate an event that was explicitly deleted.
+Reservations support typed itinerary actions with explicit time slots: hotel
+check-in/check-out and rental pickup/return. Reservation edits synchronize event
+title and linked location; planned slots and itinerary notes belong to the event.
+Flight journey edits also update flight-event times. Location changes clear stale
+coordinates. Unrelated reservation edits never recreate explicitly removed events.
+
+See [typed itinerary events](../docs/typed-itinerary-events.md) for the action API,
+clean-slate schema, and verified backup/reset/restore commands. The reset script
+is inventory-only by default and never runs automatically. Hotel/rental bookings
+without selected actions create no events; flight bookings create a typed journey
+event. Legacy event conversion and compatibility readers have been removed.
 
 These operations require a replica set (MongoDB Atlas or a local single-node
 replica set), just like trip sharing. There is no non-transactional fallback.

@@ -113,9 +113,9 @@ test('trip visibility routes protect private data and retain trip planning flows
     return this;
   };
 
-  Event.find = ({ itineraryID }) => ({
+  Event.find = ({ itineraryID, reservation }) => ({
     sort: async () => [...events.values()]
-      .filter((event) => String(event.itineraryID) === String(itineraryID))
+      .filter((event) => String(event.itineraryID) === String(itineraryID) && (!reservation || String(event.reservation) === String(reservation)))
       .sort((first, second) => first.startTime - second.startTime),
   });
   Event.findById = async (id) => events.get(String(id)) || null;
@@ -316,6 +316,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     startTime: '2027-04-01T15:00:00.000Z',
     endTime: '2027-04-05T11:00:00.000Z',
     accommodations: { address: '15 Example Street' },
+    itineraryActions: [{ eventType: 'hotel_checkin', startTime: '2027-04-01T15:00:00.000Z', endTime: '2027-04-01T15:30:00.000Z' }],
     tripId,
   };
   const privateHotelCreate = await send('/logistics/hotels', {

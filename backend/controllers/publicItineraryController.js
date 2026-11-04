@@ -262,7 +262,10 @@ const getPublicItinerary = async (req, res) => {
         : null,
       travelers: formattedTravelers,
       itinerary,
-      events,
+      events: events.map(event => {
+        const { reservation, ...publicEvent } = event.toObject ? event.toObject() : event;
+        return publicEvent;
+      }),
     });
   } catch (error) {
     return res.status(500).json({ message: "Error fetching public itinerary", error: error.message });

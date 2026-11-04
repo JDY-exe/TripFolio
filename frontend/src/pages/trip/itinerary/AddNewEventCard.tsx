@@ -1,8 +1,16 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { Button, Modal, TextArea, TextField } from '../../../components/common';
-import { patchToApi, postToApi } from '../../../utils/api';
-import type { EventData } from '../../../queries/events';
+import { patchToApi, postToApi, getApiErrorMessage } from '../../../utils/api';
+import type { EventData, EventType } from '../../../queries/events';
+import { useParams } from 'react-router';
+import { eventTypeLabels } from './eventTypeLabels';
+import ReservationEventPicker from './ReservationEventPicker';
+import { ReservationType } from '../../../queries/reservations';
+import AccommodationReservationForm from '../logistics/accommodations/AccommodationReservationForm';
+import RentalCarReservationForm from '../logistics/rentals/RentalCarReservationForm';
+import FlightReservationForm from '../logistics/flights/FlightReservationForm';
 import EventPlaceField from './EventPlaceField';
 
 interface AddNewEventCardProps {
@@ -23,7 +31,8 @@ interface EventDraft {
   finishTime: string;
   finishNextDay: boolean;
   notes: string;
-  restaurant: boolean;
+  eventType: EventType;
+  reservation: string;
   reservationMade: boolean;
 }
 
@@ -46,7 +55,8 @@ const createEventDraft = (event?: EventData): EventDraft => ({
     event && event.endTime.slice(0, 10) > event.startTime.slice(0, 10),
   ),
   notes: event?.notes ?? '',
-  restaurant: event?.restaurant ?? false,
+  eventType: event?.eventType ?? 'activity',
+  reservation: event?.reservation ?? '',
   reservationMade: event?.reservationMade ?? false,
 });
 
@@ -63,6 +73,13 @@ const AddNewEventCard = ({
   event,
   onClose,
 }: AddNewEventCardProps) => {
+  const { id: tripId } = useParams();
+  const queryClient = useQueryClient();
+  const [eventDate, setEventDate] = useState(date);
+  const [bookingAvailable, setBookingAvailable] = useState(false);
+  const [creatingType, setCreatingType] = useState<ReservationType | null>(
+    null,
+  );
   const [isOpen, setIsOpen] = useState(Boolean(event));
   const [draft, setDraft] = useState<EventDraft>(() => createEventDraft(event));
   const [error, setError] = useState('');
@@ -99,8 +116,16 @@ const AddNewEventCard = ({
    * @returns A promise that settles after saving.
    */
   const saveEvent = async () => {
-    const start = new Date(`${date}T${draft.startTime}:00.000Z`);
-    const end = new Date(`${date}T${draft.finishTime}:00.000Z`);
+    const start = new Date(`${eventDate}T${draft.startTime}:00.000Z`);
+    const end = new Date(`${eventDate}T${draft.finishTime}:00.000Z`);
+    if (
+      !event &&
+      !['activity', 'restaurant'].includes(draft.eventType) &&
+      !bookingAvailable
+    ) {
+      setError('Choose an available reservation for this action.');
+      return;
+    }
     if (draft.finishNextDay) end.setUTCDate(end.getUTCDate() + 1);
     const tripStart = new Date(startDate);
     const tripEnd = new Date(endDate);
@@ -109,7 +134,7 @@ const AddNewEventCard = ({
       setError('Add a title and both event times.');
       return;
     }
-    if (end < start) {
+    if (end <= start) {
       setError('End time cannot be before start time.');
       return;
     }
@@ -127,7 +152,8 @@ const AddNewEventCard = ({
         startTime: start.toISOString(),
         endTime: end.toISOString(),
         notes: draft.notes,
-        restaurant: draft.restaurant,
+        eventType: draft.eventType,
+        reservation: draft.reservation || undefined,
         reservationMade: draft.reservationMade,
       };
       const savedEvent = event
@@ -136,11 +162,15 @@ const AddNewEventCard = ({
             itineraryID: itineraryId,
             ...payload,
           });
+      await queryClient.invalidateQueries({ queryKey: ['reservation-events'] });
       onCreated(savedEvent);
       setIsOpen(false);
       setDraft(createEventDraft());
-    } catch {
-      setError('Failed to save event. Please try again.');
+      setEventDate(date);
+    } catch (cause) {
+      setError(
+        getApiErrorMessage(cause, 'Failed to save event. Please try again.'),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -166,7 +196,7 @@ const AddNewEventCard = ({
         onClose={() => {
           if (!isSaving) setIsOpen(false);
         }}
-        onExited={onClose}
+        onExited={creatingType ? undefined : onClose}
         footer={
           <>
             <Button
@@ -190,22 +220,132 @@ const AddNewEventCard = ({
         }
       >
         <div className="grid gap-4">
+          <label className="grid gap-2 text-sm font-medium">
+            Event type
+            <select
+              data-cy="event-type"
+              className="w-full rounded-xl border border-outline-variant bg-surface-container-low p-3"
+              value={draft.eventType}
+              disabled={Boolean(event?.reservation)}
+              onChange={(change) => {
+                updateDraft({
+                  eventType: change.target.value as EventType,
+                  reservation: '',
+                });
+                setBookingAvailable(false);
+                setEventDate(date);
+                if (!['activity', 'restaurant'].includes(change.target.value))
+                  updateDraft({
+                    startTime: '',
+                    finishTime: '',
+                    finishNextDay: false,
+                  });
+              }}
+            >
+              {Object.entries(eventTypeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!event &&
+            !['activity', 'restaurant'].includes(draft.eventType) &&
+            tripId && (
+              <ReservationEventPicker
+                key={draft.eventType}
+                tripId={tripId}
+                eventType={draft.eventType}
+                value={draft.reservation}
+                onAvailability={setBookingAvailable}
+                onCreate={(type) => {
+                  setCreatingType(type);
+                  setIsOpen(false);
+                }}
+                onViewExisting={(id) => {
+                  setIsOpen(false);
+                  window.setTimeout(
+                    () =>
+                      document
+                        .querySelector(`[data-cy="event-card-${id}"]`)
+                        ?.scrollIntoView({
+                          block: 'center',
+                          behavior: 'smooth',
+                        }),
+                    250,
+                  );
+                }}
+                onSelect={(reservation) => {
+                  if (!reservation) {
+                    updateDraft({
+                      reservation: '',
+                      title: '',
+                      address: '',
+                      placeId: null,
+                    });
+                    setEventDate(date);
+                    return;
+                  }
+                  const isEnd =
+                    draft.eventType === 'hotel_checkout' ||
+                    draft.eventType === 'rentalcar_return';
+                  setEventDate(
+                    (isEnd ? reservation.endTime : reservation.startTime).slice(
+                      0,
+                      10,
+                    ),
+                  );
+                  const address =
+                    reservation.accommodations?.address ||
+                    (isEnd
+                      ? reservation.rentals?.returnAddress
+                      : reservation.rentals?.pickupAddress) ||
+                    '';
+                  const placeId =
+                    reservation.accommodations?.placeId ||
+                    (isEnd
+                      ? reservation.rentals?.returnPlaceId
+                      : reservation.rentals?.pickupPlaceId) ||
+                    null;
+                  updateDraft({
+                    reservation: reservation._id,
+                    title: reservation.name,
+                    address,
+                    placeId,
+                  });
+                }}
+              />
+            )}
+          {draft.reservation && (
+            <p className="text-sm text-on-surface-variant">
+              Scheduled for {eventDate}. Booking name and location are managed
+              in Logistics.
+            </p>
+          )}
           <TextField
             data-cy="event-title"
             id="event-title"
             label="Event title"
             value={draft.title}
+            disabled={Boolean(draft.reservation)}
             onChange={(event) => updateDraft({ title: event.target.value })}
             required
           />
           <EventPlaceField
             value={draft.address}
             placeId={draft.placeId}
+            disabled={Boolean(draft.reservation)}
             onChange={(address, placeId, restaurant) =>
-              updateDraft({ address, placeId, restaurant })
+              updateDraft({
+                address,
+                placeId,
+                ...(['activity', 'restaurant'].includes(draft.eventType)
+                  ? { eventType: restaurant ? 'restaurant' : 'activity' }
+                  : {}),
+              })
             }
           />
-          {draft.restaurant && (
+          {draft.eventType === 'restaurant' && (
             <label className="flex items-center gap-2 text-sm font-medium">
               <input
                 type="checkbox"
@@ -265,6 +405,33 @@ const AddNewEventCard = ({
           )}
         </div>
       </Modal>
+      {creatingType === ReservationType.Accommodations && tripId && (
+        <AccommodationReservationForm
+          tripId={tripId}
+          onClose={() => {
+            setCreatingType(null);
+            setIsOpen(true);
+          }}
+        />
+      )}
+      {creatingType === ReservationType.Rentals && tripId && (
+        <RentalCarReservationForm
+          tripId={tripId}
+          onClose={() => {
+            setCreatingType(null);
+            setIsOpen(true);
+          }}
+        />
+      )}
+      {creatingType === ReservationType.Flights && tripId && (
+        <FlightReservationForm
+          tripId={tripId}
+          onClose={() => {
+            setCreatingType(null);
+            setIsOpen(true);
+          }}
+        />
+      )}
     </>
   );
 };

@@ -15,6 +15,7 @@ const mongoose = require("mongoose");
 test.beforeEach((t) => {
     t.mock.method(mongoose.connection, "transaction", async callback => callback({}));
     t.mock.method(Event, "findOne", async () => null);
+    t.mock.method(Event, "find", () => ({ sort: async () => [] }));
 });
 
 test("reservation routes scope reads and writes to trip editors", async (t) => {

@@ -81,7 +81,7 @@ test('event saves store Google coordinates and clear stale coordinates when the 
   };
   Event.prototype.save = async function () { event = this; return this; };
   const response = { status() { return this; }, json(body) { this.body = body; return this; } };
-  await createEvent({ user: { id: 'owner' }, body: { itineraryID: 'itinerary', title: 'Place', placeId: 'first', address: 'Address' } }, response);
+  await createEvent({ user: { id: 'owner' }, body: { itineraryID: 'itinerary', title: 'Place', placeId: 'first', address: 'Address', startTime: '2027-04-01T10:00:00Z', endTime: '2027-04-01T11:00:00Z' } }, response);
   assert.equal(response.body.lat, 0);
   assert.equal(response.body.lng, 12);
   assert.equal(calls, 1);

@@ -24,6 +24,7 @@
   "event": {
     "_id": "64b000000000000000000005",
     "title": "Visit the pier",
+    "eventType": "activity",
     "address": "Ocean Pier",
     "placeId": null,
     "startTime": "2030-04-01T09:00:00.000Z",
