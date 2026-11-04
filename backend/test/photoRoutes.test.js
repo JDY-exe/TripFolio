@@ -9,6 +9,7 @@ const { readFile } = require("node:fs/promises");
 const path = require("node:path");
 const Trip = require("../models/trip");
 const Photo = require("../models/Photo");
+const Itinerary = require("../models/itinerary");
 const storage = require("../services/photoStorage");
 const routes = require("../routes/photoRoutes");
 
@@ -27,6 +28,7 @@ test("photo API permissions, upload, content, pagination and compensation", { ti
   process.env.JWT_SECRET = secret;
   t.after(() => { if (oldSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = oldSecret; });
   t.mock.method(Trip, "findById", async (id) => String(id) === String(tripId) ? trip : null);
+  t.mock.method(Itinerary, "findOne", () => ({ select: async () => null }));
   t.mock.method(storage, "upload", async (data) => {
     const id = new mongoose.Types.ObjectId(); files.set(String(id), data); return id;
   });
@@ -91,7 +93,16 @@ test("photo API permissions, upload, content, pagination and compensation", { ti
   const { photo } = await response.json();
   assert.equal(photo.contentType, "image/webp");
   assert.equal(photo.fileId, undefined);
+  assert.equal(photo.takenAt, null);
   assert.equal(files.size, 1);
+  const datedBytes = await sharp(png).jpeg().withExif({ IFD2: { DateTimeOriginal: "2026:05:12 23:30:00" } }).toBuffer();
+  const datedResponse = await send("", owner, { method: "POST", body: form(datedBytes) });
+  assert.equal(datedResponse.status, 201, await datedResponse.clone().text());
+  const datedPhoto = (await datedResponse.json()).photo;
+  assert.equal(datedPhoto.takenAt, "2026-05-12T23:30:00");
+  const datedListing = (await (await send()).json()).photos.find((item) => item.id === datedPhoto.id);
+  assert.equal(datedListing.takenAt, datedPhoto.takenAt);
+  assert.equal((await send(`/${datedPhoto.id}`, owner, { method: "DELETE" })).status, 204);
   // Content sniffing, not the misleading test.png filename/MIME, chooses the decoder.
   for (const bytes of [
     await readFile(path.join(__dirname, "fixtures/photos/phone.heic")),

@@ -15,6 +15,12 @@ import {
   postToApi,
 } from '../utils/api';
 
+export interface PhotoLocation {
+  latitude: number;
+  longitude: number;
+  altitude?: number | null;
+}
+
 export interface TripPhoto {
   id: string;
   trip: string;
@@ -25,7 +31,11 @@ export interface TripPhoto {
   width: number;
   height: number;
   createdAt: string;
+  /** Camera-local ISO capture time without an inferred timezone; absent on legacy photos. */
+  takenAt?: string | null;
   contentUrl: string;
+  location: PhotoLocation | null;
+  linkedEvent: string | null;
 }
 
 interface PhotoPage {

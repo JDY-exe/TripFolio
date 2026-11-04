@@ -1,6 +1,7 @@
 const Itinerary = require ('../models/itinerary');
 const Trip = require('../models/trip');
 const mongoose = require('mongoose');
+const { ensureItinerary } = require('../utils/ensureItinerary');
 const { canEditTrip, canReadTrip, getTripRole } = require('../utils/tripAccess');
 
 const denyTripAccess = (res, trip, userId) => {
@@ -22,18 +23,14 @@ const createItinerary = async (req, res) => {
       return denyTripAccess(res, trip, req.user.id);
     }
 
-    const newItinerary = new Itinerary({
-      tripId,
-      title,
-      description,
-      startDate,
-      endDate
-    });
-
-    await newItinerary.save();
+    const values = Object.fromEntries(
+      Object.entries({ title, description, startDate, endDate })
+        .filter(([, value]) => value !== undefined)
+    );
+    const newItinerary = await ensureItinerary(trip, undefined, values);
     res.status(201).json(newItinerary);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating itinerary', error: error.message });
+    res.status(error.status || 500).json({ message: 'Error creating itinerary', error: error.message });
   }
 };
 
@@ -61,18 +58,12 @@ const getItinerary = async (req, res) => {
         return res.status(404).json({ message: 'Itinerary not found' });
       }
 
-      itinerary = await Itinerary.create({
-        tripId: trip._id,
-        title: 'Blank Itinerary',
-        description: '',
-        startDate: trip.startDate,
-        endDate: trip.endDate
-      });
+      itinerary = await ensureItinerary(trip);
     }
 
     res.status(200).json(itinerary);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching itinerary', error: error.message });
+    res.status(error.status || 500).json({ message: 'Error fetching itinerary', error: error.message });
   }
 }
 

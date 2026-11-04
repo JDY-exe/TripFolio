@@ -1,8 +1,43 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const express = require("express");
+const User = require("../models/User");
+const userRoutes = require("../routes/userRoutes");
 let authToken;
+let BASE_URL;
+let server;
+const users = [];
+const previousSecret = process.env.JWT_SECRET;
+const originalFindOne = User.findOne;
+const originalCreate = User.create;
 
-const BASE_URL = "http://localhost:5000";
+test.before(async () => {
+  process.env.JWT_SECRET = "isolated-user-route-tests";
+  User.findOne = async filter => users.find(user =>
+    Object.entries(filter).every(([key, value]) => user[key] === value)) || null;
+  User.create = async values => {
+    const user = new User(values);
+    users.push(user);
+    return user;
+  };
+  const app = express();
+  app.use(express.json());
+  app.use("/users", userRoutes);
+  server = app.listen(0, "127.0.0.1");
+  await new Promise(resolve => server.once("listening", resolve));
+  BASE_URL = `http://127.0.0.1:${server.address().port}`;
+});
+
+test.after(async () => {
+  User.findOne = originalFindOne;
+  User.create = originalCreate;
+  if (previousSecret === undefined) delete process.env.JWT_SECRET;
+  else process.env.JWT_SECRET = previousSecret;
+  if (server) {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
 
 const testUsername = `testuser_${Date.now()}`;
 const testEmail = `test_${Date.now()}@example.com`;

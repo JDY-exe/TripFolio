@@ -167,17 +167,15 @@ const PublicItinerary = () => {
 
             <div className="flex flex-col gap-4">
               {data.travelers.map((traveler) => (
-                <div
-                  key={traveler.id}
-                  className="flex items-center gap-3"
-                >
-                  {traveler.profile_picture ? (
+                <div key={traveler.id} className="flex items-center gap-3">
+                  {!!traveler.profile_picture && (
                     <img
                       src={traveler.profile_picture}
                       alt=""
                       className="size-10 shrink-0 rounded-full object-cover"
                     />
-                  ) : (
+                  )}
+                  {!traveler.profile_picture && (
                     <div
                       aria-hidden="true"
                       className="flex size-10 shrink-0 items-center justify-center

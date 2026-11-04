@@ -38,6 +38,11 @@ const eventSchema = new mongoose.Schema({
   },
   reservationMade: {
     type: Boolean
+  },
+  reservation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Reservation",
+    default: null
   }
 }, { timestamps: true });
 
