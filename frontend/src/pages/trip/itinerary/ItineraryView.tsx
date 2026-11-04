@@ -9,6 +9,7 @@ import { useTrips } from '../../../queries/trips';
 import { useItinerary } from '../../../queries/itineraries';
 import ItineraryDaySection from './ItineraryDaySection';
 import ItineraryDescription from './ItineraryDescription';
+import ArchivedItineraryNotes from './ArchivedItineraryNotes';
 import TripOverview from './TripOverview';
 import ItineraryMap from './map/ItineraryMap';
 import { useActiveItineraryDay } from './map/useActiveItineraryDay';
@@ -173,6 +174,13 @@ const ItineraryView = ({
           tripId={id}
           readOnly={readOnly}
         />
+        {archived && user?.id && (
+          <ArchivedItineraryNotes
+            key={`${user.id}-${id}`}
+            tripId={id}
+            userId={user.id}
+          />
+        )}
         <TripOverview
           startDate={trip?.startDate ?? itinerary.startDate}
           endDate={trip?.endDate ?? itinerary.endDate}

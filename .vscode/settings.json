@@ -3,6 +3,10 @@
         "/^Push-Location \\.\\.\\\\backend; node --test test/friendship\\.test\\.js test/tripAccess\\.test\\.js test/tripVisibility\\.integration\\.test\\.js; Pop-Location$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^npm run typecheck$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
