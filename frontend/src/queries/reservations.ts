@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteFromApi, getFromApi, patchToApi, postToApi } from '../utils/api';
+import { eventsQueryKey } from './events';
 
 /** Reservation categories recognized by the logistics API. */
 export const ReservationType = {
@@ -120,9 +121,14 @@ export const useSaveReservation = (tripId: string) => {
       return response.reservation;
     },
     onSuccess: async (reservation) => {
-      await queryClient.invalidateQueries({
-        queryKey: reservationsQueryKey(tripId, reservation.type),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: reservationsQueryKey(tripId, reservation.type),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: eventsQueryKey().slice(0, 1),
+        }),
+      ]);
     },
   });
 };
@@ -142,9 +148,14 @@ export const useDeleteReservation = (tripId: string) => {
       return reservation.type;
     },
     onSuccess: async (type) => {
-      await queryClient.invalidateQueries({
-        queryKey: reservationsQueryKey(tripId, type),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: reservationsQueryKey(tripId, type),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: eventsQueryKey().slice(0, 1),
+        }),
+      ]);
     },
   });
 };

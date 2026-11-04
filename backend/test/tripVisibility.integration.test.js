@@ -15,6 +15,14 @@ const eventRoutes = require('../routes/eventRoutes');
 const reservationRoutes = require('../routes/reservationRoutes');
 
 test('trip visibility routes protect private data and retain trip planning flows', async (t) => {
+  t.mock.method(mongoose.connection, 'transaction', async callback => callback({}));
+  t.mock.method(Event, 'create', async (documents) => {
+    const saved = [];
+    for (const data of documents) saved.push(await new Event(data).save());
+    return saved;
+  });
+  t.mock.method(Event, 'findOne', async (filter) => [...events.values()].find(event =>
+    Object.entries(filter).every(([field, value]) => String(event[field]) === String(value))) || null);
   const previousSecret = process.env.JWT_SECRET;
   const previousGoogleApiKey = process.env.GOOGLE_API_KEY;
   const originalFetch = global.fetch;
@@ -95,9 +103,10 @@ test('trip visibility routes protect private data and retain trip planning flows
   Itinerary.findById = async (id) => itineraries.get(String(id)) || null;
   Itinerary.findOne = async ({ tripId }) =>
     [...itineraries.values()].find((itinerary) => String(itinerary.tripId) === String(tripId)) || null;
-  Itinerary.create = async (data) => {
-    const itinerary = new Itinerary(data);
-    return itinerary.save();
+  Itinerary.create = async (documents) => {
+    const saved = [];
+    for (const data of documents) saved.push(await new Itinerary(data).save());
+    return saved;
   };
   Itinerary.prototype.save = async function saveItinerary() {
     itineraries.set(String(this._id), this);
@@ -133,7 +142,11 @@ test('trip visibility routes protect private data and retain trip planning flows
     ),
   });
   Reservation.findById = async (id) => reservations.get(String(id)) || null;
-  Reservation.create = async (data) => new Reservation(data).save();
+  Reservation.create = async (documents) => {
+    const saved = [];
+    for (const data of documents) saved.push(await new Reservation(data).save());
+    return saved;
+  };
   Reservation.prototype.save = async function saveReservation() {
     reservations.set(String(this._id), this);
     return this;
@@ -311,6 +324,8 @@ test('trip visibility routes protect private data and retain trip planning flows
     body: hotelBody,
   });
   assert.equal(privateHotelCreate.response.status, 201);
+  assert.equal(itineraries.size, 1, 'reservation creation initializes the itinerary');
+  assert.equal(events.size, 1, 'reservation creation adds the linked event');
   const viewerHotelUpdate = await send(
     `/logistics/hotels/${privateHotelCreate.data.reservation._id}`,
     {
@@ -330,6 +345,7 @@ test('trip visibility routes protect private data and retain trip planning flows
   );
   assert.equal(ownerHotelUpdate.response.status, 200);
   assert.equal(ownerHotelUpdate.data.reservation.name, 'Updated Harbor Hotel');
+  assert.equal([...events.values()][0].title, 'Updated Harbor Hotel');
   const privateHotelsAsStranger = await send(`/logistics/hotels?tripId=${tripId}`, {
     userId: userIds.stranger,
   });
@@ -439,6 +455,8 @@ test('trip visibility routes protect private data and retain trip planning flows
   });
   assert.equal(itineraryCreate.response.status, 201);
   const itineraryId = itineraryCreate.data._id;
+  assert.equal(itineraryId, privateItinerary.data._id);
+  assert.equal(itineraries.size, 1, 'explicit creates reuse the initialized itinerary');
   const itineraryRead = await send(`/itinerary?id=${tripId}`, { userId: userIds.viewer });
   assert.equal(itineraryRead.response.status, 200);
   const viewerItineraryUpdate = await send(`/itinerary/${itineraryId}`, {
@@ -464,12 +482,12 @@ test('trip visibility routes protect private data and retain trip planning flows
   assert.equal(eventCreate.response.status, 201);
   assert.equal(eventCreate.data.address, '15 Example Street');
   const persistedEvents = await Event.find({ itineraryID: itineraryId }).sort({ startTime: 1 });
-  assert.equal(persistedEvents.length, 1);
+  assert.equal(persistedEvents.length, 3);
   const eventRead = await send(`/event?itinerary_id=${itineraryId}`, {
     userId: userIds.viewer,
   });
   assert.equal(eventRead.response.status, 200);
-  assert.equal(eventRead.data?.[0]?.title, 'Dinner', JSON.stringify(eventRead.data));
+  assert.equal(eventRead.data.find(event => event._id === eventCreate.data._id)?.title, 'Dinner');
   process.env.GOOGLE_API_KEY = 'test-google-api-key';
   const googleFetchUrls = [];
   global.fetch = async (url) => {
@@ -519,7 +537,8 @@ test('trip visibility routes protect private data and retain trip planning flows
   const emptyEventList = await send(`/event?itinerary_id=${itineraryId}`, {
     userId: userIds.owner,
   });
-  assert.deepEqual(emptyEventList.data, []);
+  assert.equal(emptyEventList.data.length, 2);
+  assert.ok(emptyEventList.data.every(event => event._id !== eventCreate.data._id));
 
   const deletionTrip = await send('/trip', {
     method: 'POST',

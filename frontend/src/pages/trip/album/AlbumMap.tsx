@@ -98,8 +98,8 @@ const AlbumMap = ({
         },
         maxZoom: 14,
         duration: 0,
-        retainPadding: false,
       });
+      map.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
     };
     map.on('resize', fit);
     fit();

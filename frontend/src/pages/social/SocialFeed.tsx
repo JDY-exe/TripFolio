@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, LoadingIndicator, Text, TextField } from '../../components/common';
+import {
+  Button,
+  LoadingIndicator,
+  Text,
+  TextField,
+} from '../../components/common';
 import ErrorDisplay from '../../components/common/ErrorDisplay/ErrorDisplay';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePublicItineraryFeed } from '../../queries/itineraries';
 import ItineraryFeedCard from './ItineraryFeedCard';
-import { SearchIcon } from 'lucide-react';
-
 
 /** Displays a paginated, vertically scrollable feed of public itineraries.
  * @returns The Social page with loading, retry, empty, and pagination states.
@@ -13,7 +16,7 @@ import { SearchIcon } from 'lucide-react';
 const SocialFeed = () => {
   const { user } = useAuth();
   const sentinelRef = useRef<HTMLDivElement>(null);
-   const [locationFilter, setLocationFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
   const {
     data,
     isPending,
@@ -36,7 +39,6 @@ const SocialFeed = () => {
     setLocationFilter('');
     void refetch(); // Reset the feed to show all public itineraries
   };
-  
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -54,7 +56,6 @@ const SocialFeed = () => {
 
   return (
     <section aria-labelledby="social-heading" className="mx-auto max-w-2xl">
-
       <header className="mb-7 flex items-center justify-between gap-4">
         <Text as="h1" id="social-heading" variant="display">
           Global feed
@@ -89,11 +90,13 @@ const SocialFeed = () => {
           <button
             type="button"
             onClick={() => setIsSearchOpen((open) => !open)}
-            aria-label={isSearchOpen ? 'Close location search' : 'Search by location'}
+            aria-label={
+              isSearchOpen ? 'Close location search' : 'Search by location'
+            }
             className="flex h-10 w-10 shrink-0 items-center justify-center
         rounded-full hover:bg-surface-container"
           >
-            {isSearchOpen ? (
+            {isSearchOpen && (
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="20"
@@ -109,7 +112,8 @@ const SocialFeed = () => {
                 <path d="M18 6 6 18" />
                 <path d="m6 6 12 12" />
               </svg>
-            ) : (
+            )}
+            {!isSearchOpen && (
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="20"

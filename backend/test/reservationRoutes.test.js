@@ -10,6 +10,12 @@ const Reservation = require("../models/Reservation");
 const reservationRoutes = require("../routes/reservationRoutes");
 const tripRoutes = require("../routes/tripRoutes");
 const tripId = "507f1f77bcf86cd799439011";
+const mongoose = require("mongoose");
+
+test.beforeEach((t) => {
+    t.mock.method(mongoose.connection, "transaction", async callback => callback({}));
+    t.mock.method(Event, "findOne", async () => null);
+});
 
 test("reservation routes scope reads and writes to trip editors", async (t) => {
     const original = {
@@ -130,10 +136,10 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
             tripId,
         };
     };
-    Event.create = async values => ({
+    Event.create = async ([values]) => ([{
         ...values,
         _id: "507f1f77bcf86cd799439015",
-    });
+    }]);
     response = await request("/trip", {
         method: "POST",
         body: JSON.stringify({
@@ -194,10 +200,10 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
             ]
         }
     };
-    Reservation.create = async values => ({
+    Reservation.create = async ([values]) => ([{
         ...values,
         _id: reservationId
-    });
+    }]);
     let linked = false;
     Trip.updateOne = async () => {
         linked = true;
@@ -491,10 +497,10 @@ test("POST /logistics/flights accepts multiple connected flight segments", async
         tripId,
     });
 
-    Event.create = async (values) => ({
+    Event.create = async ([values]) => ([{
         ...values,
         _id: "507f1f77bcf86cd799439015",
-    });
+    }]);
 
     t.after(() => {
         Trip.findById = originalFindById;
@@ -542,10 +548,10 @@ test("POST /logistics/flights accepts multiple connected flight segments", async
         };
     };
 
-    Reservation.create = async values => ({
+    Reservation.create = async ([values]) => ([{
         ...values,
         _id: "507f1f77bcf86cd799439012"
-    });
+    }]);
 
     let linked = false;
 
@@ -1119,10 +1125,10 @@ test("POST /logistics/hotels accepts a valid hotel reservation", async () => {
         tripId,
     });
 
-    Event.create = async (values) => ({
+    Event.create = async ([values]) => ([{
         ...values,
         _id: "507f1f77bcf86cd799439015",
-    });
+    }]);
 
     const server = app.listen(0);
     const base = `http://127.0.0.1:${server.address().port}`;
@@ -1145,10 +1151,10 @@ test("POST /logistics/hotels accepts a valid hotel reservation", async () => {
         users: ["507f1f77bcf86cd799439013"]
     });
 
-    Reservation.create = async values => ({
+    Reservation.create = async ([values]) => ([{
         ...values,
         _id: "507f1f77bcf86cd799439012"
-    });
+    }]);
 
     let linked = false;
 
@@ -1325,10 +1331,10 @@ test("POST /logistics/rental_cars accepts a valid rental", async () => {
         users: ["507f1f77bcf86cd799439013"]
     });
 
-    Reservation.create = async values => ({
+    Reservation.create = async ([values]) => ([{
         ...values,
         _id: "507f1f77bcf86cd799439012"
-    });
+    }]);
 
     let linked = false;
 
@@ -1340,10 +1346,10 @@ test("POST /logistics/rental_cars accepts a valid rental", async () => {
         tripId,
     });
 
-    Event.create = async (values) => ({
+    Event.create = async ([values]) => ([{
         ...values,
         _id: "507f1f77bcf86cd799439015",
-    });
+    }]);
 
     const response = await fetch(`${base}/logistics/rental_cars`, {
         method: "POST",

@@ -42,7 +42,7 @@ const eventSchema = new mongoose.Schema({
   reservation: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Reservation",
-    deafult: null
+    default: null
   }
 }, { timestamps: true });
 
