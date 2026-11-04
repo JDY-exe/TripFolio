@@ -174,7 +174,13 @@ const ItineraryView = ({
           tripId={id}
           readOnly={readOnly}
         />
-        {archived && <ArchivedItineraryNotes />}
+        {archived && user?.id && (
+          <ArchivedItineraryNotes
+            key={`${user.id}-${id}`}
+            tripId={id}
+            userId={user.id}
+          />
+        )}
         <TripOverview
           startDate={trip?.startDate ?? itinerary.startDate}
           endDate={trip?.endDate ?? itinerary.endDate}
