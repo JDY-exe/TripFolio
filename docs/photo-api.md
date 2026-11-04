@@ -20,7 +20,8 @@ are decoded on the server rather than through browser canvas.
 - Actual decoded format is checked, not the filename or client MIME type.
 - Apply EXIF orientation; resize within **2560 × 2560**, preserving aspect ratio
   and never enlarging; encode **once** to WebP at quality **82**.
-- Strip embedded metadata, including EXIF/GPS. PNG transparency is preserved.
+- Extract supported capture-time and location metadata before normalization, then
+  strip embedded metadata, including EXIF/GPS, from the stored WebP. PNG transparency is preserved.
 - Store only the resulting WebP. Originals are discarded. There is **no output
   byte cap, target-size loop, or quality retry**.
 
@@ -36,7 +37,16 @@ curl -X POST "$API/trip/$TRIP_ID/photos" \
 
 Returns `201` with `{ "photo": { ... } }`. Public metadata fields:
 `id`, `trip`, `uploadedBy`, `originalName`, `contentType`, `byteLength`,
-`width`, `height`, `createdAt`, `contentUrl`.
+`width`, `height`, `createdAt`, `contentUrl`, `takenAt`, `location`, `linkedEvent`.
+
+`takenAt` is a nullable camera-local ISO timestamp
+without an inferred timezone. `location` is nullable extracted GPS metadata.
+`linkedEvent` is a nullable event ID: uploads with location currently choose the
+nearest event within 500 m from this trip's itinerary. This proximity-only match
+is not confirmation of a visit and can be ambiguous. There is no separate link
+mutation endpoint. Legacy photos may have no capture/location/event metadata;
+metadata cannot be recovered from discarded originals. Daily recap exports use
+the linked event's itinerary date, never `createdAt`, for grouping.
 
 The original name is informational only. It is not a storage path or download
 header. `contentType`, `byteLength`, and dimensions describe the stored WebP.

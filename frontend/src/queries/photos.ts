@@ -57,7 +57,7 @@ const photosQueryKey = (userId: string | undefined, tripId: string) =>
  * @param photoId - Photo whose bytes are cached.
  * @returns The private image query key shared by queries and mutations.
  */
-const photoContentQueryKey = (
+export const photoContentQueryKey = (
   userId: string | undefined,
   tripId: string,
   photoId: string,
@@ -81,6 +81,22 @@ export const usePhotos = (tripId: string) => {
   });
 };
 
+/** Shares protected image loading between gallery hooks and on-demand exporters.
+ * @param userId - Account whose permissions apply to these private bytes.
+ * @param photo - Metadata with its authenticated content path.
+ * @returns Account-scoped query options, retaining bytes briefly without public URLs.
+ */
+export const photoContentOptions = (
+  userId: string | undefined,
+  photo: TripPhoto,
+) => ({
+  queryKey: photoContentQueryKey(userId, photo.trip, photo.id),
+  queryFn: () => getBlobFromApi(photo.contentUrl),
+  staleTime: 60_000,
+  gcTime: 60_000,
+  retry: false as const,
+});
+
 /** Fetches image bytes with bearer authentication, never through a public URL.
  * @param photo - Photo metadata containing its protected content path.
  * @param enabled - Defers downloading off-screen images.
@@ -89,12 +105,8 @@ export const usePhotos = (tripId: string) => {
 export const usePhotoContent = (photo: TripPhoto, enabled: boolean) => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: photoContentQueryKey(user?.id, photo.trip, photo.id),
-    queryFn: () => getBlobFromApi(photo.contentUrl),
+    ...photoContentOptions(user?.id, photo),
     enabled: enabled && Boolean(user?.id),
-    staleTime: 60_000,
-    gcTime: 60_000,
-    retry: false,
   });
 };
 

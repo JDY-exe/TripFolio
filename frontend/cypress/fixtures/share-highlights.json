@@ -1,0 +1,45 @@
+{
+  "now": "2030-04-06T12:00:00Z",
+  "events": [
+    {
+      "_id": "recap-1",
+      "title": "Morning market",
+      "startTime": "2030-04-01T08:00:00Z"
+    },
+    {
+      "_id": "recap-2",
+      "title": "Along the shore",
+      "startTime": "2030-04-01T10:00:00Z"
+    },
+    {
+      "_id": "recap-3",
+      "title": "Lunch by the sea",
+      "eventType": "restaurant",
+      "startTime": "2030-04-01T12:00:00Z"
+    },
+    {
+      "_id": "recap-4",
+      "title": "Old town",
+      "eventType": "restaurant",
+      "startTime": "2030-04-01T14:00:00Z"
+    },
+    {
+      "_id": "recap-5",
+      "title": "Sunset walk",
+      "eventType": "restaurant",
+      "startTime": "2030-04-01T17:00:00Z"
+    },
+    {
+      "_id": "recap-6",
+      "title": "A quiet morning",
+      "eventType": "restaurant",
+      "startTime": "2030-04-02T08:00:00Z"
+    }
+  ],
+  "extraPhotos": [
+    { "id": "market-detail", "linkedEvent": "recap-1" },
+    { "id": "market-stalls", "linkedEvent": "recap-1" },
+    { "id": "morning-detail", "linkedEvent": "recap-6" },
+    { "id": "morning-table", "linkedEvent": "recap-6" }
+  ]
+}

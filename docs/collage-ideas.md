@@ -4,8 +4,9 @@ These are automatically generated recap formats, not a template marketplace or
 an open-ended design editor. TripFolio should choose photos, layout, and short
 labels, then let the user browse, download, or share an individual image.
 
-**Selected first format:** #2, the daily recap.
-See [the implementation plan](daily-recap-collage-plan.md).
+**Implemented formats:** #1 dining, #2 daily, and #4 single-experience recaps,
+available through **Share highlights** in Album.
+See [the implementation documentation](daily-recap-collage-plan.md).
 The remaining formats are backlog ideas, not committed scope.
 
 ## Shared product direction
@@ -75,7 +76,9 @@ The remaining formats are backlog ideas, not committed scope.
 - Composition: one wide establishing photo above two supporting images.
 - Labels: event/place name and date. Use time-of-day language only when supported
   by the event times; otherwise use neutral wording such as "At [place]".
-- Generate only when the stop has enough distinct photos.
+- Generate only when the stop has at least three distinct photos. The current
+  implementation selects three automatically and retains unused photos as load
+  fallbacks, without repeating a photo to fill another cell.
 - Dependency: photo-to-event links; location grouping beyond one event is later work.
 
 ## 5. Whole-trip overview — "[Trip name], in moments"
