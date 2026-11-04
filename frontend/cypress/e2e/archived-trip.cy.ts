@@ -1,4 +1,5 @@
 import fixture from '../fixtures/archived-trip';
+import sharedRecipientFixture from '../fixtures/archived-shared-recipient';
 import noteFixture from '../fixtures/archived-notes.json';
 import { visitAsUser } from '../support/auth';
 
@@ -140,6 +141,39 @@ describe('archived trips reuse shared views', () => {
 
     visitAsUser(`/trip/archived/${fixture.trip._id}`, 'viewer');
     cy.get('[data-cy="share-archived-trip-open"]').should('not.exist');
+  });
+
+  it('lets a recipient open a shared trip and keeps it read-only', () => {
+    cy.intercept('GET', '**/trip/archived', {
+      body: [sharedRecipientFixture.archivedTrip],
+    });
+    cy.intercept(
+      { method: 'GET', pathname: `/trip/${fixture.trip._id}` },
+      { body: sharedRecipientFixture.trip },
+    );
+
+    visitAsUser('/archived-trips', 'viewer');
+    cy.get('[data-cy="shared-with-you-badge"]').should(
+      'contain.text',
+      'Shared with you',
+    );
+    cy.get(`[data-cy="trip-card-${fixture.trip._id}"]`).click();
+
+    cy.get('[data-cy="trip-section-itinerary"]').should(
+      'contain.text',
+      'Archived Itinerary',
+    );
+    cy.contains(fixture.event.title).should('be.visible');
+    cy.get('[data-cy="share-archived-trip-open"]').should('not.exist');
+    cy.get('[data-cy^="add-event-"]').should('not.exist');
+    cy.get('[data-cy^="edit-event-"]').should('not.exist');
+    cy.get('[data-cy^="delete-event-"]').should('not.exist');
+
+    cy.get('[data-cy="nav-settings"]').click();
+    cy.get('[data-cy="trip-visibility"]').should('be.disabled');
+    cy.get('[data-cy="share-trip-open"]').should('not.exist');
+    cy.get('[data-cy="delete-trip-open"]').should('not.exist');
+    cy.get('[data-cy="toggle-trip-archive"]').should('not.exist');
   });
 
   it('shows the number of people on an archived trip', () => {

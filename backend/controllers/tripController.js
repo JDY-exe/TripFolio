@@ -8,17 +8,19 @@ const mongoose = require("mongoose");
 const { validateTripProfilePicture } = require("../utils/tripMedia");
 const { canEditTrip, canReadTrip, getTripRole } = require("../utils/tripAccess");
 
-const serializeTripForUser = (trip, userId) => {
+const serializeTrip = (trip) => {
   const tripData = {
     ...(typeof trip.toObject === "function" ? trip.toObject() : trip)
   };
   delete tripData.archivedSharedWith;
 
-  return {
-    ...tripData,
-    currentUserRole: getTripRole(trip, userId)
-  };
+  return tripData;
 };
+
+const serializeTripForUser = (trip, userId) => ({
+  ...serializeTrip(trip),
+  currentUserRole: getTripRole(trip, userId)
+});
 
 const getInvitationMembershipUpdate = (invitation, userId) => {
   const role = invitation.role === "viewer" ? "viewer" : "editor";
@@ -84,7 +86,7 @@ const getTrips = async (req, res) => {
       .select("username profile_picture").lean();
     const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
     res.status(200).json(trips.map((trip) => ({
-      ...(typeof trip.toObject === 'function' ? trip.toObject() : trip),
+      ...serializeTrip(trip),
       travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
         .map((id) => travelersById.get(id))
         .filter(Boolean)
@@ -269,7 +271,7 @@ const getTripFromUser = async (req, res) => {
     const trips = await Trip.find({
       $or: [{ ownerId: userId }, { users: userId }]
     });
-    return res.status(200).json({ trips });
+    return res.status(200).json({ trips: trips.map(serializeTrip) });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });
@@ -977,13 +979,8 @@ const getArchivedTrips = async (req, res) => {
       .select("username profile_picture").lean();
     const travelersById = new Map(travelers.map((traveler) => [String(traveler._id), traveler]));
     res.status(200).json(trips.map((trip) => {
-      const tripData = {
-        ...(typeof trip.toObject === 'function' ? trip.toObject() : trip)
-      };
-      delete tripData.archivedSharedWith;
-
       return {
-        ...tripData,
+        ...serializeTrip(trip),
         travelers: [...new Set([trip.ownerId, ...trip.users].filter(Boolean).map(String))]
           .map((id) => travelersById.get(id))
           .filter(Boolean)
