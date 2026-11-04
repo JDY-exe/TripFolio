@@ -372,6 +372,90 @@ const shareTrip = async (req, res) => {
   }
 };
 
+/** Grants a trip participant read-only access to an archived trip. */
+const shareArchivedTrip = async (req, res) => {
+  try {
+    const { id: tripId } = req.params;
+    const { recipientId } = req.body || {};
+
+    if (!mongoose.isValidObjectId(tripId)) {
+      return res.status(400).json({ message: "Invalid trip ID" });
+    }
+    if (
+      typeof recipientId !== "string" ||
+      !mongoose.isValidObjectId(recipientId)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "A valid recipientId is required" });
+    }
+
+    const normalizedRecipientId = new mongoose.Types.ObjectId(
+      recipientId
+    ).toString();
+    const alreadyShared = await mongoose.connection.transaction(
+      async (session) => {
+        const trip = await Trip.findById(tripId).session(session);
+        if (!trip) {
+          throw Object.assign(new Error("Trip not found"), { status: 404 });
+        }
+        if (!canEditTrip(trip, req.user.id)) {
+          throw Object.assign(
+            new Error("Only trip owners and editors can share this trip"),
+            { status: 403 }
+          );
+        }
+        if (!trip.archived) {
+          throw Object.assign(
+            new Error("Trip must be archived before it can be shared"),
+            { status: 409 }
+          );
+        }
+
+        const recipient = await User.findById(normalizedRecipientId).session(
+          session
+        );
+        if (!recipient) {
+          throw Object.assign(new Error("Recipient not found"), {
+            status: 404
+          });
+        }
+        if (getTripRole(trip, normalizedRecipientId)) {
+          throw Object.assign(
+            new Error("Recipient already has access to this trip"),
+            { status: 409 }
+          );
+        }
+
+        const result = await Trip.updateOne(
+          { _id: tripId, archived: true },
+          { $addToSet: { archivedSharedWith: normalizedRecipientId } },
+          { session }
+        );
+        if (!result.matchedCount) {
+          throw Object.assign(new Error("Trip is no longer archived"), {
+            status: 409
+          });
+        }
+
+        return result.modifiedCount === 0;
+      }
+    );
+
+    return res.status(alreadyShared ? 200 : 201).json({
+      message: alreadyShared
+        ? "Archived trip is already shared with this user"
+        : "Archived trip shared successfully",
+      tripId,
+      recipientId: normalizedRecipientId
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to share archived trip"
+    });
+  }
+};
+
 const addUserToTrip = async (req, res) => {
   try {
     const { tripId, userId, role = "editor" } = req.body;
@@ -928,6 +1012,7 @@ module.exports = {
   getTripProfilePicture,
   getTripFromUser,
   shareTrip,
+  shareArchivedTrip,
   addUserToTrip,
   updateTripMemberRole,
   modifyGlobalVotes,
