@@ -57,6 +57,28 @@ const mockArchivedTrip = () => {
 describe('archived trips reuse shared views', () => {
   beforeEach(mockArchivedTrip);
 
+  it('shows the number of people on an archived trip', () => {
+    cy.intercept('GET', '**/trip/archived', {
+      body: [
+        {
+          ...fixture.trip,
+          ownerId: fixture.user.id,
+          users: [
+            fixture.user.id,
+            '64b000000000000000000010',
+            '64b000000000000000000011',
+          ],
+        },
+      ],
+    });
+
+    visitAsUser('/archived-trips');
+    cy.get(`[data-cy="trip-card-container-${fixture.trip._id}"]`).should(
+      'contain.text',
+      '3 Travelers',
+    );
+  });
+
   it('browses itinerary, reservations, and photos without editing controls', () => {
     visitAsUser('/archived-trips');
     cy.get(`[data-cy="trip-card-${fixture.trip._id}"]`)
