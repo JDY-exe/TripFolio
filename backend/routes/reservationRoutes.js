@@ -12,6 +12,7 @@ const {
     getTripRole,
 } = require("../utils/tripAccess");
 
+const { syncReservationEvents } = require("../utils/reservationEvents");
 const router = express.Router();
 router.use(authenticateToken);
 
@@ -26,14 +27,22 @@ const categories = {
     },
     rental_cars: {
         type: "rentals",
-        fields: ["company"],
+        fields: [
+            "company",
+            "pickupAddress",
+            "pickupPlaceId",
+            "returnAddress",
+            "returnPlaceId",
+        ],
+        requiredFields: ["company"],
         label: "Rental",
         missingMessage:
             "Name, start time, end time, and rental company are required",
     },
     hotels: {
         type: "accommodations",
-        fields: ["address"],
+        fields: ["address", "placeId"],
+        requiredFields: ["address"],
         label: "Hotel",
         missingMessage:
             "Name, start time, end time, and hotel address are required",
@@ -161,6 +170,13 @@ const findTripWithAccess = async (
 const sendServerError = (res, error) => {
     if (error.status)
         return res.status(error.status).json({ message: error.message });
+    if (error.code === 11000)
+        return res
+            .status(409)
+            .json({
+                message:
+                    "This itinerary action already exists. Refresh and edit the existing entry.",
+            });
     if (error.name === "ValidationError") {
         return res.status(400).json({ message: error.message });
     }
@@ -183,6 +199,29 @@ for (const [
                 type,
             }).sort({ startTime: 1 });
             return res.json({ reservations });
+        } catch (error) {
+            return sendServerError(res, error);
+        }
+    });
+
+    router.get(`/${path}/:id/events`, async (req, res) => {
+        try {
+            if (!mongoose.isValidObjectId(req.params.id))
+                throw requestError(404, "Reservation not found");
+            const reservation = await Reservation.findById(req.params.id);
+            if (!reservation || reservation.type !== type)
+                throw requestError(404, "Reservation not found");
+            await findTripWithAccess(req, reservation.trip);
+            const itinerary = await Itinerary.findOne({
+                tripId: reservation.trip,
+            });
+            const events = itinerary
+                ? await Event.find({
+                      reservation: reservation._id,
+                      itineraryID: itinerary._id,
+                  }).sort({ startTime: 1 })
+                : [];
+            return res.json({ events });
         } catch (error) {
             return sendServerError(res, error);
         }
@@ -263,30 +302,36 @@ for (const [
                         ],
                         { session },
                     );
-                    const [event] = await Event.create(
-                        [
-                            {
-                                itineraryID: itinerary._id,
-                                reservation: reservation._id,
-                                title: reservation.name,
-                                startTime: reservation.startTime,
-                                endTime: reservation.endTime,
-                                notes: reservation.notes,
-                                address:
-                                    type === "accommodations"
-                                        ? reservation.accommodations.address
-                                        : undefined,
-                                reservationMade: true,
-                            },
-                        ],
-                        { session },
-                    );
+                    // Flight slots come from the airport-local journey summary.
+                    const events =
+                        isFlight && req.body.itineraryActions === undefined
+                            ? await Event.create(
+                                  [{
+                                      itineraryID: itinerary._id,
+                                      reservation: reservation._id,
+                                      title: reservation.name,
+                                      eventType: "flight",
+                                      startTime: reservation.startTime,
+                                      endTime: reservation.endTime,
+                                      notes: "",
+                                  }],
+                                  { session },
+                              )
+                            : await syncReservationEvents({
+                                  reservation,
+                                  itinerary,
+                                  trip,
+                                  session,
+                                  actions: req.body.itineraryActions === undefined
+                                      ? []
+                                      : req.body.itineraryActions,
+                              });
                     await Trip.updateOne(
                         { _id: tripId },
                         { $addToSet: { reservations: reservation._id } },
                         { session },
                     );
-                    return { reservation, event };
+                    return { reservation, events };
                 },
                 { readPreference: "primary" },
             );
@@ -320,6 +365,18 @@ for (const [
                         true,
                         session,
                     );
+                    // Serialize action edits with other booking writes and itinerary initialization.
+                    await Trip.updateOne(
+                        { _id: trip._id },
+                        { $inc: { __v: 1 } },
+                        { session },
+                    );
+                    const previousStart = new Date(
+                        reservation.startTime,
+                    ).toISOString();
+                    const previousEnd = new Date(
+                        reservation.endTime,
+                    ).toISOString();
                     const isJourneyUpdate =
                         type === "flights" &&
                         req.body.flights?.segments !== undefined;
@@ -351,6 +408,23 @@ for (const [
                     ]) {
                         if (req.body[field] !== undefined)
                             reservation.set(field, req.body[field]);
+                    }
+                    for (const [addressKey, placeKey] of type ===
+                    "accommodations"
+                        ? [["address", "placeId"]]
+                        : type === "rentals"
+                          ? [
+                                ["pickupAddress", "pickupPlaceId"],
+                                ["returnAddress", "returnPlaceId"],
+                            ]
+                          : []) {
+                        if (
+                            req.body[type]?.[addressKey] !== undefined &&
+                            req.body[type][addressKey] !==
+                                reservation[type]?.[addressKey] &&
+                            req.body[type][placeKey] === undefined
+                        )
+                            reservation.set(`${type}.${placeKey}`, null);
                     }
                     for (const field of fields) {
                         if (req.body[type]?.[field] !== undefined)
@@ -417,35 +491,32 @@ for (const [
                         { session },
                     );
                     if (itinerary) {
-                        const event = await Event.findOne(
-                            {
-                                reservation: reservation._id,
-                                itineraryID: itinerary._id,
-                            },
-                            null,
-                            { session },
+                        await syncReservationEvents({
+                            reservation,
+                            itinerary,
+                            trip,
+                            session,
+                            actions: req.body.itineraryActions,
+                            datesChanged:
+                                previousStart !==
+                                    new Date(
+                                        reservation.startTime,
+                                    ).toISOString() ||
+                                previousEnd !==
+                                    new Date(reservation.endTime).toISOString(),
+                        });
+                    } else if (req.body.itineraryActions?.length > 0) {
+                        const initialized = await ensureItinerary(
+                            trip,
+                            session,
                         );
-                        if (event) {
-                            const fields = {
-                                title: reservation.name,
-                                startTime: reservation.startTime,
-                                endTime: reservation.endTime,
-                                notes: reservation.notes || "",
-                            };
-                            if (type === "accommodations") {
-                                fields.address =
-                                    reservation.accommodations.address;
-                                if (fields.address !== event.address) {
-                                    Object.assign(fields, {
-                                        lat: null,
-                                        lng: null,
-                                        placeId: null,
-                                    });
-                                }
-                            }
-                            event.set(fields);
-                            await event.save({ session });
-                        }
+                        await syncReservationEvents({
+                            reservation,
+                            itinerary: initialized,
+                            trip,
+                            session,
+                            actions: req.body.itineraryActions,
+                        });
                     }
                     return reservation;
                 },

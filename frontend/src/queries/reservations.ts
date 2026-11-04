@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteFromApi, getFromApi, patchToApi, postToApi } from '../utils/api';
 import { eventsQueryKey } from './events';
+import type { EventData, ItineraryAction } from './events';
 
 /** Reservation categories recognized by the logistics API. */
 export const ReservationType = {
@@ -36,8 +37,14 @@ export interface Reservation {
     arriveAirport: string;
     segments: FlightSegment[];
   };
-  rentals?: { company: string };
-  accommodations?: { address: string };
+  rentals?: {
+    company: string;
+    pickupAddress?: string;
+    pickupPlaceId?: string | null;
+    returnAddress?: string;
+    returnPlaceId?: string | null;
+  };
+  accommodations?: { address: string; placeId?: string | null };
 }
 
 export type ReservationInput = Pick<
@@ -49,7 +56,7 @@ export type ReservationInput = Pick<
       Reservation,
       'confirmationNumber' | 'notes' | 'flights' | 'rentals' | 'accommodations'
     >
-  > & { cost?: number | null };
+  > & { cost?: number | null; itineraryActions?: ItineraryAction[] };
 
 const paths: Record<ReservationType, string> = {
   [ReservationType.Flights]: ReservationType.Flights,
@@ -96,6 +103,22 @@ export const useReservations = (
   };
 };
 
+/** Loads linked action slots before editing a reservation, including legacy entries.
+ * @param reservation - Existing booking, absent when creating.
+ * @returns Query state and the linked event collection.
+ */
+export const useReservationEvents = (reservation?: Reservation) =>
+  useQuery({
+    queryKey: ['reservation-events', reservation?._id],
+    enabled: Boolean(reservation),
+    queryFn: async () =>
+      (
+        await getFromApi<{ events: EventData[] }>(
+          `/logistics/${paths[reservation!.type]}/${reservation!._id}/events`,
+        )
+      ).events,
+  });
+
 interface SaveReservationVariables {
   type: ReservationType;
   values: ReservationInput;
@@ -125,6 +148,7 @@ export const useSaveReservation = (tripId: string) => {
         queryClient.invalidateQueries({
           queryKey: reservationsQueryKey(tripId, reservation.type),
         }),
+        queryClient.invalidateQueries({ queryKey: ['reservation-events'] }),
         queryClient.invalidateQueries({
           queryKey: eventsQueryKey().slice(0, 1),
         }),

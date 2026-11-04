@@ -1,6 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useTripDetails } from '../../queries/trips';
 import { Button, Text } from '../../components/common';
 import BottomNav from '../../components/navigation/BottomNav';
@@ -27,7 +26,13 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
   const { data: trip, isPending, isError, refetch } = useTripDetails(id);
   const readOnly =
     archived || trip?.archived === true || trip?.currentUserRole === 'viewer';
-  const [section, setSection] = useState<TripSection>('itinerary');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSection = searchParams.get('section');
+  const section: TripSection = tripNavItems.some(
+    (item) => item.value === requestedSection,
+  )
+    ? (requestedSection as TripSection)
+    : 'itinerary';
 
   if (id && isPending) return <Text color="muted">Loading trip...</Text>;
   if (isError)
@@ -61,7 +66,7 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
         label="Trip navigation"
         items={tripNavItems}
         value={section}
-        onChange={(value) => setSection(value as TripSection)}
+        onChange={(value) => setSearchParams({ section: value })}
         leadingAction={{
           icon: ArrowLeft,
           label: archived ? 'Archived Trips' : 'My Trips',

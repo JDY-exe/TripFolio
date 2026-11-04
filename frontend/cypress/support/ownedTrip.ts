@@ -33,6 +33,20 @@ export const visitOwnedTrip = (section?: string, mocks: TripMocks = {}) => {
     request.reply({ body: { reservations: mocks.reservations?.(path) ?? [] } });
   });
   cy.intercept(
+    { method: 'GET', pathname: '/logistics/*/*/events' },
+    (request) => {
+      const reservationId = new URL(request.url).pathname.split('/')[3];
+      request.reply({
+        body: {
+          events: (mocks.events?.() ?? []).filter(
+            (event) =>
+              (event as { reservation?: string }).reservation === reservationId,
+          ),
+        },
+      });
+    },
+  );
+  cy.intercept(
     {
       method: 'GET',
       hostname: 'localhost',

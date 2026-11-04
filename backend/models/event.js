@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { EVENT_TYPE, RESERVATION_EVENT_TYPES } = require('../utils/eventTypes');
 
 const eventSchema = new mongoose.Schema({
   itineraryID: {
@@ -33,8 +34,11 @@ const eventSchema = new mongoose.Schema({
   notes: {
     type: String,
   },
-  restaurant: {
-    type: Boolean
+  eventType: {
+    type: String,
+    enum: Object.values(EVENT_TYPE),
+    required: true,
+    default: EVENT_TYPE.ACTIVITY,
   },
   reservationMade: {
     type: Boolean
@@ -46,4 +50,9 @@ const eventSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+eventSchema.index({ reservation: 1, itineraryID: 1 }, { name: 'reservation_itinerary_events' });
+eventSchema.index({ reservation: 1, eventType: 1 }, {
+  unique: true, name: 'reservation_event_action',
+  partialFilterExpression: { reservation: { $type: 'objectId' }, eventType: { $in: Object.values(RESERVATION_EVENT_TYPES).flat() } },
+});
 module.exports = mongoose.model('Event', eventSchema);

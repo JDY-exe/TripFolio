@@ -1,17 +1,12 @@
-import {
-  ChevronDown,
-  Clock3,
-  MapPin,
-  Pencil,
-  Trash2,
-  UtensilsCrossed,
-} from 'lucide-react';
+import { ChevronDown, Clock3, MapPin, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, IconButton, Text } from '../../../components/common';
 import { useEventPhoto } from '../../../queries/events';
 import type { EventData } from '../../../queries/events';
 import EventPhoto from './EventPhoto';
+import EventTypeBadge from './EventTypeBadge';
+import { Link, useParams } from 'react-router';
 
 interface EventCardProps {
   event: EventData;
@@ -50,6 +45,8 @@ const EventCard = ({
   readOnly = false,
   size = 'md',
 }: EventCardProps): ReactNode => {
+  const { id: tripId } = useParams();
+  const reservationUrl = `/trip/${tripId}?section=logistics&reservation=${event.reservation}`;
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
   const photoRef = useRef<HTMLDivElement>(null);
@@ -124,7 +121,7 @@ const EventCard = ({
       </div>
       <div className="col-start-2 row-start-1 flex min-h-0 min-w-0 flex-col overflow-hidden">
         <div
-          className={`flex shrink-0 flex-col ${size === 'lg' ? 'min-h-56' : 'h-42'}`}
+          className={`flex shrink-0 flex-col ${size === 'lg' ? 'min-h-56' : 'min-h-42'}`}
         >
           <div
             className={`px-4 pb-1 sm:px-6 ${size === 'lg' ? 'pt-20' : 'pt-10'}`}
@@ -133,16 +130,9 @@ const EventCard = ({
               <Text as="h4" variant="title" className="min-w-0 break-words">
                 {event.title}
               </Text>
-
-              {event.restaurant && (
-                <UtensilsCrossed
-                  aria-label="Restaurant"
-                  size={18}
-                  className="shrink-0 text-primary"
-                />
-              )}
             </div>
 
+            <EventTypeBadge event={event} />
             <Text
               variant="label"
               color="primary"
@@ -157,18 +147,27 @@ const EventCard = ({
                 {eventTime.format(new Date(event.endTime))}
               </time>
             </Text>
-            {event.restaurant && (
+            {event.eventType === 'restaurant' && (
               <label className="mt-3 flex items-center gap-2 text-sm text-on-surface-variant">
                 <input
                   type="checkbox"
                   checked={event.reservationMade ?? false}
-                  disabled={readOnly}
+                  disabled
                   className="h-4 w-4 cursor-pointer accent-primary"
                 />
                 <span>Reservation made</span>
               </label>
             )}
           </div>
+          {!readOnly && event.reservation && tripId && (
+            <Link
+              data-cy="view-event-reservation"
+              to={reservationUrl}
+              className="mx-4 mt-2 text-sm text-primary underline underline-offset-2 sm:mx-6"
+            >
+              View reservation
+            </Link>
+          )}
           {hasDetails && (
             <div className="mt-auto flex justify-center px-3 py-1">
               <Button
