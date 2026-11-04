@@ -47,6 +47,22 @@ test('archived-trip recipients can read but cannot edit only while the trip is a
   assert.equal(canEditTrip(trip, 'recipient-id'), false);
 });
 
+test('archived trip members keep their roles but cannot edit archived content', () => {
+  const trip = {
+    ownerId: 'owner-id',
+    users: ['owner-id', 'editor-id', 'viewer-id'],
+    viewerIds: ['viewer-id'],
+    archived: true,
+  };
+
+  assert.equal(getTripRole(trip, 'owner-id'), 'owner');
+  assert.equal(getTripRole(trip, 'editor-id'), 'editor');
+  assert.equal(getTripRole(trip, 'viewer-id'), 'viewer');
+  assert.equal(canEditTrip(trip, 'owner-id'), false);
+  assert.equal(canEditTrip(trip, 'editor-id'), false);
+  assert.equal(canEditTrip(trip, 'viewer-id'), false);
+});
+
 test('legacy trip membership keeps its first user as owner', () => {
   const legacyTrip = { users: ['legacy-owner', 'legacy-member'] };
 

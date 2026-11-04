@@ -276,4 +276,15 @@ test("POST /trip/:id/share creates an atomic batch of invitations", async (t) =>
       assert.equal(invitations.length, 0);
     }
   );
+  await t.test("archived trips require the read-only sharing flow", async () => {
+    trip.archived = true;
+    const before = inserts;
+    const { response } = await send({
+      recipientIds: [ids.recipient]
+    });
+    assert.equal(response.status, 409);
+    assert.equal(inserts, before);
+    assert.equal(invitations.length, 0);
+    delete trip.archived;
+  });
 });

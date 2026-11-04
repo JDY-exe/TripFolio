@@ -31,7 +31,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     userFind: User.find,
     find: Trip.find,
     findById: Trip.findById,
-    findByIdAndUpdate: Trip.findByIdAndUpdate,
+    findOneAndUpdate: Trip.findOneAndUpdate,
     updateOne: Trip.updateOne,
     findByIdAndDelete: Trip.findByIdAndDelete,
     save: Trip.prototype.save,
@@ -64,8 +64,9 @@ test('trip visibility routes protect private data and retain trip planning flows
       )),
   });
   Trip.findById = async (id) => trips.get(String(id)) || null;
-  Trip.findByIdAndUpdate = async (id, update) => {
-    const trip = trips.get(String(id));
+  Trip.findOneAndUpdate = async (filter, update) => {
+    const trip = trips.get(String(filter._id));
+    if (filter.archived?.$ne === true && trip?.archived) return null;
     if (!trip) return null;
     for (const [field, value] of Object.entries(update.$addToSet || {})) {
       if (!trip[field].some((memberId) => String(memberId) === String(value))) {
@@ -206,7 +207,7 @@ test('trip visibility routes protect private data and retain trip planning flows
     Object.assign(Trip, {
       find: originalTripMethods.find,
       findById: originalTripMethods.findById,
-      findByIdAndUpdate: originalTripMethods.findByIdAndUpdate,
+      findOneAndUpdate: originalTripMethods.findOneAndUpdate,
       updateOne: originalTripMethods.updateOne,
       findByIdAndDelete: originalTripMethods.findByIdAndDelete,
     });
