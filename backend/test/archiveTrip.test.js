@@ -130,4 +130,45 @@ test("a trip member can archive a trip that has ended", async (t) => {
   assert.equal(editorResponse.status, 200);
   assert.equal(trip.archived, true);
   assert.equal(saveCalls, 2);
+
+  const archivedVisibilityUpdate = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/${tripId}/visibility`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ isPublic: true }),
+    },
+  );
+  assert.equal(archivedVisibilityUpdate.status, 409);
+
+  const archivedMemberRoleUpdate = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/${tripId}/members/${viewerId}/role`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ role: "editor" }),
+    },
+  );
+  assert.equal(archivedMemberRoleUpdate.status, 403);
+
+  const unarchiveResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/archive`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${editorToken}`,
+      },
+      body: JSON.stringify({ tripId }),
+    },
+  );
+  assert.equal(unarchiveResponse.status, 200);
+  assert.equal(trip.archived, false);
+  assert.equal(saveCalls, 3);
 });

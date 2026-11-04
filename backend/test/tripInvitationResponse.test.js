@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const mongoose = require("mongoose");
 const Trip = require("../models/trip");
 const Invitation = require("../models/TripInvitation");
 const {
@@ -10,21 +11,60 @@ const {
 test("invitation responses apply the invited role and require a pending invitation owned by the recipient", async () => {
   const originalFind = Invitation.findOne;
   const originalTripFind = Trip.findById;
-  const originalUpdate = Trip.findByIdAndUpdate;
+  const originalUpdate = Trip.findOneAndUpdate;
+  const originalTripUpdate = Trip.updateOne;
+  const originalTransaction = mongoose.connection.transaction;
   const updates = [];
+  let archivedShares = [];
+  const session = {};
   let pending = true;
-  const trip = { _id: "trip-id", ownerId: "owner", users: ["owner"] };
-  const invitation = { trip: "trip-id", role: "viewer", save: async () => {} };
-  Trip.findById = async () => trip;
-  Invitation.findOne = async (filter) => {
+  const trip = {
+    _id: "trip-id",
+    ownerId: "owner",
+    users: ["owner"],
+    archived: false
+  };
+  const invitation = {
+    _id: "invitation-id",
+    trip: "trip-id",
+    role: "viewer",
+    archivedReadOnly: false,
+    save: async () => {}
+  };
+  Trip.findById = () => ({
+    then: (resolve, reject) => Promise.resolve(trip).then(resolve, reject),
+    session: async (currentSession) => {
+      assert.equal(currentSession, session);
+      return trip;
+    }
+  });
+  Invitation.findOne = (filter) => {
+    if (filter.archivedReadOnly) {
+      return {
+        session: async (currentSession) => {
+          assert.equal(currentSession, session);
+          return pending ? invitation : null;
+        }
+      };
+    }
     assert.equal(filter.recipient, "recipient");
     assert.equal(filter.status, "pending");
-    return pending ? invitation : null;
+    return Promise.resolve(pending ? invitation : null);
   };
-  Trip.findByIdAndUpdate = async (...args) => {
+  Trip.findOneAndUpdate = async (...args) => {
     updates.push(args);
     return {};
   };
+  Trip.updateOne = async (filter, update, options) => {
+    assert.equal(options.session, session);
+    if (filter.archived !== true || !trip.archived) {
+      return { matchedCount: 0 };
+    }
+    const recipientId = update.$addToSet.archivedSharedWith;
+    if (!archivedShares.includes(recipientId)) archivedShares.push(recipientId);
+    return { matchedCount: 1 };
+  };
+  mongoose.connection.transaction = async (callback) => callback(session);
   const res = {
     status(code) {
       this.code = code;
@@ -50,6 +90,24 @@ test("invitation responses apply the invited role and require a pending invitati
     });
     assert.equal(invitation.status, "accepted");
 
+    trip.archived = true;
+    invitation.status = "pending";
+    await respondToTripInvitation(request("accepted"), res);
+    assert.equal(res.code, 409);
+    assert.equal(invitation.status, "pending");
+    assert.equal(updates.length, 1);
+    await acceptTripInvitation(
+      {
+        user: { id: "recipient" },
+        params: { id: "507f1f77bcf86cd799439011" }
+      },
+      res
+    );
+    assert.equal(res.code, 409);
+    assert.equal(invitation.status, "pending");
+    assert.equal(updates.length, 1);
+    trip.archived = false;
+
     invitation.role = "editor";
     invitation.status = "pending";
     await respondToTripInvitation(request("accepted"), res);
@@ -73,9 +131,31 @@ test("invitation responses apply the invited role and require a pending invitati
     assert.equal(invitation.status, "declined");
     assert.equal(updates.length, 3);
 
+    trip.archived = true;
+    invitation.archivedReadOnly = true;
+    invitation.status = "pending";
+    invitation.save = async ({ session: currentSession } = {}) => {
+      assert.equal(currentSession, session);
+    };
+    assert.deepEqual(archivedShares, []);
+    trip.archived = false;
+    await respondToTripInvitation(request("accepted"), res);
+    assert.equal(res.code, 409);
+    assert.deepEqual(archivedShares, []);
+    trip.archived = true;
+    await respondToTripInvitation(request("accepted"), res);
+    assert.equal(res.code, 200);
+    assert.equal(invitation.status, "accepted");
+    assert.deepEqual(archivedShares, ["recipient"]);
+    assert.deepEqual(trip.users, ["owner"]);
+    assert.equal(updates.length, 3);
+
+    trip.archived = false;
     trip.users.push("recipient");
     trip.memberRoles = { recipient: "viewer" };
     invitation.role = "editor";
+    invitation.archivedReadOnly = false;
+    invitation.save = async () => {};
     invitation.status = "pending";
     await respondToTripInvitation(request("accepted"), res);
     assert.equal(res.body.message, "You are already a member of this trip.");
@@ -89,6 +169,8 @@ test("invitation responses apply the invited role and require a pending invitati
   } finally {
     Invitation.findOne = originalFind;
     Trip.findById = originalTripFind;
-    Trip.findByIdAndUpdate = originalUpdate;
+    Trip.findOneAndUpdate = originalUpdate;
+    Trip.updateOne = originalTripUpdate;
+    mongoose.connection.transaction = originalTransaction;
   }
 });

@@ -54,71 +54,82 @@ const TripInvitations = ({
       )}
       {!query.isPending && !query.isError && query.data.length > 0 && (
         <ul className="space-y-3">
-          {query.data.map(({ _id, trip }) => (
-            <li
-              key={_id}
-              data-cy={`invitation-${_id}`}
-              className="flex rounded-panel border border-outline-variant bg-surface-container-low overflow-hidden"
-            >
-              <div className="w-20 shrink-0 sm:w-28">
-                <InvitationCover trip={trip} />
-              </div>
-              <div className="min-w-0 flex-1 p-3 sm:p-4">
-                <Text as="h2" variant="label" className="break-words">
-                  {trip.name}
-                </Text>
-                <Text variant="caption" color="muted" className="mt-1">
-                  {new Date(trip.startDate).toLocaleDateString()} –{' '}
-                  {new Date(trip.endDate).toLocaleDateString()}
-                </Text>
-                <div className="mt-2 flex items-center gap-2">
-                  {trip.owner?.profile_picture && (
-                    <img
-                      data-cy="invitation-owner-picture"
-                      src={trip.owner.profile_picture}
-                      alt=""
-                      className="size-7 rounded-full object-cover"
-                    />
+          {query.data.map(({ _id, trip, inviter, archivedReadOnly }) => {
+            const sender = archivedReadOnly ? inviter : trip.owner;
+            const senderLabel = archivedReadOnly ? 'Invited by' : 'Trip owner';
+
+            return (
+              <li
+                key={_id}
+                data-cy={`invitation-${_id}`}
+                className="flex rounded-panel border border-outline-variant bg-surface-container-low overflow-hidden"
+              >
+                <div className="w-20 shrink-0 sm:w-28">
+                  <InvitationCover trip={trip} />
+                </div>
+                <div className="min-w-0 flex-1 p-3 sm:p-4">
+                  <Text as="h2" variant="label" className="break-words">
+                    {trip.name}
+                  </Text>
+                  {archivedReadOnly && (
+                    <Text variant="caption" color="muted" className="mt-1">
+                      Invitation to view this archived trip
+                    </Text>
                   )}
-                  {!trip.owner?.profile_picture && (
-                    <span
-                      aria-hidden="true"
-                      className="flex size-7 items-center justify-center rounded-full bg-primary-container text-on-primary-container"
+                  <Text variant="caption" color="muted" className="mt-1">
+                    {new Date(trip.startDate).toLocaleDateString()} –{' '}
+                    {new Date(trip.endDate).toLocaleDateString()}
+                  </Text>
+                  <div className="mt-2 flex items-center gap-2">
+                    {sender?.profile_picture && (
+                      <img
+                        data-cy="invitation-owner-picture"
+                        src={sender.profile_picture}
+                        alt=""
+                        className="size-7 rounded-full object-cover"
+                      />
+                    )}
+                    {!sender?.profile_picture && (
+                      <span
+                        aria-hidden="true"
+                        className="flex size-7 items-center justify-center rounded-full bg-primary-container text-on-primary-container"
+                      >
+                        {sender?.username?.charAt(0).toUpperCase() ?? '?'}
+                      </span>
+                    )}
+                    <div>
+                      <Text variant="caption">
+                        {sender?.username ??
+                          (archivedReadOnly ? 'Trip member' : 'Trip owner')}
+                      </Text>
+                      <Text variant="caption" color="muted">
+                        {senderLabel}
+                      </Text>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex justify-end gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      data-cy="decline-invitation"
+                      disabled={response.isPending}
+                      onClick={() => void respond(_id, 'declined')}
                     >
-                      {trip.owner?.username?.charAt(0).toUpperCase() ?? '?'}
-                    </span>
-                  )}
-                  <div>
-                    <Text variant="caption">
-                      {trip.owner?.username ?? 'Trip owner'}
-                    </Text>
-                    <Text variant="caption" color="muted">
-                      Trip owner
-                    </Text>
+                      Decline
+                    </Button>
+                    <Button
+                      size="sm"
+                      data-cy="accept-invitation"
+                      disabled={response.isPending}
+                      onClick={() => void respond(_id, 'accepted')}
+                    >
+                      Accept
+                    </Button>
                   </div>
                 </div>
-                <div className="mt-2 flex justify-end gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    data-cy="decline-invitation"
-                    disabled={response.isPending}
-                    onClick={() => void respond(_id, 'declined')}
-                  >
-                    Decline
-                  </Button>
-                  <Button
-                    size="sm"
-                    data-cy="accept-invitation"
-                    disabled={response.isPending}
-                    onClick={() => void respond(_id, 'accepted')}
-                  >
-                    Accept
-                  </Button>
-                </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </Modal>
