@@ -242,3 +242,36 @@ export const useSendTripInvitations = () =>
       }),
     retry: 0,
   });
+
+export interface ShareArchivedTripInput {
+  tripId: string;
+  recipientId: string;
+}
+
+export interface ShareArchivedTripResponse {
+  message: string;
+  tripId: string;
+  recipientId: string;
+}
+
+/**
+ * Grants an existing user access to an archived trip and refreshes the archive list.
+ * @param userId - Authenticated sharer's ID for the archived-list cache.
+ * @returns A mutation accepting the trip and recipient IDs.
+ */
+export const useShareArchivedTrip = (userId?: string) => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, recipientId }: ShareArchivedTripInput) =>
+      postToApi<ShareArchivedTripResponse, { recipientId: string }>(
+        `/trip/${tripId}/share-archive`,
+        { recipientId },
+      ),
+    onSuccess: async () => {
+      await client.invalidateQueries({
+        queryKey: archivedTripsQueryKey(userId),
+      });
+    },
+    retry: 0,
+  });
+};

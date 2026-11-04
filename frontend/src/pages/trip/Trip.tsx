@@ -49,6 +49,11 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
           <ItineraryView
             readOnly={readOnly}
             archived={archived || trip?.archived === true}
+            canShareArchived={
+              (archived || trip?.archived === true) &&
+              (trip?.currentUserRole === 'owner' ||
+                trip?.currentUserRole === 'editor')
+            }
           />
         )}
         {section === 'ledger' && <LedgerView />}
