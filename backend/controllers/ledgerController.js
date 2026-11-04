@@ -78,6 +78,7 @@ exports.getBalances = async (req, res) => {
       const splitAmount = Math.round((exp.amount / exp.splitAmong.length) * 100) / 100;
 
       exp.splitAmong.forEach(userId => {
+        if (!userId) return;
         const borrowerId = userId.toString();
         
         if (borrowerId !== payerId) {

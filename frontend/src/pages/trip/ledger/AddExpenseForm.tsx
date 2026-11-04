@@ -15,6 +15,9 @@ export default function AddExpenseForm({ tripId, travelers }: { tripId: string, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paidBy, setPaidBy] = useState<string>(user?.id ?? '');
 
+  // Safely extracts the ID whether it is a flat user object or a nested trip traveler object
+  const getTravelerId = (t: any) => t?.user?._id || t?.user?.id || t?._id || t?.id;
+
   // Toggle a user's ID in the splitAmong array
   const handleToggleSplit = (travelerId: string) => {
     setSplitAmong(prev => 
@@ -27,9 +30,10 @@ export default function AddExpenseForm({ tripId, travelers }: { tripId: string, 
   // Select all travelers for an even split
   const handleSelectAll = () => {
     if (splitAmong.length === travelers.length) {
-      setSplitAmong([]); // Deselect all
+      setSplitAmong([]);
     } else {
-      setSplitAmong(travelers.map(t => t._id)); // Select all
+      // Map to valid IDs only, filtering out any undefines
+      setSplitAmong(travelers.map(getTravelerId).filter(Boolean));
     }
   };
 
@@ -121,11 +125,14 @@ export default function AddExpenseForm({ tripId, travelers }: { tripId: string, 
               onChange={(e) => setPaidBy(e.target.value)}
               disabled={isSubmitting}
             >
-              {travelers.map((traveler) => (
-                <option key={traveler.id || traveler._id} value={traveler.id || traveler._id}>
-                  {traveler.username || traveler.name || traveler.email || 'Unknown User'}
-                </option>
-              ))}
+              {travelers.map((traveler) => {
+                const tId = getTravelerId(traveler);
+                return (
+                  <option key={tId} value={tId}>
+                    {traveler.username || traveler.name || traveler.email || traveler.user?.username || 'Unknown User'}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>
@@ -146,20 +153,23 @@ export default function AddExpenseForm({ tripId, travelers }: { tripId: string, 
           {/* This container stretches to fill the height alongside the left column */}
           <div className="flex h-full flex-col gap-2 overflow-y-auto rounded border border-gray-600 bg-surface-container-low p-3">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {travelers.map(traveler => (
-                <label key={traveler.id || traveler._id} className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={splitAmong.includes(traveler.id || traveler._id)}
-                    onChange={() => handleToggleSplit(traveler.id || traveler._id)}
-                    disabled={isSubmitting}
-                    className="h-4 w-4 rounded border-gray-500 accent-primary"
-                  />
-                  <span className="text-sm text-on-surface truncate">
-                    {traveler.username || traveler.name || traveler.email || 'Unknown User'}
-                  </span>
-                </label>
-              ))}
+              {travelers.map(traveler => {
+                const tId = getTravelerId(traveler);
+                return (
+                  <label key={tId} className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={splitAmong.includes(tId)}
+                      onChange={() => handleToggleSplit(tId)}
+                      disabled={isSubmitting}
+                      className="h-4 w-4 rounded border-gray-500 accent-primary"
+                    />
+                    <span className="text-sm text-on-surface truncate">
+                      {traveler.username || traveler.name || traveler.email || traveler.user?.username || 'Unknown User'}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
             {splitAmong.length === 0 && (
               <div className="mt-auto pt-2">

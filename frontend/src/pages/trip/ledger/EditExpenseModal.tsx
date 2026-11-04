@@ -24,12 +24,15 @@ export default function EditExpenseModal({ expense, tripId, travelers, open, onC
     }
   }, [expense]);
 
+  // Safely extracts the ID whether it is a flat user object or a nested trip traveler object
+  const getTravelerId = (t: any) => t?.user?._id || t?.user?.id || t?._id || t?.id;
+
   const handleToggleSplit = (travelerId: string) => {
     setSplitAmong(prev => prev.includes(travelerId) ? prev.filter(id => id !== travelerId) : [...prev, travelerId]);
   };
 
   const handleSelectAll = () => {
-    setSplitAmong(splitAmong.length === travelers.length ? [] : travelers.map((t: any) => t.id || t._id));
+    setSplitAmong(splitAmong.length === travelers.length ? [] : travelers.map(getTravelerId).filter(Boolean));
   };
 
   const handleSubmit = async () => {
@@ -106,11 +109,14 @@ export default function EditExpenseModal({ expense, tripId, travelers, open, onC
               onChange={(e) => setPaidBy(e.target.value)}
               disabled={isSubmitting}
             >
-              {travelers.map((traveler: any) => (
-                <option key={traveler.id || traveler._id} value={traveler.id || traveler._id}>
-                  {traveler.username || traveler.name || traveler.email || 'Unknown User'}
-                </option>
-              ))}
+              {travelers.map((traveler: any) => {
+                const tId = getTravelerId(traveler);
+                return (
+                  <option key={tId} value={tId}>
+                    {traveler.username || traveler.name || traveler.email || traveler.user?.username || 'Unknown User'}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>
@@ -125,20 +131,23 @@ export default function EditExpenseModal({ expense, tripId, travelers, open, onC
           </div>
           <div className="flex h-full flex-col gap-2 overflow-y-auto rounded border border-gray-600 bg-surface-container-low p-3">
             <div className="grid grid-cols-1 gap-3">
-              {travelers.map((traveler: any) => (
-                <label key={traveler.id || traveler._id} className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={splitAmong.includes(traveler.id || traveler._id)}
-                    onChange={() => handleToggleSplit(traveler.id || traveler._id)}
-                    disabled={isSubmitting}
-                    className="h-4 w-4 rounded border-gray-500 accent-primary"
-                  />
-                  <span className="text-sm text-on-surface truncate">
-                    {traveler.username || traveler.name || traveler.email || 'Unknown User'}
-                  </span>
-                </label>
-              ))}
+              {travelers.map((traveler: any) => {
+                const tId = getTravelerId(traveler);
+                return (
+                  <label key={tId} className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={splitAmong.includes(tId)}
+                      onChange={() => handleToggleSplit(tId)}
+                      disabled={isSubmitting}
+                      className="h-4 w-4 rounded border-gray-500 accent-primary"
+                    />
+                    <span className="text-sm text-on-surface truncate">
+                      {traveler.username || traveler.name || traveler.email || traveler.user?.username || 'Unknown User'}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
             {splitAmong.length === 0 && (
               <div className="mt-auto pt-2">
