@@ -13,6 +13,7 @@ export interface TripCardProps {
   image?: string;
   imagePath?: string;
   archived?: boolean;
+  sharedWithYou?: boolean;
 }
 
 /**
@@ -30,6 +31,7 @@ const TripCard = ({
   image: publicImage,
   imagePath,
   archived = false,
+  sharedWithYou = false,
 }: TripCardProps) => {
   const image = useProtectedImage(imagePath, publicImage);
 
@@ -56,9 +58,19 @@ const TripCard = ({
           />
         )}
         {!image && <TripPlaceholderArt />}
-        <span className="absolute left-4 top-4 rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-on-surface">
-          {status}
-        </span>
+        <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+          <span className="rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-on-surface">
+            {status}
+          </span>
+          {sharedWithYou && (
+            <span
+              data-cy="shared-with-you-badge"
+              className="rounded-full bg-surface-container-high px-3 py-1.5 text-xs font-medium text-on-surface"
+            >
+              Shared with you
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="p-5 sm:p-6">

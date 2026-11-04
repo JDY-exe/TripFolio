@@ -9,6 +9,7 @@ import { useTrips } from '../../../queries/trips';
 import { useItinerary } from '../../../queries/itineraries';
 import ItineraryDaySection from './ItineraryDaySection';
 import ItineraryDescription from './ItineraryDescription';
+import ArchivedItineraryNotes from './ArchivedItineraryNotes';
 import TripOverview from './TripOverview';
 import ItineraryMap from './map/ItineraryMap';
 import { useActiveItineraryDay } from './map/useActiveItineraryDay';
@@ -16,6 +17,7 @@ import AddNewEventCard from './AddNewEventCard';
 import type { EventData } from '../../../queries/events';
 import ErrorDisplay from '../../../components/common/ErrorDisplay/ErrorDisplay';
 import { getItineraryDays } from './itineraryDays';
+import ArchivedTripShare from './ArchivedTripShare';
 
 /** Loads and displays the trip itinerary and event cards.
  * @param props - Read-only permissions and whether to load archived trip metadata.
@@ -24,9 +26,11 @@ import { getItineraryDays } from './itineraryDays';
 const ItineraryView = ({
   readOnly = false,
   archived = false,
+  canShareArchived = false,
 }: {
   readOnly?: boolean;
   archived?: boolean;
+  canShareArchived?: boolean;
 }) => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -126,11 +130,22 @@ const ItineraryView = ({
           >
             {archived ? 'Archived Itinerary' : 'Itinerary'}
           </Text>
-          {tripName && (
-            <Text as="span" variant="display" className="min-w-0 break-words">
-              {tripName}
-            </Text>
-          )}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {tripName && (
+              <Text as="span" variant="display" className="min-w-0 break-words">
+                {tripName}
+              </Text>
+            )}
+            {canShareArchived && (
+              <ArchivedTripShare
+                tripId={id}
+                memberIds={[
+                  ...(trip?.users ?? []),
+                  ...(trip?.ownerId ? [trip.ownerId] : []),
+                ]}
+              />
+            )}
+          </div>
         </header>
         {eventsError && events.length === 0 && (
           <div className="flex flex-col items-center gap-4 rounded-panel bg-surface-container-low p-8 text-center">
@@ -174,6 +189,13 @@ const ItineraryView = ({
           tripId={id}
           readOnly={readOnly}
         />
+        {archived && user?.id && (
+          <ArchivedItineraryNotes
+            key={`${user.id}-${id}`}
+            tripId={id}
+            userId={user.id}
+          />
+        )}
         <TripOverview
           startDate={trip?.startDate ?? itinerary.startDate}
           endDate={trip?.endDate ?? itinerary.endDate}

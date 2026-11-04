@@ -2,6 +2,7 @@ import { Text } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { useArchivedTrips } from '../../queries/trips';
 import TripCard from '../my-trips/TripCard';
+import { getTripTravelerCount } from '../my-trips/tripTravelerCount';
 
 /** Loads archived trips and displays shared trip cards linked to read-only views.
  * @returns The archived list with loading, error, and empty states.
@@ -29,22 +30,27 @@ const MyArchivedTrips = () => {
               <Text color="muted">No archived trips yet.</Text>
             )}
             {trips.length > 0 &&
-              trips.map((trip) => (
-                <TripCard
-                  archived
-                  key={trip._id}
-                  id={trip._id}
-                  title={trip.name}
-                  dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
-                  travelers="1 Traveler"
-                  status="Archived"
-                  imagePath={
-                    trip.profilePictureId
-                      ? `/trip/${trip._id}/profile_picture?v=${trip.profilePictureId}`
-                      : undefined
-                  }
-                />
-              ))}
+              trips.map((trip) => {
+                const travelerCount = getTripTravelerCount(trip);
+
+                return (
+                  <TripCard
+                    archived
+                    key={trip._id}
+                    id={trip._id}
+                    title={trip.name}
+                    sharedWithYou={trip.sharedWithYou}
+                    dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
+                    travelers={`${travelerCount} ${travelerCount === 1 ? 'Traveler' : 'Travelers'}`}
+                    status="Archived"
+                    imagePath={
+                      trip.profilePictureId
+                        ? `/trip/${trip._id}/profile_picture?v=${trip.profilePictureId}`
+                        : undefined
+                    }
+                  />
+                );
+              })}
           </div>
         )}
       </section>
