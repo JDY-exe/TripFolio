@@ -7,5 +7,6 @@ router.post('/expenses', ledgerController.createExpense);
 router.delete('/expenses/:expenseId', ledgerController.deleteExpense);
 router.get('/:tripId/balances', ledgerController.getBalances);
 router.get('/expenses/:tripId', ledgerController.getExpenses);
+router.patch('/expenses/:expenseId', ledgerController.updateExpense);
 
 module.exports = router;

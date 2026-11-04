@@ -8,7 +8,7 @@ exports.updateBudget = async (req, res) => {
     const { budget } = req.body;
     if (budget < 0) return res.status(400).json({ error: "Budget cannot be negative" });
 
-    const trip = await Trip.findByIdAndUpdate(req.params.tripId, { budget }, { new: true });
+    const trip = await Trip.findByIdAndUpdate(req.params.tripId, { budget }, { returnDocument: 'after' });
     res.status(200).json(trip);
   } catch (error) {
     res.status(500).json({ error: "Failed to update budget" });
@@ -42,16 +42,15 @@ exports.createExpense = async (req, res) => {
 
 exports.deleteExpense = async (req, res) => {
   try {
-    const expense = await Expense.findById(req.params.expenseId);
+    // Find and delete in a single operation
+    const expense = await Expense.findByIdAndDelete(req.params.expenseId);
     if (!expense) return res.status(404).json({ error: "Expense not found" });
 
-    await Expense.findByIdAndDelete(req.params.expenseId);
-
-    // Recalculate and reduce itinerary event cost safely
+    // Reduce the event cost in a single operation using $inc (decrement)
     if (expense.eventId) {
-      const remainingExpenses = await Expense.find({ eventId: expense.eventId });
-      const newTotal = remainingExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-      await Event.findByIdAndUpdate(expense.eventId, { cost: newTotal });
+      await Event.findByIdAndUpdate(expense.eventId, { 
+        $inc: { cost: -Math.abs(expense.amount) } 
+      });
     }
 
     res.status(200).json({ message: "Expense deleted successfully" });
@@ -63,18 +62,24 @@ exports.deleteExpense = async (req, res) => {
 // Calculate Balances (Core Logic)
 exports.getBalances = async (req, res) => {
   try {
-    const expenses = await Expense.find({ tripId: req.params.tripId }).populate('paidBy splitAmong', 'name');
+    const expenses = await Expense.find({ tripId: req.params.tripId });
     
     // Graph to track who owes whom: balances[owerId][oweeId] = amount
     const debts = {};
 
     expenses.forEach(exp => {
-      const payerId = exp.paidBy._id.toString();
+      // Safeguard against bad/legacy data to prevent division by zero crashes
+      if (!exp.paidBy || !exp.splitAmong || exp.splitAmong.length === 0) return;
+
+      // Safely extract the ID whether it's an ObjectId or a string
+      const payerId = exp.paidBy.toString();
+      
       // Round to nearest cent to prevent floating point errors
       const splitAmount = Math.round((exp.amount / exp.splitAmong.length) * 100) / 100;
 
-      exp.splitAmong.forEach(user => {
-        const borrowerId = user._id.toString();
+      exp.splitAmong.forEach(userId => {
+        const borrowerId = userId.toString();
+        
         if (borrowerId !== payerId) {
           if (!debts[borrowerId]) debts[borrowerId] = {};
           debts[borrowerId][payerId] = (debts[borrowerId][payerId] || 0) + splitAmount;
@@ -101,6 +106,7 @@ exports.getBalances = async (req, res) => {
 
     res.status(200).json(finalBalances);
   } catch (error) {
+    console.error("Balances Calculation Error:", error);
     res.status(500).json({ error: "Failed to calculate balances" });
   }
 };
@@ -111,5 +117,35 @@ exports.getExpenses = async (req, res) => {
     res.status(200).json(expenses);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch expenses" });
+  }
+};
+
+exports.updateExpense = async (req, res) => {
+  try {
+    const { description, amount, paidBy, splitAmong } = req.body;
+    const expense = await Expense.findById(req.params.expenseId);
+    if (!expense) return res.status(404).json({ error: "Expense not found" });
+
+    // Calculate the difference to keep the Itinerary Event synced
+    const amountDifference = (amount !== undefined ? amount : expense.amount) - expense.amount;
+
+    // Update expense fields
+    expense.description = description || expense.description;
+    expense.amount = amount !== undefined ? amount : expense.amount;
+    expense.paidBy = paidBy || expense.paidBy;
+    expense.splitAmong = (splitAmong && splitAmong.length > 0) ? splitAmong : [expense.paidBy];
+    
+    await expense.save();
+
+    // Sync cost changes back to the Itinerary Event
+    if (expense.eventId && amountDifference !== 0) {
+      await Event.findByIdAndUpdate(expense.eventId, { 
+        $inc: { cost: amountDifference } 
+      });
+    }
+
+    res.status(200).json(expense);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update expense" });
   }
 };

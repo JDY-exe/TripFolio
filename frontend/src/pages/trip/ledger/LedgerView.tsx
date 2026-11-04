@@ -11,8 +11,8 @@ import BudgetOverview from './BudgetOverview';
 import SummaryTable from './SummaryTable';
 import ExpenseList from './ExpenseList';
 import AddExpenseForm from './AddExpenseForm';
+import EditExpenseModal from './EditExpenseModal';
 
-// Assuming you have or will create these query keys in queries/ledger.ts
 export const expensesQueryKey = (tripId: string) => ['expenses', tripId];
 export const balancesQueryKey = (tripId: string) => ['balances', tripId];
 
@@ -54,6 +54,7 @@ const LedgerView = ({
   const [expenseToDelete, setExpenseToDelete] = useState<any | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeletingExpense, setIsDeletingExpense] = useState(false);
+  const [expenseToEdit, setExpenseToEdit] = useState<any | null>(null);
 
   const handleDeleteExpense = async () => {
     if (readOnly || !expenseToDelete || isDeletingExpense) return;
@@ -63,6 +64,7 @@ const LedgerView = ({
       // Invalidate both so the list shrinks and the balances recalculate instantly
       await queryClient.invalidateQueries({ queryKey: expensesQueryKey(id ?? '') });
       await queryClient.invalidateQueries({ queryKey: balancesQueryKey(id ?? '') });
+      await queryClient.invalidateQueries({ queryKey: ['events'] }); 
       setDeleteModalOpen(false);
     } catch (error) {
       displayAlert({
@@ -111,6 +113,7 @@ const LedgerView = ({
           travelers={travelers} 
           loading={expensesLoading} 
           readOnly={readOnly}
+          onEdit={(expense: any) => setExpenseToEdit(expense)}
           onDelete={(expense: any) => {
             setExpenseToDelete(expense);
             setDeleteModalOpen(true);
@@ -161,6 +164,15 @@ const LedgerView = ({
             This expense will be permanently removed, and all member balances will be recalculated.
           </Text>
         </Modal>
+      )}
+      {!readOnly && expenseToEdit && (
+        <EditExpenseModal
+          open={!!expenseToEdit}
+          expense={expenseToEdit}
+          tripId={id}
+          travelers={travelers}
+          onClose={() => setExpenseToEdit(null)}
+        />
       )}
     </>
   );

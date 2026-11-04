@@ -3,6 +3,7 @@ const Itinerary = require('../models/itinerary');
 const Trip = require('../models/trip');
 const { canEditTrip, canReadTrip, getTripRole } = require('../utils/tripAccess');
 const { tryPlaceCoordinates } = require('../utils/eventCoordinates');
+const Expense = require('../models/Expense');
 
 const findEventTrip = async (event) => {
   const itinerary = await Itinerary.findById(event.itineraryID);
@@ -18,7 +19,7 @@ const denyTripAccess = (res, trip, userId) => {
 
 const createEvent = async (req, res) => {
   try {
-    const { itineraryID, title, placeId, address, startTime, endTime, notes, restaurant, reservationMade} = req.body;
+    const { itineraryID, title, placeId, address, startTime, endTime, notes, restaurant, reservationMade, cost } = req.body;
     const itinerary = await Itinerary.findById(itineraryID);
     if (!itinerary) {
       return res.status(404).json({ message: 'Itinerary not found' });
@@ -42,10 +43,24 @@ const createEvent = async (req, res) => {
       endTime,
       notes: notes || '',
       restaurant: false || restaurant,
-      reservationMade: false || reservationMade
+      reservationMade: false || reservationMade,
+      cost: cost || 0
     });
 
-    await newEvent.save()
+    await newEvent.save();
+
+    // Sync with Ledger if cost exists
+    if (newEvent.cost > 0) {
+      await Expense.create({
+        tripId: trip._id,
+        eventId: newEvent._id,
+        description: newEvent.title,
+        amount: newEvent.cost,
+        paidBy: req.user.id,
+        splitAmong: [req.user.id] 
+      });
+    }
+
     res.status(201).json(newEvent);
   } catch (error) {
     res.status(500).json({ message: 'Error creating event', error: error.message });
@@ -171,6 +186,23 @@ const updateEvent = async (req, res) => {
     if (!updatedEvent) {
       return res.status(400).json({ message: 'Event not found' });
     }
+
+    // Update associated Ledger Expense
+    if (updatedEvent.cost > 0) {
+      await Expense.findOneAndUpdate(
+        { eventId: updatedEvent._id },
+        {
+          tripId: trip._id,
+          description: updatedEvent.title,
+          amount: updatedEvent.cost
+        },
+        { upsert: true, returnDocument: 'after' } // Creates if it doesn't exist yet
+      );
+    } else {
+      // If cost is changed to 0, remove it from the ledger
+      await Expense.findOneAndDelete({ eventId: updatedEvent._id });
+    }
+
     res.status(200).json(updatedEvent);
   } catch (error) {
     res.status(500).json({ message: 'Error updating event', error: error.message });
@@ -193,6 +225,8 @@ const deleteEvent = async (req, res) => {
     }
 
     const deletedEvent = await Event.findByIdAndDelete(id);
+    // Delete associated ledger expense
+    await Expense.findOneAndDelete({ eventId: id });
 
     if (!deletedEvent) {
       return res.status(400).json({ message: 'Event not found' });

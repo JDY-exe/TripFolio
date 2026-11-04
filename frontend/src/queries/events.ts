@@ -13,6 +13,7 @@ export interface EventData {
   notes?: string;
   restaurant?: boolean;
   reservationMade?: boolean;
+  cost: number;
 }
 
 export interface EventPhotoData {

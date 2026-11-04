@@ -25,6 +25,7 @@ interface EventDraft {
   notes: string;
   restaurant: boolean;
   reservationMade: boolean;
+  cost: number;
 }
 
 /**
@@ -48,6 +49,7 @@ const createEventDraft = (event?: EventData): EventDraft => ({
   notes: event?.notes ?? '',
   restaurant: event?.restaurant ?? false,
   reservationMade: event?.reservationMade ?? false,
+  cost: event?.cost ?? 0,
 });
 
 /** Opens a modal for entering an event and reports its saved record to the itinerary.
@@ -129,6 +131,7 @@ const AddNewEventCard = ({
         notes: draft.notes,
         restaurant: draft.restaurant,
         reservationMade: draft.reservationMade,
+        cost: draft.cost,
       };
       const savedEvent = event
         ? await patchToApi<EventData>(`/event/${event._id}`, payload)
@@ -245,6 +248,18 @@ const AddNewEventCard = ({
               required
             />
           </div>
+          <TextField
+            data-cy="event-cost"
+            id="event-cost"
+            label="Cost ($)"
+            type="number"
+            min="0"
+            step="0.01"
+            value={draft.cost.toString()}
+            onChange={(event) => 
+              updateDraft({ cost: parseFloat(event.target.value) || 0 })
+            }
+          />
           <label
             className="grid gap-2 text-sm font-medium"
             htmlFor="event-notes"
