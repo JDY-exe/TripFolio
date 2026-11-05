@@ -41,7 +41,7 @@ async function migrateFlights(apply) {
         // Use the raw collection so the removed nextFlightId path is still visible.
         const flights = await Reservation.collection.find(
             { type: "flights" },
-            { projection: { _id: 1, flights: 1, startTime: 1, endTime: 1 } },
+            { projection: { _id: 1, flights: 1, startTime: 1, endTime: 1, version: 1 } },
         ).toArray();
         const operations = [];
         const invalidIds = [];
@@ -58,8 +58,8 @@ async function migrateFlights(apply) {
                 alreadyCurrent += 1;
                 if (hasOldLink) operations.push({
                     updateOne: {
-                        filter: { _id: flight._id, "flights.nextFlightId": { $exists: true } },
-                        update: { $unset: { "flights.nextFlightId": "" } },
+                        filter: { _id: flight._id, version: flight.version ?? { $exists: false }, "flights.nextFlightId": { $exists: true } },
+                        update: { $unset: { "flights.nextFlightId": "" }, $inc: { version: 1 } },
                     },
                 });
                 continue;
@@ -75,6 +75,7 @@ async function migrateFlights(apply) {
                 updateOne: {
                     filter: {
                         _id: flight._id,
+                        version: flight.version ?? { $exists: false },
                         $or: [
                             { "flights.segments": { $exists: false } },
                             { "flights.segments": { $size: 0 } },
@@ -82,6 +83,7 @@ async function migrateFlights(apply) {
                     },
                     update: {
                         $set: { "flights.segments": [segment] },
+                        $inc: { version: 1 },
                         $unset: { "flights.nextFlightId": "" },
                     },
                 },

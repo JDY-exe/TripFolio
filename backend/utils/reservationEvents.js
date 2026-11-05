@@ -86,7 +86,7 @@ const validateActions = (reservation, actions, trip) => {
   }
 };
 /** Applies an explicit action selection, or refreshes metadata without overwriting personal slots/notes.
- * The caller holds the parent trip write lock and owns the MongoDB transaction.
+ * The caller owns the reservation-scoped MongoDB transaction.
  */
 const syncReservationEvents = async ({
   reservation,
@@ -109,6 +109,8 @@ const syncReservationEvents = async ({
     existing.length > 0
   )
     throw invalid("Review itinerary action times when changing booking dates");
+  if (actions === undefined && datesChanged && reservation.type === 'flights')
+    validateActions(reservation, existing, trip);
   const selected = actions === undefined ? existing : actions;
   const kept = new Set();
   const result = [];
@@ -116,11 +118,6 @@ const syncReservationEvents = async ({
     let event = existing.find((item) => item.eventType === action.eventType);
     const location = actionLocation(reservation, action.eventType);
     const metadata = { title: reservation.name, ...location };
-    if (reservation.type === "flights" && actions === undefined)
-      Object.assign(metadata, {
-        startTime: reservation.startTime,
-        endTime: reservation.endTime,
-      });
     if (
       event &&
       Object.hasOwn(location, "address") &&
@@ -135,6 +132,7 @@ const syncReservationEvents = async ({
       });
     if (event) {
       event.set(metadata);
+      event.increment();
       await event.save({ session });
     } else {
       [event] = await Event.create(

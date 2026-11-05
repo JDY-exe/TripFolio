@@ -30,6 +30,7 @@ archivedItineraryNoteSchema.index(
   { unique: true },
 );
 
+archivedItineraryNoteSchema.plugin(require('../utils/recordVersion'));
 module.exports = mongoose.model(
   "ArchivedItineraryNote",
   archivedItineraryNoteSchema,

@@ -131,9 +131,15 @@ describe('reservation-linked itinerary cache', () => {
         pathname: `/logistics/hotels/${hotelReservation._id}`,
       },
       (request) => {
-        expect(request.body.itineraryActions).to.have.length(2);
+        expect(request.body.changes).not.to.have.property('itineraryActions');
         request.reply({
-          body: { reservation: { ...hotelReservation, ...request.body } },
+          body: {
+            reservation: {
+              ...hotelReservation,
+              ...request.body.changes,
+              version: 1,
+            },
+          },
         });
       },
     ).as('saveLinkedReservation');
@@ -188,11 +194,7 @@ describe('reservation-linked itinerary cache', () => {
         pathname: `/logistics/hotels/${hotelReservation._id}`,
       },
       (request) => {
-        expect(
-          request.body.itineraryActions.map(
-            (action: { eventType: string }) => action.eventType,
-          ),
-        ).to.deep.equal(['hotel_checkout']);
+        expect(request.body.changes).not.to.have.property('itineraryActions');
         request.reply({ body: { reservation: hotelReservation } });
       },
     ).as('saveWithoutRemovedAction');
@@ -247,7 +249,11 @@ describe('reservation-linked itinerary cache', () => {
         pathname: `/logistics/hotels/${hotelReservation._id}`,
       },
       (request) => {
-        const reservation = { ...hotelReservation, ...request.body };
+        const reservation = {
+          ...hotelReservation,
+          ...request.body.changes,
+          version: 1,
+        };
         reservations = [reservation];
         events = [
           { ...reservationEvent, title: reservation.name },

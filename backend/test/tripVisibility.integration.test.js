@@ -54,6 +54,29 @@ test('trip visibility routes protect private data and retain trip planning flows
   const events = new Map();
   const reservations = new Map();
   const request = global.fetch.bind(global);
+  for (const [Model, records] of [[Trip, trips], [Itinerary, itineraries], [Event, events]]) {
+    t.mock.method(Model, 'findOneAndUpdate', async (filter, update) => {
+      const current = records.get(String(filter._id));
+      if (!current || current.version !== filter.version) return null;
+      current.set(update.$set); current.version++;
+      return current;
+    });
+  }
+  t.mock.method(Reservation, 'updateOne', async (filter) => {
+    const current = reservations.get(String(filter._id));
+    if (current) current.version++;
+    return { matchedCount: current ? 1 : 0 };
+  });
+  t.mock.method(Event, 'deleteOne', async (filter) => {
+    const current = events.get(String(filter._id));
+    if (!current || current.version !== filter.version) return { deletedCount: 0 };
+    events.delete(String(filter._id)); return { deletedCount: 1 };
+  });
+  t.mock.method(Trip, 'findOneAndDelete', async (filter) => {
+    const current = trips.get(String(filter._id));
+    if (!current || current.version !== filter.version) return null;
+    trips.delete(String(filter._id)); return current;
+  });
 
   Trip.find = (filter = {}) => ({
     sort: async () => [...trips.values()]
@@ -67,7 +90,9 @@ test('trip visibility routes protect private data and retain trip planning flows
   Trip.findOneAndUpdate = async (filter, update) => {
     const trip = trips.get(String(filter._id));
     if (filter.archived?.$ne === true && trip?.archived) return null;
-    if (!trip) return null;
+    if (!trip || (filter.version !== undefined && trip.version !== filter.version)) return null;
+    if (update.$set) trip.set(update.$set);
+    trip.version += update.$inc?.version || 0;
     for (const [field, value] of Object.entries(update.$addToSet || {})) {
       if (!trip[field].some((memberId) => String(memberId) === String(value))) {
         trip[field].push(new mongoose.Types.ObjectId(value));
@@ -116,7 +141,7 @@ test('trip visibility routes protect private data and retain trip planning flows
 
   Event.find = ({ itineraryID, reservation }) => ({
     sort: async () => [...events.values()]
-      .filter((event) => String(event.itineraryID) === String(itineraryID) && (!reservation || String(event.reservation) === String(reservation)))
+      .filter((event) => (!itineraryID || String(event.itineraryID) === String(itineraryID)) && (!reservation || String(event.reservation) === String(reservation)))
       .sort((first, second) => first.startTime - second.startTime),
   });
   Event.findById = async (id) => events.get(String(id)) || null;
@@ -184,6 +209,14 @@ test('trip visibility routes protect private data and retain trip planning flows
     },
   });
   const send = async (path, { method = 'GET', userId, body, formData } = {}) => {
+    const parts = path.split('/');
+    const current = (parts[1] === 'trip' ? trips : parts[1] === 'itinerary' ? itineraries : parts[1] === 'event' ? events : reservations).get(parts[1] === 'logistics' ? parts[3] : parts[2]);
+    if (method === 'PATCH' && body && current && !body.changes) {
+      const changes = Object.fromEntries(Object.entries(body).flatMap(([key, value]) =>
+        ['flights', 'rentals', 'accommodations'].includes(key) ? Object.entries(value).map(([child, item]) => [`${key}.${child}`, item]) : [[key, value]]));
+      body = { expectedVersion: current.version, changes, original: Object.fromEntries(Object.keys(changes).map((key) => [key, current.get(key) ?? null])) };
+    }
+    if (method === 'DELETE' && current) body = { expectedVersion: current.version };
     const response = await request(`${baseUrl}${path}`, {
       method,
       headers: {

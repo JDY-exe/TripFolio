@@ -6,6 +6,7 @@
     "friends": []
   },
   "trip": {
+    "version": 0,
     "_id": "64b000000000000000000001",
     "name": "Coastal weekend",
     "startDate": "2030-04-01T00:00:00.000Z",
@@ -14,6 +15,7 @@
     "currentUserRole": "owner"
   },
   "itinerary": {
+    "version": 0,
     "_id": "64b000000000000000000004",
     "tripId": "64b000000000000000000001",
     "title": "Weekend itinerary",
@@ -22,6 +24,7 @@
     "endDate": "2030-04-05T00:00:00.000Z"
   },
   "event": {
+    "version": 0,
     "_id": "64b000000000000000000005",
     "title": "Visit the pier",
     "eventType": "activity",
@@ -43,6 +46,7 @@
     }
   },
   "flight": {
+    "version": 0,
     "_id": "64b000000000000000000006",
     "type": "flights",
     "name": "Morning flight",
@@ -65,6 +69,7 @@
     }
   },
   "rental": {
+    "version": 0,
     "_id": "64b000000000000000000007",
     "type": "rentals",
     "name": "Compact car",
@@ -74,6 +79,7 @@
     "rentals": { "company": "Roadway" }
   },
   "accommodation": {
+    "version": 0,
     "_id": "64b000000000000000000008",
     "type": "accommodations",
     "name": "Harbor hotel",

@@ -101,4 +101,5 @@ const reservationSchema = new mongoose.Schema(
     }
 );
 
+reservationSchema.plugin(require("../utils/recordVersion"));
 module.exports = mongoose.model("Reservation", reservationSchema);

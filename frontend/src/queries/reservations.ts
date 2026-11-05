@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { deleteFromApi, getFromApi, patchToApi, postToApi } from '../utils/api';
+import { deleteFromApi, getFromApi, postToApi } from '../utils/api';
+import {
+  createCheckedPatch,
+  equalField,
+  saveChecked,
+} from '../utils/checkedSave';
 import { eventsQueryKey } from './events';
 import type { EventData, ItineraryAction } from './events';
 
@@ -22,6 +27,8 @@ export interface FlightSegment {
 }
 
 export interface Reservation {
+  version: number;
+  itineraryActions?: ItineraryAction[];
   _id: string;
   type: ReservationType;
   name: string;
@@ -58,7 +65,7 @@ export type ReservationInput = Pick<
     >
   > & { cost?: number | null; itineraryActions?: ItineraryAction[] };
 
-const paths: Record<ReservationType, string> = {
+export const paths: Record<ReservationType, string> = {
   [ReservationType.Flights]: ReservationType.Flights,
   [ReservationType.Rentals]: 'rental_cars',
   [ReservationType.Accommodations]: 'hotels',
@@ -123,6 +130,9 @@ interface SaveReservationVariables {
   type: ReservationType;
   values: ReservationInput;
   id?: string;
+  original?: Reservation;
+  originalEvents?: ItineraryAction[];
+  onRebase?: (current: Reservation, changes: Record<string, unknown>) => void;
 }
 
 /**
@@ -133,10 +143,103 @@ interface SaveReservationVariables {
 export const useSaveReservation = (tripId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ type, values, id }: SaveReservationVariables) => {
+    mutationFn: async ({
+      type,
+      values,
+      id,
+      original,
+      originalEvents,
+      onRebase,
+    }: SaveReservationVariables) => {
       const url = `/logistics/${paths[type]}`;
+      const editable: Record<string, unknown> = Object.fromEntries(
+        Object.entries(values).filter(([key]) =>
+          [
+            'name',
+            'startTime',
+            'endTime',
+            'notes',
+            'cost',
+            'confirmationNumber',
+          ].includes(key),
+        ),
+      );
+      for (const [key, value] of Object.entries(values[type] || {}))
+        editable[`${type}.${key}`] = value;
+      if (type === 'flights') {
+        for (const key of [
+          'startTime',
+          'endTime',
+          'flights.flightNum',
+          'flights.departAirport',
+          'flights.arriveAirport',
+        ])
+          delete editable[key];
+      } else if (original) {
+        // These editors expose booking calendar dates, not the stored clock time.
+        for (const key of ['startTime', 'endTime'] as const) {
+          if (values[key].slice(0, 10) === original[key].slice(0, 10))
+            delete editable[key];
+        }
+      }
+      const groups =
+        type === 'accommodations'
+          ? [['accommodations.address', 'accommodations.placeId']]
+          : type === 'rentals'
+            ? [
+                ['rentals.pickupAddress', 'rentals.pickupPlaceId'],
+                ['rentals.returnAddress', 'rentals.returnPlaceId'],
+              ]
+            : [];
+      const savedActions =
+        originalEvents?.map(
+          ({ _id, version, eventType, startTime, endTime }) => ({
+            _id,
+            version,
+            eventType,
+            startTime,
+            endTime,
+          }),
+        ) ?? original?.itineraryActions;
+      if (
+        type === 'flights' &&
+        id &&
+        savedActions &&
+        (!equalField(original?.startTime, values.startTime) ||
+          !equalField(original?.endTime, values.endTime))
+      ) {
+        editable.itineraryActions = savedActions.map((action) => ({
+          ...action,
+          startTime: values.startTime,
+          endTime: values.endTime,
+        }));
+      }
+      const actionsChanged =
+        values.itineraryActions !== undefined &&
+        !equalField(
+          savedActions?.map(({ eventType, startTime, endTime }) => ({
+            eventType,
+            startTime,
+            endTime,
+          })),
+          values.itineraryActions?.map(({ eventType, startTime, endTime }) => ({
+            eventType,
+            startTime,
+            endTime,
+          })),
+        );
+      if (actionsChanged) editable.itineraryActions = values.itineraryActions;
+      const snapshot = original
+        ? { ...original, itineraryActions: savedActions ?? [] }
+        : undefined;
       const response = id
-        ? await patchToApi<{ reservation: Reservation }>(`${url}/${id}`, values)
+        ? await saveChecked<{ reservation: Reservation }>(
+            `${url}/${id}`,
+            createCheckedPatch(snapshot!, editable, groups),
+            {},
+            (current, changes) =>
+              onRebase?.(current as unknown as Reservation, changes),
+          )
         : await postToApi<{ reservation: Reservation }>(url, {
             ...values,
             tripId,
@@ -168,8 +271,14 @@ export const useDeleteReservation = (tripId: string) => {
     mutationFn: async (reservation: Reservation) => {
       await deleteFromApi(
         `/logistics/${paths[reservation.type]}/${reservation._id}`,
+        { data: { expectedVersion: reservation.version } },
       );
       return reservation.type;
+    },
+    onError: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: reservationsQueryKey(tripId),
+      });
     },
     onSuccess: async (type) => {
       await Promise.all([

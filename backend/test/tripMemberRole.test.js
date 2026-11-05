@@ -33,7 +33,7 @@ test("PATCH /trip/:id/members/:userId/role changes an existing member role", asy
       users: [ids.owner, ids.editor, ids.editorTwo, ids.viewer],
       viewerIds: [ids.viewer],
       memberRoles: new Map(),
-      name: "Role Test Trip",
+      name: "Role Test Trip", location: 'Test destination',
       startDate: new Date("2030-01-01"),
       endDate: new Date("2030-01-05")
     });
@@ -44,6 +44,11 @@ test("PATCH /trip/:id/members/:userId/role changes an existing member role", asy
     return trip;
   };
   let trip = makeTrip();
+  t.mock.method(Trip, 'findOneAndUpdate', async (filter, update) => {
+    assert.equal(filter.version, trip.version);
+    trip.set(update.$set); trip.version++;
+    return trip;
+  });
   const existingUsers = new Set([
     ids.owner,
     ids.editor,
@@ -70,7 +75,7 @@ test("PATCH /trip/:id/members/:userId/role changes an existing member role", asy
           Authorization: `Bearer ${jwt.sign({ id: callerId }, process.env.JWT_SECRET)}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ role })
+        body: JSON.stringify({ expectedVersion: trip.version, changes: { [`memberRoles.${userId}`]: role }, original: { [`memberRoles.${userId}`]: trip.memberRoles.get(userId) ?? null } })
       }
     );
     return { response, data: await response.json() };

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { checkedUpdate } = require('../utils/checkedUpdate');
 const ArchivedItineraryNote = require("../models/ArchivedItineraryNote");
 const Itinerary = require("../models/itinerary");
 const Trip = require("../models/trip");
@@ -123,8 +124,8 @@ const createArchivedItineraryNote = async (req, res) => {
  */
 const updateArchivedItineraryNote = async (req, res) => {
   try {
-    if (typeof req.body?.content !== "string") {
-      return res.status(400).json({ message: "Note content must be a string" });
+    if (req.body?.changes?.content !== undefined && typeof req.body.changes.content !== 'string') {
+      return res.status(400).json({ message: 'Note content must be a string' });
     }
 
     const result = await getMemberArchivedItinerary(
@@ -138,14 +139,13 @@ const updateArchivedItineraryNote = async (req, res) => {
       return res.status(404).json({ message: "Archived itinerary not found" });
     }
 
-    const note = await ArchivedItineraryNote.findOneAndUpdate(
-      {
-        itineraryId: result.itinerary._id,
-        authorId: req.user.id,
+    const existing = await ArchivedItineraryNote.findOne({ itineraryId: result.itinerary._id, authorId: req.user.id });
+    const note = existing && await checkedUpdate({ Model: ArchivedItineraryNote, id: existing._id, request: req.body, fields: ['content'],
+      authorize: async (current) => {
+        if (String(current.authorId) !== String(req.user.id) || !await getMemberArchivedItinerary(req.params.tripId, req.user.id))
+          throw Object.assign(new Error('Note not found'), { status: 404 });
       },
-      { content: req.body.content },
-      { new: true, runValidators: true },
-    );
+    });
     if (!note) {
       return res
         .status(404)
@@ -154,10 +154,7 @@ const updateArchivedItineraryNote = async (req, res) => {
 
     return res.status(200).json(note);
   } catch (error) {
-    return res.status(500).json({
-      message: "Error updating archived itinerary note",
-      error: error.message,
-    });
+    return res.status(error.status || 500).json(error.payload || { message: error.message });
   }
 };
 

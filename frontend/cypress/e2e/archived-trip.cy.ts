@@ -282,7 +282,7 @@ describe('archived trips reuse shared views', () => {
       (request) => {
         const note = {
           ...noteFixture.owner,
-          content: request.body.content,
+          content: request.body.changes.content,
         };
         request.reply({ body: note });
       },
@@ -306,13 +306,15 @@ describe('archived trips reuse shared views', () => {
       .type('Updated owner private note');
     cy.get('[data-cy="archived-note-save"]').click();
     cy.wait('@updatePrivateNote')
-      .its('request.body.content')
+      .its('request.body.changes.content')
       .should('eq', 'Updated owner private note');
 
     cy.get('[data-cy="archived-note-edit"]').click();
     cy.get('[data-cy="archived-note-input"]').clear();
     cy.get('[data-cy="archived-note-save"]').click();
-    cy.wait('@updatePrivateNote').its('request.body.content').should('eq', '');
+    cy.wait('@updatePrivateNote')
+      .its('request.body.changes.content')
+      .should('eq', '');
     cy.get('[data-cy="archived-note-content"]').should(
       'contain.text',
       'No note saved.',

@@ -10,7 +10,7 @@ const { canEditTrip, canReadTrip, getTripRole } = require("../utils/tripAccess")
 
 const serializeTrip = (trip) => {
   const tripData = {
-    ...(typeof trip.toObject === "function" ? trip.toObject() : trip)
+    ...(typeof trip.toObject === "function" ? trip.toObject({ flattenMaps: true }) : trip)
   };
   delete tripData.archivedSharedWith;
 
@@ -117,12 +117,14 @@ const getTrip = async (req, res) => {
   }
 };
 
+const { checkedUpdate, conflictError } = require('../utils/checkedUpdate');
+
 const updateTripVisibility = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ message: "Invalid trip ID" });
     }
-    if (typeof req.body.isPublic !== "boolean") {
+    if (typeof req.body?.changes?.isPublic !== "boolean") {
       return res.status(400).json({ message: "isPublic must be a boolean" });
     }
 
@@ -137,11 +139,14 @@ const updateTripVisibility = async (req, res) => {
       return res.status(409).json({ message: "Archived trips are read-only" });
     }
 
-    trip.isPublic = req.body.isPublic;
-    await trip.save();
-    return res.status(200).json(serializeTripForUser(trip, req.user.id));
+    const updated = await checkedUpdate({ Model: Trip, id: trip._id, request: req.body, fields: ['isPublic'], serializeCurrent: (current) => serializeTripForUser(current, req.user.id),
+      authorize: async (current) => {
+        if (getTripRole(current, req.user.id) !== 'owner') throw Object.assign(new Error('Only the trip owner can change visibility'), { status: 403 });
+      },
+    });
+    return res.status(200).json(serializeTripForUser(updated, req.user.id));
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return res.status(error.status || 500).json(error.payload || { message: error.message });
   }
 };
 
@@ -159,10 +164,16 @@ const deleteTrip = async (req, res) => {
       return res.status(403).json({ message: 'Only the trip owner can delete it' });
     }
 
-    const deletedTrip = await Trip.findByIdAndDelete(req.params.id);
-    if (!deletedTrip) {
-      return res.status(404).json({ message: 'Trip not found' });
-    }
+    if (!Number.isSafeInteger(req.body?.expectedVersion)) return res.status(400).json({ message: 'Provide the version being deleted' });
+    if (trip.version !== req.body.expectedVersion) throw conflictError(serializeTripForUser(trip, req.user.id), []);
+    const deletedTrip = await mongoose.connection.transaction(async (session) => {
+      const current = await Trip.findById(req.params.id, null, { session });
+      if (!current || getTripRole(current, req.user.id) !== 'owner') throw Object.assign(new Error('Trip not found'), { status: 404 });
+      if (current.version !== req.body.expectedVersion) throw conflictError(serializeTripForUser(current, req.user.id), []);
+      const removed = await Trip.findOneAndDelete({ _id: current._id, version: current.version }, { session });
+      if (!removed) throw conflictError(serializeTripForUser(current, req.user.id), []);
+      return removed;
+    });
 
     if (deletedTrip.profilePictureId) {
       const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
@@ -173,11 +184,13 @@ const deleteTrip = async (req, res) => {
 
     return res.status(200).json({ message: 'Trip successfully deleted' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting trip', error: error.message });
+    res.status(error.status || 500).json(error.payload || { message: 'Error deleting trip', error: error.message });
   }
 };
 
 const updateTripProfilePicture = async (req, res) => {
+  let uploadedId;
+  let uploadBucket;
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ message: "Invalid trip ID" });
@@ -214,9 +227,18 @@ const updateTripProfilePicture = async (req, res) => {
       uploadStream.end(req.file.buffer);
     });
 
-    const previousPictureId = trip.profilePictureId;
-    trip.profilePictureId = uploadStream.id;
-    await trip.save();
+    uploadedId = uploadStream.id;
+    uploadBucket = bucket;
+    let previousPictureId;
+    const updated = await checkedUpdate({ Model: Trip, id: trip._id, serializeCurrent: (current) => serializeTripForUser(current, req.user.id),
+      request: { expectedVersion: Number(req.body.expectedVersion), changes: { profilePictureId: uploadStream.id }, original: { profilePictureId: req.body.originalProfilePictureId || null } },
+      fields: ['profilePictureId'],
+      authorize: async (current) => {
+        if (getTripRole(current, req.user.id) !== 'owner') throw Object.assign(new Error('Only the owner can change the picture'), { status: 403 });
+      },
+      prepare: async (_merged, current) => { previousPictureId = current.profilePictureId; },
+    });
+    uploadedId = null;
 
     if (previousPictureId) {
       await bucket.delete(previousPictureId).catch(() => undefined);
@@ -224,10 +246,11 @@ const updateTripProfilePicture = async (req, res) => {
 
     return res.status(200).json({
       message: "Trip cover updated successfully",
-      trip
+      trip: updated
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    if (uploadedId) await uploadBucket.delete(uploadedId).catch(() => undefined);
+    return res.status(error.status || 500).json(error.payload || { message: error.message });
   }
 };
 
@@ -519,6 +542,9 @@ const addUserToTrip = async (req, res) => {
       return res.status(409).json({ message: "Archived trips are read-only" });
     }
 
+    if (getTripRole(existingTrip, userId)) {
+      return res.status(409).json({ message: 'This user is already a member. Use the checked member-role editor to change their role.' });
+    }
     const update = {
       $addToSet: {
         users: userId,
@@ -548,7 +574,8 @@ const addUserToTrip = async (req, res) => {
 const updateTripMemberRole = async (req, res) => {
   try {
     const { id: tripId, userId } = req.params;
-    const { role } = req.body || {};
+    const field = `memberRoles.${userId}`;
+    const role = req.body?.changes?.[field];
     if (!mongoose.isValidObjectId(tripId) || !mongoose.isValidObjectId(userId)) {
       return res.status(400).json({ message: "Invalid trip or user ID" });
     }
@@ -575,35 +602,24 @@ const updateTripMemberRole = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (trip.memberRoles instanceof Map) {
-      trip.memberRoles.set(String(userId), role);
-    } else {
-      trip.memberRoles = { ...(trip.memberRoles || {}), [String(userId)]: role };
-    }
-
-    trip.viewerIds ??= [];
-    if (typeof trip.viewerIds.pull === "function") {
-      trip.viewerIds.pull(userId);
-    } else {
-      trip.viewerIds = trip.viewerIds.filter((memberId) => String(memberId) !== String(userId));
-    }
-    if (role === "viewer") {
-      if (typeof trip.viewerIds.addToSet === "function") {
-        trip.viewerIds.addToSet(userId);
-      } else {
-        trip.viewerIds.push(userId);
-      }
-    }
-
-    await trip.save({ validateModifiedOnly: true });
+    const updated = await checkedUpdate({ Model: Trip, id: tripId, request: req.body, fields: [field], serializeCurrent: (current) => serializeTripForUser(current, req.user.id),
+      authorize: async (current) => {
+        if (!canEditTrip(current, req.user.id)) throw Object.assign(new Error('Cannot manage member roles'), { status: 403 });
+        if (!getTripRole(current, userId) || getTripRole(current, userId) === 'owner') throw Object.assign(new Error('Member role cannot be changed'), { status: 400 });
+      },
+      prepare: async (merged) => {
+        merged.viewerIds = (merged.viewerIds || []).filter((id) => String(id) !== String(userId));
+        if (role === 'viewer') merged.viewerIds.push(userId);
+      },
+    });
     return res.status(200).json({
       message: "Trip member role updated successfully",
-      trip,
+      trip: updated,
       member: { userId: String(userId), role }
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Unable to update trip member role" });
+    return res.status(error.status || 500).json(error.payload || { message: 'Unable to update trip member role' });
   }
 };
 
@@ -995,27 +1011,24 @@ const hideUserFromTrip = async (req, res) => {
       });
     }
 
-    trip.hiddenUsers ??= [];
-
-    const isHidden = trip.hiddenUsers.some(
-      (id) => String(id) === String(userId)
-    );
-
-    if (isHidden) {
-      trip.hiddenUsers.pull(userId);
-    } else {
-      trip.hiddenUsers.addToSet(userId);
-    }
-
-    await trip.save();
+    const updated = await checkedUpdate({ Model: Trip, id: tripId, request: req.body, fields: ['hiddenUsers'], serializeCurrent: (current) => serializeTripForUser(current, req.user.id),
+      authorize: async (current) => {
+        if (!getTripRole(current, userId)) throw Object.assign(new Error('Trip member required'), { status: 403 });
+      },
+      prepare: async (merged, current) => {
+        const others = (items) => (items || []).map(String).filter((id) => id !== String(userId)).sort().join(',');
+        if (others(merged.hiddenUsers) !== others(current.hiddenUsers)) throw Object.assign(new Error('Only your own visibility can be changed'), { status: 403 });
+      },
+    });
+    const isHidden = updated.hiddenUsers.some((id) => String(id) === String(userId));
 
     return res.status(200).json({
       message: "User visibility updated successfully",
-      hidden: !isHidden
+      hidden: isHidden, version: updated.version
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(error.status || 500).json(error.payload || { message: error.message });
   }
 };
 
@@ -1054,20 +1067,22 @@ const archiveTrip = async (req, res) => {
       });
     }
 
-    trip.archived = !trip.archived;
-    await trip.save();
+    const updated = await checkedUpdate({ Model: Trip, id: trip._id, request: req.body, fields: ['archived'], serializeCurrent: (current) => serializeTripForUser(current, req.user.id),
+      authorize: async (current) => {
+        const currentRole = getTripRole(current, userId);
+        if (currentRole !== 'owner' && currentRole !== 'editor') throw Object.assign(new Error('Cannot archive this trip'), { status: 403 });
+      },
+      prepare: async (merged) => {
+        if (new Date() <= merged.endDate) throw Object.assign(new Error('Cannot archive a trip that has not ended'), { status: 400 });
+      },
+    });
     return res.status(200).json({
-      message: trip.archived
-        ? "Trip archived successfully"
-        : "Trip unarchived successfully",
-      tripId: trip._id,
-      archived: trip.archived
+      message: updated.archived ? 'Trip archived successfully' : 'Trip unarchived successfully',
+      tripId: updated._id, archived: updated.archived, version: updated.version,
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({
-      message: "Server error"
-    });
+    return res.status(error.status || 500).json(error.payload || { message: error.message });
   }
 };
 

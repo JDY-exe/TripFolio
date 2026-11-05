@@ -12,7 +12,9 @@ import {
   useArchivedItineraryNote,
   useSaveArchivedItineraryNote,
 } from '../../../queries/itineraries';
-import { getApiErrorMessage } from '../../../utils/api';
+import { getApiErrorMessage, getFromApi } from '../../../utils/api';
+import type { ArchivedItineraryNote } from '../../../queries/itineraries';
+import { useEditorSnapshot } from '../../../queries/useEditorSnapshot';
 
 interface ArchivedItineraryNotesProps {
   tripId: string;
@@ -38,6 +40,15 @@ const ArchivedItineraryNotes = ({
   const [draft, setDraft] = useState('');
   const [editingState, setEditingState] = useState<boolean | null>(null);
   const isEditing = editingState ?? (note === null || note === undefined);
+  const snapshot = useEditorSnapshot(
+    note ?? undefined,
+    async () =>
+      (await getFromApi<ArchivedItineraryNote | null>(
+        `/itinerary/${tripId}/notes`,
+      ))!,
+    (fresh) => setDraft(fresh.content),
+    isEditing && Boolean(note),
+  );
 
   /** Copies the saved note into the editor before editing. */
   const handleEdit = () => {
@@ -51,10 +62,13 @@ const ArchivedItineraryNotes = ({
   const handleSave = async () => {
     if (!note && draft.trim().length === 0) return;
 
+    snapshot.startSaving();
     try {
       const savedNote = await saveNote.mutateAsync({
         content: draft,
         noteId: note?._id,
+        original: snapshot.original ?? note ?? undefined,
+        onRebase: snapshot.rebase,
       });
       setDraft(savedNote.content);
       setEditingState(false);

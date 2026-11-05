@@ -155,14 +155,24 @@ describe('trip logistics', () => {
             pathname: `${category.path}/${category.record._id}`,
           },
           (request) => {
-            expect(request.body.cost).to.equal(Number(bookingInput.cost));
-            expect(request.body.confirmationNumber).to.equal(
+            expect(request.body.changes.cost).to.equal(
+              Number(bookingInput.cost),
+            );
+            expect(request.body.changes.confirmationNumber).to.equal(
               bookingInput.confirmationNumber,
             );
-            expect(request.body.notes).to.equal(bookingInput.notes);
-            expect(request.body.itineraryActions).to.deep.equal([]);
+            expect(request.body.changes.notes).to.equal(bookingInput.notes);
+            expect(request.body.changes).not.to.have.property(
+              'itineraryActions',
+            );
             request.reply({
-              body: { reservation: { ...category.record, ...request.body } },
+              body: {
+                reservation: {
+                  ...category.record,
+                  ...request.body.changes,
+                  version: 1,
+                },
+              },
             });
           },
         ).as('saveBookingOnly');
@@ -231,7 +241,8 @@ describe('trip logistics', () => {
         (request) => {
           const reservation = {
             ...category.record,
-            ...request.body,
+            ...request.body.changes,
+            version: 1,
           } as Reservation;
           saved = [reservation];
           request.reply({ body: { reservation } });
@@ -272,7 +283,7 @@ describe('trip logistics', () => {
       }
       cy.get(`[data-cy="${category.save}"]`).click();
       cy.wait('@editReservation')
-        .its('request.body.name')
+        .its('request.body.changes.name')
         .should('eq', `Updated ${category.record.name}`);
       cy.get(`[data-cy="reservation-card-${category.record._id}"]`).should(
         'contain.text',

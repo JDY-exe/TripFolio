@@ -59,7 +59,7 @@ test("reservation writes commit together and keep linked events current", async 
   t.mock.method(Trip, "updateOne", async (filter, update, options) => {
     const state = check(options);
     assert.equal(String(filter._id), ids.trip);
-    if (update.$inc) state.trip.__v = (state.trip.__v || 0) + 1;
+    state.trip.version = (state.trip.version || 0) + 1;
     if (update.$addToSet) {
       state.trip.reservations.push(String(update.$addToSet.reservations));
       fail("trip-link");
@@ -90,15 +90,19 @@ test("reservation writes commit together and keep linked events current", async 
     t.mock.method(Model.prototype, "save", async function(options) {
       const state = check(options);
       await this.validate();
+      if (state[key][String(this._id)]) this.version++;
       state[key][String(this._id)] = JSON.parse(JSON.stringify(this.toObject()));
       fail(`${key}-save`);
       return this;
     });
   }
   t.mock.method(Event, 'find', (filter, projection, options) => ({ sort: async () => Object.values(check(options).events).filter(record => matches(record, filter)).map(record => Event.hydrate(record)) }));
-  t.mock.method(Reservation.prototype, "deleteOne", async function(options) {
-    delete check(options).reservations[String(this._id)];
-    fail("reservation-delete");
+  t.mock.method(Reservation, 'deleteOne', async (filter, options) => {
+    const state = check(options);
+    assert.equal(state.reservations[String(filter._id)].version, filter.version);
+    delete state.reservations[String(filter._id)];
+    fail('reservation-delete');
+    return { deletedCount: 1 };
   });
   t.mock.method(Event, "deleteMany", async (filter, options) => {
     const state = check(options);
@@ -121,10 +125,30 @@ test("reservation writes commit together and keep linked events current", async 
     else process.env.JWT_SECRET = oldSecret;
   });
   const send = async (method, path = "", body = booking, user = ids.owner) => {
+    const original = committed.reservations[path.slice(1)];
+    if (method === 'PATCH' && original && !body.changes) {
+      const changes = {};
+      const before = {};
+      for (const [key, value] of Object.entries(body)) {
+        if (key === 'accommodations') {
+          changes['accommodations.address'] = value.address;
+          changes['accommodations.placeId'] = value.placeId ?? null;
+          before['accommodations.address'] = original.accommodations.address;
+          before['accommodations.placeId'] = original.accommodations.placeId ?? null;
+        } else {
+          changes[key] = value;
+          before[key] = key === 'itineraryActions'
+            ? Object.values(committed.events).filter((event) => event.reservation === original._id).map(({ _id, version, eventType, startTime, endTime }) => ({ _id, version, eventType, startTime, endTime }))
+            : original[key] ?? null;
+        }
+      }
+      body = { expectedVersion: original.version, changes, original: before };
+    }
+    if (method === 'DELETE') body = { expectedVersion: original?.version };
     const response = await fetch(`http://127.0.0.1:${server.address().port}/logistics/hotels${path}`, {
       method, headers: { "Content-Type": "application/json",
         Authorization: `Bearer ${jwt.sign({ id: user }, process.env.JWT_SECRET)}` },
-      ...(method !== "DELETE" && { body: JSON.stringify(body) }),
+      body: JSON.stringify(body),
     });
     return { status: response.status, body: await response.json() };
   };
@@ -153,6 +177,42 @@ test("reservation writes commit together and keep linked events current", async 
     assert.equal(result.body.events[0].reservation, reservationId);
     assert.equal(Object.keys(committed.itineraries).length, 1);
     assert.deepEqual(committed.trip.reservations, [reservationId]);
+  });
+  await t.test('stale disjoint booking edits merge and conflicting multi-record edits roll back', async () => {
+    const original = structuredClone(committed.reservations[reservationId]);
+    assert.equal((await send('PATCH', `/${reservationId}`, { expectedVersion: original.version,
+      changes: { notes: 'Concurrent booking note' }, original: { notes: original.notes } })).status, 200);
+    const merged = await send('PATCH', `/${reservationId}`, { expectedVersion: original.version,
+      changes: { name: 'Merged hotel' }, original: { name: original.name } });
+    assert.equal(merged.status, 200);
+    assert.equal(committed.reservations[reservationId].notes, 'Concurrent booking note');
+    assert.ok(committed.events[eventId].version > 0, 'internal synchronization increments event versions');
+    const before = structuredClone(committed);
+    const conflict = await send('PATCH', `/${reservationId}`, { expectedVersion: original.version,
+      changes: { notes: 'Stale note', name: 'Must not partially save' }, original: { notes: original.notes, name: original.name } });
+    assert.equal(conflict.status, 409); assert.equal(conflict.body.code, 'EDIT_CONFLICT');
+    assert.deepEqual(committed, before);
+  });
+  await t.test('an overlapping linked action conflict leaves the booking and all events unchanged', async () => {
+    const bookingSnapshot = structuredClone(committed.reservations[reservationId]);
+    const slotSnapshot = Object.values(committed.events).filter((event) => event.reservation === reservationId)
+      .map(({ eventType, startTime, endTime }) => ({ eventType, startTime, endTime }));
+    committed.events[eventId].startTime = '2027-04-01T16:00:00.000Z';
+    committed.events[eventId].endTime = '2027-04-01T16:30:00.000Z';
+    committed.events[eventId].version++;
+    committed.reservations[reservationId].version++;
+    const before = structuredClone(committed);
+    const result = await send('PATCH', `/${reservationId}`, {
+      expectedVersion: bookingSnapshot.version,
+      changes: { name: 'Must not save', itineraryActions: slotSnapshot.map((slot) => ({ ...slot, startTime: '2027-04-01T17:00:00Z', endTime: '2027-04-01T17:30:00Z' })) },
+      original: { name: bookingSnapshot.name, itineraryActions: slotSnapshot },
+    });
+    assert.equal(result.status, 409);
+    assert.equal(result.body.conflicts[0].rootField, 'itineraryActions');
+    assert.deepEqual(committed, before);
+    // Restore the personal slots for the remaining synchronization regressions.
+    committed.events[eventId].startTime = slotSnapshot[0].startTime;
+    committed.events[eventId].endTime = slotSnapshot[0].endTime;
   });
   await t.test("initialization entry points reuse a single itinerary", async () => {
     const trip = committed.trip;
@@ -252,6 +312,68 @@ test("reservation writes commit together and keep linked events current", async 
     assert.equal(omitted.status, 201);
     assert.deepEqual(omitted.body.events, []);
   });
+  for (const scenario of [
+    { name: 'booking and action conflicts are resolved together', aNotes: 'A notes', bStart: '16', bEnd: '18', fields: ['itineraryActions.0.startTime', 'notes'], savedNotes: true, race: true },
+    { name: 'a booking conflict preserves safely merged action times on retry', aNotes: 'A notes', bStart: '14', bEnd: '19', fields: ['notes'] },
+    { name: 'an action conflict preserves an unrelated booking edit on retry', aNotes: booking.notes, bStart: '16', bEnd: '18', fields: ['itineraryActions.0.startTime'] },
+  ]) {
+    await t.test(scenario.name, async () => {
+      const time = (hour) => `2027-04-01T${hour}:00:00.000Z`;
+      const created = await send('POST', '', { ...booking, itineraryActions: [
+        { eventType: 'hotel_checkin', startTime: time('14'), endTime: time('18') },
+      ] });
+      assert.equal(created.status, 201);
+      const id = created.body.reservation._id;
+      const linkedId = created.body.events[0]._id;
+      const slots = created.body.events.map(({ _id, version, eventType, startTime, endTime }) => ({ _id, version, eventType, startTime, endTime }));
+      const request = {
+        expectedVersion: created.body.reservation.version,
+        original: { notes: booking.notes, itineraryActions: slots },
+        changes: { notes: 'B notes', itineraryActions: [{ ...slots[0], startTime: time(scenario.bStart), endTime: time(scenario.bEnd) }] },
+      };
+      assert.equal((await send('PATCH', `/${id}`, {
+        ...request,
+        changes: { notes: scenario.aNotes, itineraryActions: [{ ...slots[0], startTime: time('15') }] },
+      })).status, 200);
+      const before = structuredClone(committed);
+      const conflict = await send('PATCH', `/${id}`, request);
+      assert.equal(conflict.status, 409);
+      assert.deepEqual(conflict.body.conflicts.map(({ field }) => field).sort(), scenario.fields);
+      assert.deepEqual(committed, before, 'conflicts never partially write');
+      // Mirror saveChecked: overlay merged changes, apply explicit choices, then
+      // rebase every submitted original onto the response's current snapshot.
+      const resolve = (patch, payload) => {
+        const changes = { ...patch.changes, ...payload.mergedChanges };
+        for (const field of payload.conflicts) {
+          const value = field.field === 'notes' && scenario.savedNotes ? field.current : field.submitted;
+          if (field.rootField) {
+            const [, index, key] = field.field.split('.');
+            changes.itineraryActions[index][key] = value;
+          } else changes[field.field] = value;
+        }
+        return {
+          expectedVersion: payload.current.version,
+          changes,
+          original: Object.fromEntries(Object.keys(changes).map((field) => [field, payload.current[field]])),
+        };
+      };
+      let retry = resolve(request, conflict.body);
+      if (scenario.race) {
+        // A third edit while the dialog is open must still be checked on retry.
+        assert.equal((await send('PATCH', `/${id}`, { notes: 'C notes' })).status, 200);
+        const beforeRetry = structuredClone(committed);
+        const nextConflict = await send('PATCH', `/${id}`, retry);
+        assert.equal(nextConflict.status, 409);
+        assert.deepEqual(nextConflict.body.conflicts.map(({ field }) => field), ['notes']);
+        assert.deepEqual(committed, beforeRetry);
+        retry = resolve(retry, nextConflict.body);
+      }
+      assert.equal((await send('PATCH', `/${id}`, retry)).status, 200);
+      assert.equal(committed.reservations[id].notes, scenario.savedNotes ? 'C notes' : 'B notes');
+      assert.equal(committed.events[linkedId].startTime, time(scenario.bStart === '14' ? '15' : scenario.bStart));
+      assert.equal(committed.events[linkedId].endTime, time(scenario.bEnd));
+    });
+  }
   await t.test("editing a reservation does not recreate an explicitly deleted event", async () => {
     const created = await send("POST");
     delete committed.events[created.body.events[0]._id];

@@ -172,6 +172,11 @@ export const getApiErrorMessage = (
 ): string => {
   if (!axios.isAxiosError<{ message?: unknown }>(error)) return fallback;
 
+  if (
+    axios.isAxiosError<{ code?: string }>(error) &&
+    error.response?.data?.code === 'EDIT_CONFLICT'
+  )
+    return 'This record changed. Review the latest values and try again.';
   const message = error.response?.data?.message;
   return typeof message === 'string' && message.trim() ? message : fallback;
 };

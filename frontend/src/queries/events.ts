@@ -12,12 +12,15 @@ export const EVENT_TYPE = {
 } as const;
 export type EventType = (typeof EVENT_TYPE)[keyof typeof EVENT_TYPE];
 export interface ItineraryAction {
+  _id?: string;
+  version?: number;
   eventType: EventType;
   startTime: string;
   endTime: string;
 }
 
 export interface EventData {
+  version: number;
   eventType: EventType;
   reservation?: string | null;
   _id: string;

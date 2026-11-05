@@ -5,9 +5,11 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import type { EventData } from './events';
-import { getFromApi, patchToApi, postToApi } from '../utils/api';
+import { getFromApi, postToApi } from '../utils/api';
+import { createCheckedPatch, saveChecked } from '../utils/checkedSave';
 
 export interface Itinerary {
+  version: number;
   _id: string;
   title: string;
   description: string;
@@ -16,6 +18,7 @@ export interface Itinerary {
 }
 
 export interface ArchivedItineraryNote {
+  version: number;
   _id: string;
   tripId: string;
   itineraryId: string;
@@ -56,6 +59,11 @@ export const useArchivedItineraryNote = (userId?: string, tripId?: string) => {
 interface SaveArchivedItineraryNoteInput {
   content: string;
   noteId?: string;
+  original?: ArchivedItineraryNote;
+  onRebase?: (
+    current: ArchivedItineraryNote,
+    changes: Record<string, unknown>,
+  ) => void;
 }
 
 /**
@@ -72,11 +80,20 @@ export const useSaveArchivedItineraryNote = (
   const queryKey = archivedItineraryNoteQueryKey(userId, tripId);
 
   return useMutation({
-    mutationFn: ({ content, noteId }: SaveArchivedItineraryNoteInput) =>
+    mutationFn: ({
+      content,
+      noteId,
+      original,
+      onRebase,
+    }: SaveArchivedItineraryNoteInput) =>
       noteId
-        ? patchToApi<ArchivedItineraryNote>(`/itinerary/${tripId}/notes`, {
-            content,
-          })
+        ? saveChecked<ArchivedItineraryNote>(
+            `/itinerary/${tripId}/notes`,
+            createCheckedPatch(original!, { content }),
+            {},
+            (current, changes) =>
+              onRebase?.(current as unknown as ArchivedItineraryNote, changes),
+          )
         : postToApi<ArchivedItineraryNote>(`/itinerary/${tripId}/notes`, {
             content,
           }),

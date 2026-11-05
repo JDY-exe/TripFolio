@@ -18,9 +18,11 @@ const ensureItinerary = async (trip, session, values = {}) => {
       { readPreference: "primary" },
     );
   }
+  const initialized = await Itinerary.findOne({ tripId: trip._id }, null, { session });
+  if (initialized) return initialized;
   const result = await Trip.updateOne(
     { _id: trip._id },
-    { $inc: { __v: 1 } },
+    { $inc: { version: 1 } },
     { session },
   );
   if (result?.matchedCount === 0) {

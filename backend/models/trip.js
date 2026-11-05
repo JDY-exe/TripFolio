@@ -87,8 +87,10 @@ const tripSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Script for cascading delete middleware
-tripSchema.pre('findOneAndDelete', async function() {
-  const tripId = this.getQuery()._id;
+tripSchema.post('findOneAndDelete', async function(deleted) {
+  if (!deleted) return;
+  const tripId = deleted._id;
+  const session = this.getOptions().session;
 
   // Preserve metadata on storage failure so deleting the trip can be retried.
   await require("../services/photoCleanup").deleteTripPhotos(tripId);
@@ -103,20 +105,22 @@ tripSchema.pre('findOneAndDelete', async function() {
   }
 
   // Gather all itinerary IDs to delete child Events
-  const itineraries = await Itinerary.find({ tripId });
+  const itineraries = await Itinerary.find({ tripId }, null, { session });
   const itineraryIds = itineraries.map(it => it._id);
 
   // Delete all objects related to the itinerary
   if (itineraryIds.length > 0) {
-    await Event.deleteMany({ itineraryID: { $in: itineraryIds } });
+    await Event.deleteMany({ itineraryID: { $in: itineraryIds } }, { session });
   }
 
   // Delete the itinerary(ies) related to this trip
-  await Itinerary.deleteMany({ tripId });
+  await Itinerary.deleteMany({ tripId }, { session });
 
   // Delete reservations linked to this trip.
-  await Reservation.deleteMany({ trip: tripId });
-  await TripInvitation.deleteMany({ trip: tripId });
+  await Reservation.deleteMany({ trip: tripId }, { session });
+  await TripInvitation.deleteMany({ trip: tripId }, { session });
+  await mongoose.models.ArchivedItineraryNote?.deleteMany({ tripId }, { session });
 })
 
+tripSchema.plugin(require("../utils/recordVersion"));
 module.exports = mongoose.model("Trip", tripSchema);

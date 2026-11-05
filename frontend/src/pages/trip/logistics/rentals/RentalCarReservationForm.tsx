@@ -15,7 +15,9 @@ import type {
   Reservation,
   ReservationInput,
 } from '../../../../queries/reservations';
-import { getApiErrorMessage } from '../../../../utils/api';
+import { getApiErrorMessage, getFromApi } from '../../../../utils/api';
+import { paths } from '../../../../queries/reservations';
+import { useEditorSnapshot } from '../../../../queries/useEditorSnapshot';
 import {
   reservationDateToTimestamp,
   toReservationDateInput,
@@ -99,6 +101,22 @@ const RentalCarReservationForm = ({
   const [isOpen, setIsOpen] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const previousStep = useRef(step);
+  const snapshot = useEditorSnapshot(
+    reservation,
+    () =>
+      getFromApi<Reservation>(
+        `/logistics/${paths[reservation!.type]}/${reservation!._id}`,
+      ),
+    (fresh) => {
+      setDraft(createRentalCarDraft(fresh));
+      setPickupAddress(fresh.rentals?.pickupAddress ?? '');
+      setPickupPlaceId(fresh.rentals?.pickupPlaceId ?? null);
+      setReturnAddress(fresh.rentals?.returnAddress ?? '');
+      setReturnPlaceId(fresh.rentals?.returnPlaceId ?? null);
+      if (fresh.itineraryActions) itinerary.rebase(fresh.itineraryActions);
+    },
+    isOpen,
+  );
 
   useEffect(() => {
     if (previousStep.current === step) return;
@@ -187,27 +205,38 @@ const RentalCarReservationForm = ({
       return;
     }
     const values: ReservationInput = {
-      name: draft.name.trim(),
+      name: draft.name,
       startTime: reservationDateToTimestamp(draft.startDate),
       endTime: reservationDateToTimestamp(draft.endDate),
       cost: parsedCost,
-      confirmationNumber: draft.confirmationNumber.trim(),
-      notes: draft.notes.trim(),
+      confirmationNumber: draft.confirmationNumber,
+      notes: draft.notes,
       rentals: {
-        company: draft.company.trim(),
-        pickupAddress: pickupAddress.trim(),
+        company: draft.company,
+        pickupAddress,
         pickupPlaceId,
-        returnAddress: returnAddress.trim(),
+        returnAddress,
         returnPlaceId,
       },
       itineraryActions: itinerary.actions,
     };
     setError('');
     try {
+      snapshot.startSaving();
+      itinerary.startSaving();
       await saveReservation.mutateAsync({
         type: ReservationType.Rentals,
         values,
         id: reservation?._id,
+        original: snapshot.original,
+        originalEvents: itinerary.originalEvents,
+        onRebase: (current, changes) => {
+          snapshot.rebase(current, changes);
+          itinerary.rebase(
+            current.itineraryActions ?? [],
+            changes.itineraryActions as typeof itinerary.actions | undefined,
+          );
+        },
       });
       setIsOpen(false);
     } catch (cause) {
