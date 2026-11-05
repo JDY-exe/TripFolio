@@ -183,10 +183,16 @@ export const useUploadPhoto = (tripId: string) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: ({ file, eventId }: { file: File, eventId?: string }) => {
       const body = new FormData();
       body.append('image', file);
-      return postToApi<{ photo: TripPhoto }>(`/trip/${tripId}/photos`, body);
+      
+      // Send the eventId safely in the URL query string to bypass strict body limits
+      const url = eventId 
+        ? `/trip/${tripId}/photos?eventId=${eventId}`
+        : `/trip/${tripId}/photos`;
+        
+      return postToApi<{ photo: TripPhoto }>(url, body);
     },
     onSuccess: () =>
       queryClient.invalidateQueries({

@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Skeleton, Text } from '../../../components/common';
 import { usePhotoContent, type TripPhoto } from '../../../queries/photos';
+import { MapPin } from 'lucide-react';
 
 interface AlbumPhotoProps {
   photo: TripPhoto;
   expanded?: boolean;
+  events?: any[];
 }
 
 /** Lazily downloads protected images and releases each object URL on cleanup.
  * @param props - Photo metadata and whether the image is in the full-size viewer.
  * @returns An image with loading and retryable failure states.
  */
-const AlbumPhoto = ({ photo, expanded = false }: AlbumPhotoProps) => {
+const AlbumPhoto = ({ photo, expanded = false, events = [] }: AlbumPhotoProps) => {
   const container = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(expanded);
   const [source, setSource] = useState('');
@@ -20,6 +22,9 @@ const AlbumPhoto = ({ photo, expanded = false }: AlbumPhotoProps) => {
     photo,
     visible,
   );
+  const linkedEvent = photo.linkedEvent 
+    ? events.find(e => e._id === photo.linkedEvent)
+    : null;
 
   useEffect(() => {
     if (!container.current || expanded) return;
@@ -69,6 +74,15 @@ const AlbumPhoto = ({ photo, expanded = false }: AlbumPhotoProps) => {
           className={`h-full w-full ${expanded ? 'object-contain' : 'object-cover'}`}
         />
       )}
+
+      {/* Visual Event Tag Indicator */}
+      {source && !decodeFailed && linkedEvent && (
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm z-20">
+          <MapPin size={12} />
+          <span className="truncate max-w-[120px]">{linkedEvent.title}</span>
+        </div>
+      )}
+      
       {(isError || decodeFailed) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface-container-low p-2 text-center">
           <Text variant="caption" color="muted">
@@ -91,6 +105,6 @@ const AlbumPhoto = ({ photo, expanded = false }: AlbumPhotoProps) => {
       )}
     </div>
   );
-};
+}
 
 export default AlbumPhoto;
