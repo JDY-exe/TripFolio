@@ -10,7 +10,11 @@ describe('trip itinerary', () => {
       },
       (request) =>
         request.reply({
-          body: { ...featureFixture.itinerary, ...request.body },
+          body: {
+            ...featureFixture.itinerary,
+            ...request.body.changes,
+            version: 1,
+          },
         }),
     ).as('saveDescription');
     visitOwnedTrip();
@@ -30,7 +34,7 @@ describe('trip itinerary', () => {
       .type('Updated seaside plans');
     cy.get('[data-cy="description-save"]').click();
     cy.wait('@saveDescription')
-      .its('request.body.description')
+      .its('request.body.changes.description')
       .should('eq', 'Updated seaside plans');
     cy.contains('Updated seaside plans').should('be.visible');
   });
@@ -81,7 +85,11 @@ describe('trip itinerary', () => {
     cy.intercept(
       { method: 'PATCH', pathname: `/event/${featureFixture.event._id}` },
       (request) => {
-        const savedEvent = { ...featureFixture.event, ...request.body };
+        const savedEvent = {
+          ...featureFixture.event,
+          ...request.body.changes,
+          version: 1,
+        };
         events = [savedEvent];
         request.reply({ body: savedEvent });
       },
@@ -104,7 +112,7 @@ describe('trip itinerary', () => {
     cy.get('[data-cy="event-title"]').clear().type('Updated pier visit');
     cy.get('[data-cy="event-save"]').click();
     cy.wait('@editEvent')
-      .its('request.body.title')
+      .its('request.body.changes.title')
       .should('eq', 'Updated pier visit');
     cy.get(`[data-cy="event-card-${featureFixture.event._id}"]`).should(
       'contain.text',

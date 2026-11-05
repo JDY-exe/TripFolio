@@ -6,7 +6,9 @@ import {
   itineraryQueryKey,
   type Itinerary,
 } from '../../../queries/itineraries';
-import { patchToApi } from '../../../utils/api';
+import { getFromApi } from '../../../utils/api';
+import { createCheckedPatch, saveChecked } from '../../../utils/checkedSave';
+import { useEditorSnapshot } from '../../../queries/useEditorSnapshot';
 
 interface ItineraryDescriptionProps {
   itinerary: Itinerary;
@@ -26,10 +28,19 @@ const ItineraryDescription = ({
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [openedRecord, setOpenedRecord] = useState(itinerary);
+  const snapshot = useEditorSnapshot(
+    openedRecord,
+    () => getFromApi<Itinerary>(`/itinerary?id=${tripId}`),
+    (fresh) => setDraft(fresh.description),
+    isEditing,
+  );
 
   /** Opens the editor with the current description. */
   const handleEdit = () => {
     setDraft(itinerary.description);
+    setOpenedRecord(itinerary);
     setIsEditing(true);
   };
 
@@ -37,15 +48,24 @@ const ItineraryDescription = ({
    * @returns A promise that settles after the update request.
    */
   const handleSave = async () => {
+    snapshot.startSaving();
+    setIsSaving(true);
     try {
-      const updated = await patchToApi<Itinerary>(
+      const updated = await saveChecked<Itinerary>(
         `/itinerary/${itinerary._id}`,
-        { description: draft },
+        createCheckedPatch(snapshot.original ?? openedRecord, {
+          description: draft,
+        }),
+        {},
+        (current, changes) =>
+          snapshot.rebase(current as unknown as Itinerary, changes),
       );
       queryClient.setQueryData(itineraryQueryKey(tripId), updated);
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to update itinerary description:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -78,6 +98,7 @@ const ItineraryDescription = ({
           <div className="flex flex-wrap gap-2">
             <Button
               data-cy="description-save"
+              disabled={isSaving}
               onClick={() => void handleSave()}
               size="sm"
               leadingIcon={<Check size={16} />}
@@ -86,6 +107,7 @@ const ItineraryDescription = ({
             </Button>
             <Button
               data-cy="description-cancel"
+              disabled={isSaving}
               onClick={() => setIsEditing(false)}
               variant="ghost"
               size="sm"

@@ -41,7 +41,8 @@ const eventSchema = new mongoose.Schema({
     default: EVENT_TYPE.ACTIVITY,
   },
   reservationMade: {
-    type: Boolean
+    type: Boolean,
+    default: false,
   },
   reservation: {
     type: mongoose.Schema.Types.ObjectId,
@@ -59,4 +60,5 @@ eventSchema.index({ reservation: 1, eventType: 1 }, {
   unique: true, name: 'reservation_event_action',
   partialFilterExpression: { reservation: { $type: 'objectId' }, eventType: { $in: Object.values(RESERVATION_EVENT_TYPES).flat() } },
 });
+eventSchema.plugin(require("../utils/recordVersion"));
 module.exports = mongoose.model('Event', eventSchema);

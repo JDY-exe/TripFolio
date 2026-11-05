@@ -93,14 +93,16 @@ test("archived itinerary notes can only be read and edited by their author", asy
       error.code = 11000;
       throw error;
     }
-    const note = { _id: new mongoose.Types.ObjectId(), ...fields };
+    const note = new ArchivedItineraryNote({ _id: new mongoose.Types.ObjectId(), ...fields });
     notes.set(key, note);
     return note;
   };
+  t.mock.method(ArchivedItineraryNote, 'findById', async (id) => [...notes.values()].find((note) => String(note._id) === String(id)) ?? null);
   ArchivedItineraryNote.findOneAndUpdate = async (filter, update) => {
-    const note = notes.get(noteKey(filter));
+    const note = [...notes.values()].find((note) => String(note._id) === String(filter._id));
     if (!note) return null;
-    Object.assign(note, update);
+    assert.equal(filter.version, note.version);
+    note.set(update.$set); note.version++;
     return note;
   };
 
@@ -112,6 +114,10 @@ test("archived itinerary notes can only be read and edited by their author", asy
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   const tokenFor = (userId) => jwt.sign({ id: userId }, process.env.JWT_SECRET);
   const send = async (path, { method = "GET", userId, body } = {}) => {
+    if (method === 'PATCH' && body) {
+      const existing = [...notes.values()].find((note) => String(note.authorId) === String(userId));
+      body = { expectedVersion: existing?.version ?? 0, changes: body, original: { content: existing?.content ?? null } };
+    }
     const response = await fetch(`${baseUrl}${path}`, {
       method,
       headers: {

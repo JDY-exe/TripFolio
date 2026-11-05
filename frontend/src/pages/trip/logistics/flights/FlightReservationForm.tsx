@@ -16,7 +16,9 @@ import type {
   Reservation,
   ReservationInput,
 } from '../../../../queries/reservations';
-import { getApiErrorMessage } from '../../../../utils/api';
+import { getApiErrorMessage, getFromApi } from '../../../../utils/api';
+import { paths } from '../../../../queries/reservations';
+import { useEditorSnapshot } from '../../../../queries/useEditorSnapshot';
 import {
   FlightWizardStep,
   createFlightDraft,
@@ -55,6 +57,15 @@ const FlightReservationForm = ({
   const [isOpen, setIsOpen] = useState(true);
   const stepContentRef = useRef<HTMLDivElement>(null);
   const previousStep = useRef(step);
+  const snapshot = useEditorSnapshot(
+    reservation,
+    () =>
+      getFromApi<Reservation>(
+        `/logistics/${paths[reservation!.type]}/${reservation!._id}`,
+      ),
+    (fresh) => setDraft(createFlightDraft(fresh)),
+    isOpen,
+  );
 
   useEffect(() => {
     if (previousStep.current === step) return;
@@ -122,12 +133,12 @@ const FlightReservationForm = ({
       return;
     }
     const values: ReservationInput = {
-      name: draft.name.trim(),
+      name: draft.name,
       startTime: `${draft.segments[0].departTime}:00.000Z`,
       endTime: `${draft.segments.at(-1)!.arriveTime}:00.000Z`,
-      confirmationNumber: draft.confirmationNumber.trim(),
+      confirmationNumber: draft.confirmationNumber,
       cost: draft.cost.trim() ? Number(draft.cost) : null,
-      notes: draft.notes.trim(),
+      notes: draft.notes,
       flights: {
         flightNum: draft.segments[0].flightNum.trim(),
         departAirport: draft.segments[0].departAirport.trim(),
@@ -140,10 +151,13 @@ const FlightReservationForm = ({
     };
     setError('');
     try {
+      snapshot.startSaving();
       await saveReservation.mutateAsync({
         type: ReservationType.Flights,
         values,
         id: reservation?._id,
+        original: snapshot.original,
+        onRebase: snapshot.rebase,
       });
       setIsOpen(false);
     } catch (cause) {

@@ -12,6 +12,7 @@ const Photo = require("../models/Photo");
 const Itinerary = require("../models/itinerary");
 const storage = require("../services/photoStorage");
 const routes = require("../routes/photoRoutes");
+const { MAX_PHOTO_BYTES } = require("../utils/photoValidation");
 
 // Exercise HTTP, multipart parsing, auth and real Sharp processing without a database.
 test("photo API permissions, upload, content, pagination and compensation", { timeout: 10000 }, async (t) => {
@@ -87,7 +88,7 @@ test("photo API permissions, upload, content, pagination and compensation", { ti
   assert.equal((await send("", owner, { method: "POST", body: new FormData() })).status, 400);
   const extra = form(); extra.append("caption", "not supported");
   assert.equal((await send("", owner, { method: "POST", body: extra })).status, 400);
-  assert.equal((await send("", owner, { method: "POST", body: form(Buffer.alloc(16 * 1024 * 1024 + 1)) })).status, 413);
+  assert.equal((await send("", owner, { method: "POST", body: form(Buffer.alloc(MAX_PHOTO_BYTES + 1)) })).status, 413);
   const response = await send("", editor, { method: "POST", body: form() });
   assert.equal(response.status, 201, await response.clone().text());
   const { photo } = await response.json();

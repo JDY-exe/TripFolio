@@ -11,6 +11,7 @@ type TripRole = 'owner' | 'viewer';
  */
 const openTripSettings = (role: TripRole) => {
   const trip = {
+    version: 0,
     _id: tripFixture.tripId,
     name: tripFixture.tripName,
     startDate: tripFixture.startDate,
@@ -127,7 +128,11 @@ describe('trip visibility settings', () => {
     cy.get('[data-cy="trip-visibility"]').check();
     cy.wait('@setVisibility')
       .its('request.body')
-      .should('deep.equal', { isPublic: true });
+      .should('deep.equal', {
+        expectedVersion: 0,
+        changes: { isPublic: true },
+        original: { isPublic: false },
+      });
     cy.get('[data-cy="trip-visibility"]').should('be.checked');
     cy.contains(
       'Only trip owners and members can access confidential information such as flights and hotels.',

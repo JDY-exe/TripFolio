@@ -39,7 +39,8 @@ test("a user can hide themselves from a public trip", async (t) => {
 
   let saveCalls = 0;
 
-  const trip = {
+  const trip = new Trip({
+    location: 'Test destination', startDate: new Date('2020-01-01'), endDate: new Date('2020-01-05'),
     _id: new mongoose.Types.ObjectId(tripId),
     name: "Public Vacation",
     ownerId: userId,
@@ -47,12 +48,12 @@ test("a user can hide themselves from a public trip", async (t) => {
     viewerIds: [],
     isPublic: true,
     hiddenUsers,
-
-    async save() {
-      saveCalls++;
-      return this;
-    },
-  };
+  });
+  t.mock.method(Trip, 'findOneAndUpdate', async (filter, update) => {
+    assert.equal(filter.version, trip.version);
+    trip.set(update.$set); trip.version++; saveCalls++;
+    return trip;
+  });
 
   Trip.findById = async (id) => {
     return String(id) === tripId ? trip : null;
@@ -101,7 +102,7 @@ test("a user can hide themselves from a public trip", async (t) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ tripId }),
+      body: JSON.stringify({ tripId, expectedVersion: trip.version, changes: { hiddenUsers: [userId] }, original: { hiddenUsers: [] } }),
     }
   );
 
@@ -115,8 +116,8 @@ test("a user can hide themselves from a public trip", async (t) => {
   assert.equal(data.hidden, true);
 
   // Verify the user was added to hiddenUsers.
-  assert.equal(hiddenUsers.length, 1);
-  assert.equal(String(hiddenUsers[0]), userId);
+  assert.equal(trip.hiddenUsers.length, 1);
+  assert.equal(String(trip.hiddenUsers[0]), userId);
 
   // Verify the trip was saved.
   assert.equal(saveCalls, 1);

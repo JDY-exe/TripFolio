@@ -17,6 +17,7 @@ vi.mock('../../src/utils/api', () => ({
 
 const savedNote: ArchivedItineraryNote = {
   _id: 'note-1',
+  version: 0,
   tripId: 'trip-1',
   itineraryId: 'itinerary-1',
   authorId: 'owner-1',
@@ -86,10 +87,13 @@ describe('archived itinerary note mutations', () => {
       await mutation.mutateAsync({
         content: updatedNote.content,
         noteId: savedNote._id,
+        original: savedNote,
       });
 
       expect(patchToApi).toHaveBeenCalledWith('/itinerary/trip-1/notes', {
-        content: updatedNote.content,
+        expectedVersion: 0,
+        changes: { content: updatedNote.content },
+        original: { content: savedNote.content },
       });
       expect(client.getQueryData(noteKey)).toEqual(updatedNote);
     } finally {

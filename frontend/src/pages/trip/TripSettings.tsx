@@ -1,4 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import type { EditConflict } from '../../utils/checkedSave';
+import { resolveEditConflict } from '../../components/common/EditConflictDialog/conflictStore';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
@@ -27,6 +30,7 @@ import {
   getApiErrorMessage,
   patchToApi,
 } from '../../utils/api';
+import { createCheckedPatch, saveChecked } from '../../utils/checkedSave';
 import TripMembersPanel from './settings/TripMembersPanel';
 import { getTripMembers } from './settings/tripMembers';
 
@@ -48,6 +52,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteVersion, setDeleteVersion] = useState<number>();
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedFriendId, setSelectedFriendId] = useState<string>();
   const [inviteRole, setInviteRole] =
@@ -64,12 +69,23 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   const profilePictureId = tripQuery.data?.profilePictureId;
   const hideUserMutation = useMutation({
     mutationFn: () =>
-      patchToApi<{ hidden: boolean }>('/trip/hideUser', { tripId: id }),
+      saveChecked<{ hidden: boolean; version: number }>(
+        '/trip/hideUser',
+        createCheckedPatch(tripQuery.data!, {
+          hiddenUsers: tripQuery.data!.hiddenUsers?.includes(user!.id)
+            ? tripQuery.data!.hiddenUsers.filter(
+                (memberId) => memberId !== user!.id,
+              )
+            : [...(tripQuery.data!.hiddenUsers ?? []), user!.id],
+        }),
+        { tripId: id },
+      ),
     onSuccess: (response) => {
       queryClient.setQueryData<TripSettingsData>(queryKey, (current) =>
         current
           ? {
               ...current,
+              version: response.version,
               hiddenUsers: response.hidden
                 ? [
                     ...(current.hiddenUsers ?? []).filter(
@@ -103,7 +119,13 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   });
   const archiveMutation = useMutation({
     mutationFn: () =>
-      patchToApi<{ archived: boolean }>(`/trip/archive`, { tripId: id }),
+      saveChecked<{ archived: boolean }>(
+        `/trip/archive`,
+        createCheckedPatch(tripQuery.data!, {
+          archived: !tripQuery.data!.archived,
+        }),
+        { tripId: id },
+      ),
 
     onSuccess: (updatedTrip) => {
       // Update the settings page immediately.
@@ -160,14 +182,44 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   }, [id, profilePictureId]);
 
   const pictureMutation = useMutation({
-    mutationFn: (image: FormData) =>
-      patchToApi<TripPictureResponse>(`/trip/${id}/profile_picture`, image),
+    mutationFn: async (image: FormData) => {
+      let original = tripQuery.data!;
+      for (;;) {
+        image.set('expectedVersion', String(original.version));
+        image.set('originalProfilePictureId', original.profilePictureId ?? '');
+        try {
+          return await patchToApi<TripPictureResponse>(
+            `/trip/${id}/profile_picture`,
+            image,
+          );
+        } catch (error) {
+          if (
+            !axios.isAxiosError<EditConflict>(error) ||
+            error.response?.data.code !== 'EDIT_CONFLICT'
+          )
+            throw error;
+          const conflict = error.response.data;
+          const choices = await resolveEditConflict({
+            ...conflict,
+            conflicts: conflict.conflicts.map((field) => ({
+              ...field,
+              submitted: 'Your selected picture',
+            })),
+          });
+          if (!choices)
+            throw new Error('Picture change cancelled.', { cause: error });
+          original = conflict.current as unknown as TripSettingsData;
+          if (choices.profilePictureId === 'saved') return { trip: original };
+        }
+      }
+    },
     onSuccess: (response) => {
       queryClient.setQueryData<TripSettingsData>(queryKey, (current) =>
         current
           ? { ...current, profilePictureId: response.trip.profilePictureId }
           : current,
       );
+      void queryClient.invalidateQueries({ queryKey });
       void queryClient.invalidateQueries({
         queryKey: tripsQueryKey(user?.id),
       });
@@ -186,7 +238,10 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
 
   const visibilityMutation = useMutation({
     mutationFn: (isPublic: boolean) =>
-      patchToApi<TripSettingsData>(`/trip/${id}/visibility`, { isPublic }),
+      saveChecked<TripSettingsData>(
+        `/trip/${id}/visibility`,
+        createCheckedPatch(tripQuery.data!, { isPublic }),
+      ),
     onSuccess: (trip) => {
       queryClient.setQueryData(queryKey, trip);
       displayAlert({
@@ -205,7 +260,10 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     },
   });
   const deleteMutation = useMutation({
-    mutationFn: (tripId: string) => deleteFromApi(`/trip/${tripId}`),
+    mutationFn: (tripId: string) =>
+      deleteFromApi(`/trip/${tripId}`, {
+        data: { expectedVersion: deleteVersion },
+      }),
     onSuccess: () => {
       queryClient.removeQueries({ queryKey });
       void queryClient.invalidateQueries({ queryKey: tripsQueryKey(user?.id) });
@@ -213,6 +271,8 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
       navigate('/my-trips', { replace: true });
     },
     onError: (error) => {
+      setDeleteModalOpen(false);
+      void queryClient.invalidateQueries({ queryKey });
       displayAlert({
         message: getApiErrorMessage(error, 'Trip could not be deleted.'),
         tone: 'error',
@@ -416,7 +476,10 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
             <Button
               data-cy="delete-trip-open"
               variant="danger"
-              onClick={() => setDeleteModalOpen(true)}
+              onClick={() => {
+                setDeleteVersion(trip.version);
+                setDeleteModalOpen(true);
+              }}
             >
               Delete trip
             </Button>
