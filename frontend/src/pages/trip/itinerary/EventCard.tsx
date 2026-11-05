@@ -147,6 +147,18 @@ const EventCard = ({
                 {eventTime.format(new Date(event.endTime))}
               </time>
             </Text>
+            
+            {/* Conditional Cost Display */}
+            {(event.cost ?? 0) > 0 && (
+              <Text 
+                variant="label" 
+                className="mt-1 flex items-center gap-1.5 tabular-nums text-on-surface-variant"
+              >
+                <span className="font-semibold text-primary">Cost:</span>
+                ${event.cost?.toFixed(2)}
+              </Text>
+            )}
+
             {event.eventType === 'restaurant' && (
               <label className="mt-3 flex items-center gap-2 text-sm text-on-surface-variant">
                 <input

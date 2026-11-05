@@ -28,6 +28,7 @@ const editableChanges = (body) =>
       'notes',
       'eventType',
       'reservationMade',
+      'cost',
     ]
       .filter((key) => body[key] !== undefined)
       .map((key) => [key, body[key]]),
@@ -40,6 +41,7 @@ const {
   getTripRole,
 } = require('../utils/tripAccess');
 const { tryPlaceCoordinates } = require('../utils/eventCoordinates');
+const Expense = require('../models/Expense');
 
 const findEventTrip = async (event) => {
   const itinerary = await Itinerary.findById(event.itineraryID);
@@ -66,6 +68,7 @@ const createEvent = async (req, res) => {
       endTime,
       notes,
       reservationMade,
+      cost
     } = req.body;
     const itinerary = await Itinerary.findById(itineraryID);
     if (!itinerary) {
@@ -117,7 +120,22 @@ const createEvent = async (req, res) => {
       reservation: booking?._id || null,
       ...(booking ? { title: booking.name, ...location } : {}),
       reservationMade: booking ? true : Boolean(reservationMade),
+      cost: cost || 0
     });
+
+    await newEvent.save();
+
+    // Sync with Ledger if cost exists
+    if (newEvent.cost > 0) {
+      await Expense.create({
+        tripId: trip._id,
+        eventId: newEvent._id,
+        description: newEvent.title,
+        amount: newEvent.cost,
+        paidBy: req.user.id,
+        splitAmong: [req.user.id] 
+      });
+    }
 
     if (booking) {
       await mongoose.connection.transaction(async (session) => {
@@ -363,6 +381,23 @@ const updateEvent = async (req, res) => {
     if (!updatedEvent) {
       return res.status(400).json({ message: 'Event not found' });
     }
+
+    // Update associated Ledger Expense
+    if (updatedEvent.cost > 0) {
+      await Expense.findOneAndUpdate(
+        { eventId: updatedEvent._id },
+        {
+          tripId: trip._id,
+          description: updatedEvent.title,
+          amount: updatedEvent.cost
+        },
+        { upsert: true, returnDocument: 'after' } // Creates if it doesn't exist yet
+      );
+    } else {
+      // If cost is changed to 0, remove it from the ledger
+      await Expense.findOneAndDelete({ eventId: updatedEvent._id });
+    }
+
     res.status(200).json(updatedEvent);
   } catch (error) {
     res
@@ -387,6 +422,8 @@ const deleteEvent = async (req, res) => {
     }
 
     const deletedEvent = await Event.findByIdAndDelete(id);
+    // Delete associated ledger expense
+    await Expense.findOneAndDelete({ eventId: id });
 
     if (!deletedEvent) {
       return res.status(400).json({ message: 'Event not found' });
