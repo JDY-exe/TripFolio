@@ -8,6 +8,7 @@ router.use(authenticateToken);
 
 router.post('/', eventController.createEvent);
 router.get('/', eventController.getEvents);
+router.get('/:id', eventController.getEvent);
 router.get('/:id/photo', eventController.getEventPhoto);
 router.get('/:id/location', getEventLocation);
 router.patch('/:id', eventController.updateEvent);

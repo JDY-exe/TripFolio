@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { getFromApi, patchToApi, postToApi } from '../utils/api';
+import { createCheckedPatch, saveChecked } from '../utils/checkedSave';
 
 export interface TripTraveler {
   id: string;
@@ -10,6 +11,7 @@ export interface TripTraveler {
 export type TripMemberRole = 'owner' | 'editor' | 'viewer';
 
 export interface Trip {
+  version: number;
   _id: string;
   name: string;
   startDate: string;
@@ -45,6 +47,7 @@ export interface UpdateTripMemberRoleInput {
 
 interface UpdateTripMemberRoleResponse {
   message: string;
+  trip: TripDetails;
   member: {
     userId: string;
     role: Exclude<TripMemberRole, 'owner'>;
@@ -84,11 +87,14 @@ export const useUpdateTripMemberRole = (userId?: string) => {
       userId: memberId,
       role,
     }: UpdateTripMemberRoleInput) =>
-      patchToApi<UpdateTripMemberRoleResponse>(
+      saveChecked<UpdateTripMemberRoleResponse>(
         `/trip/${tripId}/members/${memberId}/role`,
-        { role },
+        createCheckedPatch(
+          client.getQueryData<TripDetails>(['trip-settings', tripId])!,
+          { [`memberRoles.${memberId}`]: role },
+        ),
       ),
-    onSuccess: ({ member }, { tripId }) => {
+    onSuccess: ({ member, trip: savedTrip }, { tripId }) => {
       client.setQueryData<TripDetails>(['trip-settings', tripId], (current) =>
         current
           ? applyTripMemberRole(current, member.userId, member.role)
@@ -101,6 +107,7 @@ export const useUpdateTripMemberRole = (userId?: string) => {
             : trip,
         ),
       );
+      if (savedTrip) client.setQueryData(['trip-settings', tripId], savedTrip);
       void client.invalidateQueries({ queryKey: tripsQueryKey(userId) });
     },
   });

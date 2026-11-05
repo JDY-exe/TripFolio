@@ -15,7 +15,9 @@ import type {
   Reservation,
   ReservationInput,
 } from '../../../../queries/reservations';
-import { getApiErrorMessage } from '../../../../utils/api';
+import { getApiErrorMessage, getFromApi } from '../../../../utils/api';
+import { paths } from '../../../../queries/reservations';
+import { useEditorSnapshot } from '../../../../queries/useEditorSnapshot';
 import {
   reservationDateToTimestamp,
   toReservationDateInput,
@@ -77,6 +79,25 @@ const AccommodationReservationForm = ({
   const [isOpen, setIsOpen] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const previousStep = useRef(step);
+  const snapshot = useEditorSnapshot(
+    reservation,
+    () =>
+      getFromApi<Reservation>(
+        `/logistics/${paths[reservation!.type]}/${reservation!._id}`,
+      ),
+    (fresh) => {
+      setName(fresh.name);
+      setAddress(fresh.accommodations?.address ?? '');
+      setPlaceId(fresh.accommodations?.placeId ?? null);
+      setStartDate(toReservationDateInput(fresh.startTime));
+      setEndDate(toReservationDateInput(fresh.endTime));
+      setCost(fresh.cost?.toString() ?? '');
+      setNotes(fresh.notes ?? '');
+      setConfirmationNumber(fresh.confirmationNumber ?? '');
+      if (fresh.itineraryActions) itinerary.rebase(fresh.itineraryActions);
+    },
+    isOpen,
+  );
 
   useEffect(() => {
     if (previousStep.current === step) return;
@@ -143,21 +164,32 @@ const AccommodationReservationForm = ({
       return;
     }
     const values: ReservationInput = {
-      name: name.trim(),
+      name,
       startTime: reservationDateToTimestamp(startDate),
       endTime: reservationDateToTimestamp(endDate),
       cost: parsedCost,
-      confirmationNumber: confirmationNumber.trim(),
-      notes: notes.trim(),
-      accommodations: { address: address.trim(), placeId },
+      confirmationNumber,
+      notes,
+      accommodations: { address, placeId },
       itineraryActions: itinerary.actions,
     };
     setError('');
     try {
+      snapshot.startSaving();
+      itinerary.startSaving();
       await saveReservation.mutateAsync({
         type: ReservationType.Accommodations,
         values,
         id: reservation?._id,
+        original: snapshot.original,
+        originalEvents: itinerary.originalEvents,
+        onRebase: (current, changes) => {
+          snapshot.rebase(current, changes);
+          itinerary.rebase(
+            current.itineraryActions ?? [],
+            changes.itineraryActions as typeof itinerary.actions | undefined,
+          );
+        },
       });
       setIsOpen(false);
     } catch (cause) {

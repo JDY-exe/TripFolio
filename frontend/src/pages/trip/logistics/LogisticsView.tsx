@@ -67,6 +67,7 @@ const LogisticsView = ({ readOnly = false }: { readOnly?: boolean }) => {
       setDeleteModalOpen(false);
       displayAlert('Reservation deleted.');
     } catch (error) {
+      setDeleteModalOpen(false);
       displayAlert({
         message: getApiErrorMessage(error, 'Could not delete the reservation.'),
         tone: 'error',

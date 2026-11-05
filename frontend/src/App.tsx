@@ -9,6 +9,7 @@ import {
   useNavigate,
 } from 'react-router';
 import { ToastViewport } from './components/common';
+import EditConflictDialog from './components/common/EditConflictDialog/EditConflictDialog';
 import ScreenLoadingOverlay from './components/common/LoadingIndicator/ScreenLoadingOverlay';
 import BottomNav from './components/navigation/BottomNav';
 import {
@@ -92,6 +93,7 @@ const AppContent = () => {
       )}
 
       <ToastViewport />
+      <EditConflictDialog />
     </div>
   );
 };

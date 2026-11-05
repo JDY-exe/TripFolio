@@ -66,13 +66,19 @@ const ItineraryView = ({
     if (readOnly || !eventToDelete || isDeletingEvent) return;
     setIsDeletingEvent(true);
     try {
-      await deleteFromApi(`/event/${eventToDelete._id}`);
+      await deleteFromApi(`/event/${eventToDelete._id}`, {
+        data: { expectedVersion: eventToDelete.version },
+      });
       await queryClient.invalidateQueries({
         queryKey: eventsQueryKey(itinerary?._id ?? ''),
       });
       await queryClient.invalidateQueries({ queryKey: ['reservation-events'] });
       setDeleteModalOpen(false);
     } catch (error) {
+      setDeleteModalOpen(false);
+      await queryClient.invalidateQueries({
+        queryKey: eventsQueryKey(itinerary?._id),
+      });
       displayAlert({
         message: getApiErrorMessage(error, 'Could not delete the event.'),
         tone: 'error',

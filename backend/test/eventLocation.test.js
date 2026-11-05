@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const Event = require('../models/event');
+const mongoose = require('mongoose');
 const Itinerary = require('../models/itinerary');
 const Trip = require('../models/trip');
 const MapLocation = require('../models/MapLocation');
@@ -64,9 +65,9 @@ test('saved coordinates skip lookups and older Google places resolve by ID', asy
 });
 
 test('event saves store Google coordinates and clear stale coordinates when the place changes', async (t) => {
-  const original = [Itinerary.findById, Trip.findById, Event.prototype.save, Event.findById, Event.findByIdAndUpdate, global.fetch, process.env.GOOGLE_API_KEY];
+  const original = [Itinerary.findById, Trip.findById, Event.prototype.save, Event.findById, Event.findOneAndUpdate, global.fetch, process.env.GOOGLE_API_KEY];
   t.after(() => {
-    [Itinerary.findById, Trip.findById, Event.prototype.save, Event.findById, Event.findByIdAndUpdate, global.fetch] = original;
+    [Itinerary.findById, Trip.findById, Event.prototype.save, Event.findById, Event.findOneAndUpdate, global.fetch] = original;
     if (original[6] === undefined) delete process.env.GOOGLE_API_KEY;
     else process.env.GOOGLE_API_KEY = original[6];
   });
@@ -81,17 +82,17 @@ test('event saves store Google coordinates and clear stale coordinates when the 
   };
   Event.prototype.save = async function () { event = this; return this; };
   const response = { status() { return this; }, json(body) { this.body = body; return this; } };
-  await createEvent({ user: { id: 'owner' }, body: { itineraryID: 'itinerary', title: 'Place', placeId: 'first', address: 'Address', startTime: '2027-04-01T10:00:00Z', endTime: '2027-04-01T11:00:00Z' } }, response);
+  await createEvent({ user: { id: 'owner' }, body: { itineraryID: String(new mongoose.Types.ObjectId()), title: 'Place', placeId: 'first', address: 'Address', startTime: '2027-04-01T10:00:00Z', endTime: '2027-04-01T11:00:00Z' } }, response);
   assert.equal(response.body.lat, 0);
   assert.equal(response.body.lng, 12);
   assert.equal(calls, 1);
   Event.findById = async () => event;
-  Event.findByIdAndUpdate = async (id, update) => { Object.assign(event, update.$set); return event; };
-  await updateEvent({ user: { id: 'owner' }, params: { id: 'event' }, body: { title: 'Renamed' } }, response);
+  Event.findOneAndUpdate = async (filter, update) => { assert.equal(filter.version, event.version); event.set(update.$set); event.version++; return event; };
+  await updateEvent({ user: { id: 'owner' }, params: { id: 'event' }, body: { expectedVersion: event.version, changes: { title: 'Renamed' }, original: { title: event.title } } }, response);
   assert.equal(calls, 1);
   assert.equal(event.lng, 12);
   global.fetch = async () => { calls++; throw new Error('Provider unavailable'); };
-  await updateEvent({ user: { id: 'owner' }, params: { id: 'event' }, body: { placeId: 'second' } }, response);
+  await updateEvent({ user: { id: 'owner' }, params: { id: 'event' }, body: { expectedVersion: event.version, changes: { placeId: 'second', address: event.address }, original: { placeId: event.placeId, address: event.address } } }, response);
   assert.equal(calls, 2);
   assert.equal(event.lat, null);
   assert.equal(event.lng, null);

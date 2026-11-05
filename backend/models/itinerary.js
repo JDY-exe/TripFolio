@@ -22,4 +22,5 @@ const itinerarySchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+itinerarySchema.plugin(require("../utils/recordVersion"));
 module.exports = mongoose.model("Itinerary", itinerarySchema);

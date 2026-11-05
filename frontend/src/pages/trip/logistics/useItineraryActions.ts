@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { useReservationEvents } from '../../../queries/reservations';
+import { useQueryClient } from '@tanstack/react-query';
+import { paths } from '../../../queries/reservations';
 import type { Reservation } from '../../../queries/reservations';
-import type { EventType, ItineraryAction } from '../../../queries/events';
+import type {
+  EventData,
+  EventType,
+  ItineraryAction,
+} from '../../../queries/events';
+import { getFromApi } from '../../../utils/api';
 
 export interface ActionDraft {
   eventType: EventType;
@@ -16,53 +22,75 @@ export const actionLabels: Partial<Record<EventType, string>> = {
   rentalcar_pickup: 'Rental car pickup',
   rentalcar_return: 'Rental car return',
 };
-/** Manages explicit booking-boundary time slots, loading existing entries before editing.
- * @param reservation - Optional booking being edited.
- * @param types - Ordered start/end action types.
- * @param dates - Booking start/end calendar dates.
- * @returns Draft controls, query status, serialized actions, and validation error.
+/** Builds action drafts from a local linked-event snapshot, never from later cache updates. */
+const buildDrafts = (
+  types: readonly EventType[],
+  events: ItineraryAction[],
+  creating: boolean,
+): ActionDraft[] =>
+  types.map((eventType) => {
+    const event = events.find((item) => item.eventType === eventType);
+    return {
+      eventType,
+      selected: Boolean(event) || creating,
+      start: event?.startTime.slice(11, 16) ?? '',
+      end: event?.endTime.slice(11, 16) ?? '',
+      nextDay: Boolean(
+        event && event.endTime.slice(0, 10) > event.startTime.slice(0, 10),
+      ),
+    };
+  });
+/** Manages cached linked action drafts with one non-blocking initial refresh.
+ * @param reservation - Optional edited booking.
+ * @param types - Ordered boundary action types.
+ * @param dates - Current local booking dates.
+ * @returns Local drafts, originals, serialized actions and validation controls.
  */
 export const useItineraryActions = (
   reservation: Reservation | undefined,
   types: readonly EventType[],
   dates: readonly string[],
 ) => {
-  const query = useReservationEvents(reservation);
-  const initialized = useRef(false);
-  const [ready, setReady] = useState(!reservation);
-  const [drafts, setDrafts] = useState<ActionDraft[]>(() =>
-    types.map((eventType) => ({
-      eventType,
-      selected: !reservation,
-      start: '',
-      end: '',
-      nextDay: false,
-    })),
+  const client = useQueryClient();
+  const [originalEvents, setOriginalEvents] = useState<ItineraryAction[]>(
+    () =>
+      reservation?.itineraryActions ??
+      client.getQueryData<EventData[]>([
+        'reservation-events',
+        reservation?._id,
+      ]) ??
+      [],
   );
+  const [drafts, setDrafts] = useState<ActionDraft[]>(() =>
+    buildDrafts(types, originalEvents, !reservation),
+  );
+  const saving = useRef(false);
+  const [hasActionSnapshot] = useState(
+    reservation?.itineraryActions !== undefined,
+  );
+  const id = reservation?._id;
+  const type = reservation?.type;
+  const typesKey = types.join(',');
   useEffect(() => {
-    // Do not restore an action from stale cached data while a fresh read is in flight.
-    if (!query.data || query.isFetching || query.isError || initialized.current)
-      return;
-    initialized.current = true;
-    setReady(true);
-    setDrafts((current) =>
-      current.map((draft) => {
-        const event = query.data.find(
-          (item) => item.eventType === draft.eventType,
+    if (!id || !type || hasActionSnapshot) return;
+    let ignore = false;
+    void getFromApi<{ events: EventData[] }>(
+      `/logistics/${paths[type]}/${id}/events`,
+    )
+      .then(({ events }) => {
+        if (ignore || saving.current) return;
+        setOriginalEvents(events);
+        setDrafts(
+          buildDrafts(typesKey.split(',') as EventType[], events, false),
         );
-        return event
-          ? {
-              ...draft,
-              selected: true,
-              start: event.startTime.slice(11, 16),
-              end: event.endTime.slice(11, 16),
-              nextDay:
-                event.endTime.slice(0, 10) > event.startTime.slice(0, 10),
-            }
-          : draft;
-      }),
-    );
-  }, [query.data, query.isFetching, query.isError]);
+      })
+      .catch(() => {
+        /* Keep cached actions editable if the best-effort refresh fails. */
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [id, type, typesKey, hasActionSnapshot]);
   const actions: ItineraryAction[] = [];
   let error = '';
   drafts.forEach((draft, index) => {
@@ -106,13 +134,21 @@ export const useItineraryActions = (
     drafts,
     setDrafts,
     actions,
+    originalEvents,
     error,
     datesChanged,
     datesConfirmed: confirmedDates === dateKey,
     confirmDates: (confirmed: boolean) =>
       setConfirmedDates(confirmed ? dateKey : ''),
-    loading: Boolean(reservation && (query.isPending || !ready)),
-    isError: query.isError,
-    retry: query.refetch,
+    startSaving: () => {
+      saving.current = true;
+    },
+    rebase: (current: ItineraryAction[], resolved?: ItineraryAction[]) => {
+      setOriginalEvents(current);
+      setDrafts(buildDrafts(types, resolved ?? current, false));
+    },
+    loading: false,
+    isError: false,
+    retry: async () => undefined,
   };
 };

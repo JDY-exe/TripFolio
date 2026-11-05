@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { Button, Modal, TextArea, TextField } from '../../../components/common';
-import { patchToApi, postToApi, getApiErrorMessage } from '../../../utils/api';
+import { getFromApi, postToApi, getApiErrorMessage } from '../../../utils/api';
+import { createCheckedPatch, saveChecked } from '../../../utils/checkedSave';
+import { useEditorSnapshot } from '../../../queries/useEditorSnapshot';
 import type { EventData, EventType } from '../../../queries/events';
 import { useParams } from 'react-router';
 import { eventTypeLabels } from './eventTypeLabels';
@@ -84,6 +86,15 @@ const AddNewEventCard = ({
   const [draft, setDraft] = useState<EventDraft>(() => createEventDraft(event));
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const snapshot = useEditorSnapshot(
+    event,
+    () => getFromApi<EventData>(`/event/${event!._id}`),
+    (fresh) => {
+      setDraft(createEventDraft(fresh));
+      setEventDate(fresh.startTime.slice(0, 10));
+    },
+    isOpen,
+  );
 
   /**
    * Merges changed event fields into the current draft.
@@ -105,6 +116,10 @@ const AddNewEventCard = ({
     }
     const [hours, minutes] = startTime.split(':').map(Number);
     const finishHour = (hours + 1) % 24;
+    if (event) {
+      updateDraft({ startTime });
+      return;
+    }
     updateDraft({
       startTime,
       finishTime: `${String(finishHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
@@ -142,6 +157,7 @@ const AddNewEventCard = ({
       setError("Event must occur within the trip's duration.");
       return;
     }
+    snapshot.startSaving();
     setIsSaving(true);
     setError('');
     try {
@@ -156,8 +172,24 @@ const AddNewEventCard = ({
         reservation: draft.reservation || undefined,
         reservationMade: draft.reservationMade,
       };
+      const editable = Object.fromEntries(
+        Object.entries(payload).filter(([key]) => key !== 'reservation'),
+      );
       const savedEvent = event
-        ? await patchToApi<EventData>(`/event/${event._id}`, payload)
+        ? await saveChecked<EventData>(
+            `/event/${event._id}`,
+            createCheckedPatch(
+              {
+                ...snapshot.original!,
+                reservationMade: snapshot.original?.reservationMade ?? false,
+              },
+              editable,
+              [['address', 'placeId']],
+            ),
+            {},
+            (current, changes) =>
+              snapshot.rebase(current as unknown as EventData, changes),
+          )
         : await postToApi<EventData>('/event', {
             itineraryID: itineraryId,
             ...payload,

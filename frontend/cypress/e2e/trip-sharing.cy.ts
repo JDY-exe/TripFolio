@@ -11,6 +11,7 @@ type TripRole = 'owner' | 'editor' | 'viewer';
  */
 const openTripSettings = (role: TripRole = 'owner') => {
   const trip = {
+    version: 0,
     _id: sharingFixture.tripId,
     name: sharingFixture.tripName,
     startDate: sharingFixture.startDate,
@@ -256,7 +257,11 @@ describe('trip sharing', () => {
     );
     cy.wait('@updateMemberRole')
       .its('request.body')
-      .should('deep.equal', { role: 'viewer' });
+      .should('deep.equal', {
+        expectedVersion: 0,
+        changes: { [`memberRoles.${sharingFixture.memberId}`]: 'viewer' },
+        original: { [`memberRoles.${sharingFixture.memberId}`]: 'editor' },
+      });
     cy.get(`[data-cy="trip-member-role-${sharingFixture.memberId}"]`).should(
       'have.value',
       'viewer',
@@ -292,7 +297,11 @@ describe('trip sharing', () => {
       .select('editor');
     cy.wait('@updateMemberRole')
       .its('request.body')
-      .should('deep.equal', { role: 'editor' });
+      .should('deep.equal', {
+        expectedVersion: 0,
+        changes: { [`memberRoles.${sharingFixture.viewerId}`]: 'editor' },
+        original: { [`memberRoles.${sharingFixture.viewerId}`]: 'viewer' },
+      });
     cy.get('[data-cy="toast"]')
       .contains('Trip member role updated.')
       .should('exist');

@@ -1,4 +1,6 @@
 const express = require("express");
+const { checkedDelete } = require('../utils/checkedUpdate');
+const { checkReservationChanges } = require('../utils/checkReservationChanges');
 const mongoose = require("mongoose");
 const Reservation = require("../models/Reservation");
 const Trip = require("../models/trip");
@@ -167,9 +169,21 @@ const findTripWithAccess = async (
     return trip;
 };
 
+/** Exposes linked action slots alongside booking snapshots for checked dependent edits. */
+const withActionSnapshots = async (reservations) => {
+    if (reservations.length === 0) return [];
+    const events = await Event.find({ reservation: { $in: reservations.map((record) => record._id) } }).sort({ startTime: 1 });
+    return reservations.map((record) => ({
+        ...(record.toObject ? record.toObject() : record),
+        itineraryActions: events.filter((event) => String(event.reservation) === String(record._id)).map(({ _id, version, eventType, startTime, endTime }) => ({
+            _id, version, eventType, startTime: new Date(startTime).toISOString(), endTime: new Date(endTime).toISOString(),
+        })),
+    }));
+};
+
 const sendServerError = (res, error) => {
     if (error.status)
-        return res.status(error.status).json({ message: error.message });
+        return res.status(error.status).json(error.payload || { message: error.message });
     if (error.code === 11000)
         return res
             .status(409)
@@ -198,10 +212,19 @@ for (const [
                 trip: tripId,
                 type,
             }).sort({ startTime: 1 });
-            return res.json({ reservations });
+            return res.json({ reservations: await withActionSnapshots(reservations) });
         } catch (error) {
             return sendServerError(res, error);
         }
+    });
+
+    router.get(`/${path}/:id`, async (req, res) => {
+        try {
+            const reservation = await Reservation.findById(req.params.id);
+            if (!reservation || reservation.type !== type) throw requestError(404, 'Reservation not found');
+            await findTripWithAccess(req, reservation.trip);
+            return res.json((await withActionSnapshots([reservation]))[0]);
+        } catch (error) { return sendServerError(res, error); }
     });
 
     router.get(`/${path}/:id/events`, async (req, res) => {
@@ -346,6 +369,21 @@ for (const [
 
     router.patch(`/${path}/:id`, async (req, res) => {
         try {
+            const request = req.body;
+            if (!request || typeof request !== 'object') throw requestError(400, 'Provide a checked update request');
+            const editable = ['name', 'startTime', 'endTime', 'confirmationNumber', 'cost', 'notes',
+                ...fields.map((field) => `${type}.${field}`), ...(type === 'flights' ? ['flights.segments'] : [])];
+            const groups = type === 'accommodations' ? [['accommodations.address', 'accommodations.placeId']]
+                : type === 'rentals' ? [['rentals.pickupAddress', 'rentals.pickupPlaceId'], ['rentals.returnAddress', 'rentals.returnPlaceId']] : [];
+            // Keep the immutable checked request for every transaction retry.
+            const body = {};
+            for (const [key, value] of Object.entries(request.changes || {})) {
+                if (!editable.includes(key) && key !== 'itineraryActions') throw requestError(400, `Invalid field: ${key}`);
+                const [parent, child] = key.split('.');
+                if (child) (body[parent] ||= {})[child] = value;
+                else body[parent] = value;
+            }
+            req.body = body;
             if (!mongoose.isValidObjectId(req.params.id))
                 return res
                     .status(404)
@@ -365,12 +403,11 @@ for (const [
                         true,
                         session,
                     );
-                    // Serialize action edits with other booking writes and itinerary initialization.
-                    await Trip.updateOne(
-                        { _id: trip._id },
-                        { $inc: { __v: 1 } },
-                        { session },
-                    );
+                    const linked = await Event.find({ reservation: reservation._id }, null, { session }).sort({ startTime: 1 });
+                    const itineraryActions = linked.map(({ _id, version, eventType, startTime, endTime }) => ({ _id, version, eventType, startTime: new Date(startTime).toISOString(), endTime: new Date(endTime).toISOString() }));
+                    const current = { ...reservation.toObject(), itineraryActions };
+                    const changes = checkReservationChanges(Reservation, current, request, editable, groups);
+                    req.body.itineraryActions = changes.itineraryActions;
                     const previousStart = new Date(
                         reservation.startTime,
                     ).toISOString();
@@ -484,6 +521,7 @@ for (const [
                             "Complete all required fields and enter valid dates",
                         );
                     }
+                    reservation.increment();
                     await reservation.save({ session });
                     const itinerary = await Itinerary.findOne(
                         { tripId: trip._id },
@@ -566,7 +604,7 @@ for (const [
                             { session },
                         );
                     }
-                    await reservation.deleteOne({ session });
+                    await checkedDelete(Reservation, reservation, req.body?.expectedVersion, session);
                     await Trip.updateOne(
                         { _id: trip._id },
                         { $pull: { reservations: reservation._id } },

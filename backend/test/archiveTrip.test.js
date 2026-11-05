@@ -21,7 +21,8 @@ test("a trip member can archive a trip that has ended", async (t) => {
 
   let saveCalls = 0;
 
-  const trip = {
+  const trip = new Trip({
+    location: 'Test destination',
     _id: new mongoose.Types.ObjectId(tripId),
     name: "Completed Vacation",
     ownerId: userId,
@@ -31,12 +32,12 @@ test("a trip member can archive a trip that has ended", async (t) => {
     startDate: new Date("2020-01-01"),
     endDate: new Date("2020-01-05"),
     archived: false,
-
-    async save() {
-      saveCalls++;
-      return this;
-    },
-  };
+  });
+  t.mock.method(Trip, 'findOneAndUpdate', async (filter, update) => {
+    assert.equal(filter.version, trip.version);
+    trip.set(update.$set); trip.version++; saveCalls++;
+    return trip;
+  });
 
   Trip.findById = async (id) => {
     return String(id) === tripId ? trip : null;
@@ -81,7 +82,7 @@ test("a trip member can archive a trip that has ended", async (t) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ tripId }),
+      body: JSON.stringify({ tripId, expectedVersion: trip.version, changes: { archived: true }, original: { archived: false } }),
     },
   );
 
@@ -108,7 +109,7 @@ test("a trip member can archive a trip that has ended", async (t) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${viewerToken}`,
       },
-      body: JSON.stringify({ tripId }),
+      body: JSON.stringify({ tripId, expectedVersion: trip.version, changes: { archived: true }, original: { archived: false } }),
     },
   );
   assert.equal(viewerResponse.status, 403);
@@ -124,7 +125,7 @@ test("a trip member can archive a trip that has ended", async (t) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${editorToken}`,
       },
-      body: JSON.stringify({ tripId }),
+      body: JSON.stringify({ tripId, expectedVersion: trip.version, changes: { archived: true }, original: { archived: false } }),
     },
   );
   assert.equal(editorResponse.status, 200);

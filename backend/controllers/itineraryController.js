@@ -1,6 +1,7 @@
 const Itinerary = require ('../models/itinerary');
 const Trip = require('../models/trip');
 const mongoose = require('mongoose');
+const { checkedUpdate } = require('../utils/checkedUpdate');
 const { ensureItinerary } = require('../utils/ensureItinerary');
 const { canEditTrip, canReadTrip, getTripRole } = require('../utils/tripAccess');
 
@@ -70,7 +71,6 @@ const getItinerary = async (req, res) => {
 const updateItinerary = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description } = req.body;
     const itinerary = await Itinerary.findById(id);
 
     if (!itinerary) {
@@ -84,18 +84,20 @@ const updateItinerary = async (req, res) => {
       return denyTripAccess(res, trip, req.user.id);
     }
     
-    const updatedItinerary = await Itinerary.findByIdAndUpdate(
-      id,
-      { title, description },
-      { returnDocument: 'after' }
-    );
+    const updatedItinerary = await checkedUpdate({
+      Model: Itinerary, id, request: req.body, fields: ['title', 'description'],
+      authorize: async (current) => {
+        const parent = await Trip.findById(current.tripId);
+        if (!parent || !canEditTrip(parent, req.user.id)) throw Object.assign(new Error('Cannot edit itinerary'), { status: 403 });
+      },
+    });
 
     if (!updatedItinerary) {
       return res.status(404).json({ message: 'Itinerary not found' });
     }
     res.status(200).json(updatedItinerary);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating itinerary', error: error.message });
+    res.status(error.status || (error.name === 'ValidationError' ? 400 : 500)).json(error.payload || { message: 'Error updating itinerary', error: error.message });
   }
 };
 

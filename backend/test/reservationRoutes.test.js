@@ -248,7 +248,7 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         }
     );
     assert.equal(response.status, 404);
-    const stored = {
+    const stored = new Reservation({
         _id: reservationId,
         trip: tripId,
         type: "flights",
@@ -270,21 +270,13 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
                 }
             ]
         },
-        set(field, value) {
-            if (field.includes(".")) {
-                const parts = field.split(".");
-                this.flights[parts[1]] = value;
-            } else {
-                this[field] = value;
-            }
-        },
-        async save() {
-            return this;
-        },
-        async deleteOne() {
-            this.deleted = true;
-        }
-    };
+    });
+    stored.save = async () => { stored.version++; return stored; };
+    t.mock.method(Reservation, 'deleteOne', async (filter) => {
+        assert.equal(filter.version, stored.version);
+        stored.deleted = true;
+        return { deletedCount: 1 };
+    });
     Reservation.findById = async () => stored;
     Trip.findById = async () => ({
         _id: tripId,
@@ -296,10 +288,11 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
         {
             method: "PATCH",
             body: JSON.stringify({
-                name: "Updated flight",
-
-                flights: {
-                    segments: [
+                expectedVersion: stored.version,
+                original: { name: stored.name, 'flights.segments': stored.flights.segments },
+                changes: {
+                    name: 'Updated flight',
+                    'flights.segments': [
                         {
                             flightNum: "AB456",
                             departAirport: "SIN",
@@ -351,7 +344,7 @@ test("reservation routes scope reads and writes to trip editors", async (t) => {
     response = await request(
         `/logistics/flights/${reservationId}`,
         {
-            method: "DELETE"
+            method: 'DELETE', body: JSON.stringify({ expectedVersion: stored.version }),
         }
     );
     assert.equal(response.status, 200);
