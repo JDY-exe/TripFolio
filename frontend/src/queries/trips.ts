@@ -162,8 +162,9 @@ export interface TripInvitation {
   trip: Trip & {
     owner?: { username: string; profile_picture?: string | null } | null;
   };
-  inviter: { username: string } | null;
+  inviter: { username: string; profile_picture?: string | null } | null;
   role?: Exclude<TripMemberRole, 'owner'>;
+  archivedReadOnly?: boolean;
 }
 
 interface TripInvitationsResponse {
@@ -208,6 +209,7 @@ export const useRespondToTripInvitation = (userId?: string) => {
       await Promise.all([
         client.invalidateQueries({ queryKey: ['trip-invitations', userId] }),
         client.invalidateQueries({ queryKey: tripsQueryKey(userId) }),
+        client.invalidateQueries({ queryKey: archivedTripsQueryKey(userId) }),
       ]);
     },
   });

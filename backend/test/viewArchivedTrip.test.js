@@ -163,4 +163,13 @@ test("an archived trip preserves the user's role while the archive state remains
     },
   );
   assert.equal(unarchivedShareResponse.status, 404);
+
+  const activeTripOnArchivedRoute = await fetch(
+    `http://127.0.0.1:${server.address().port}/trip/archived/${tripId}`,
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer " + token },
+    },
+  );
+  assert.equal(activeTripOnArchivedRoute.status, 404);
 });

@@ -36,6 +36,7 @@ interface EventDraft {
   eventType: EventType;
   reservation: string;
   reservationMade: boolean;
+  cost: number;
 }
 
 /**
@@ -60,6 +61,7 @@ const createEventDraft = (event?: EventData): EventDraft => ({
   eventType: event?.eventType ?? 'activity',
   reservation: event?.reservation ?? '',
   reservationMade: event?.reservationMade ?? false,
+  cost: event?.cost ?? 0,
 });
 
 /** Opens a modal for entering an event and reports its saved record to the itinerary.
@@ -171,6 +173,7 @@ const AddNewEventCard = ({
         eventType: draft.eventType,
         reservation: draft.reservation || undefined,
         reservationMade: draft.reservationMade,
+        cost: draft.cost,
       };
       const editable = Object.fromEntries(
         Object.entries(payload).filter(([key]) => key !== 'reservation'),
@@ -182,6 +185,7 @@ const AddNewEventCard = ({
               {
                 ...snapshot.original!,
                 reservationMade: snapshot.original?.reservationMade ?? false,
+                cost: snapshot.original?.cost ?? 0,
               },
               editable,
               [['address', 'placeId']],
@@ -417,6 +421,18 @@ const AddNewEventCard = ({
               required
             />
           </div>
+          <TextField
+            data-cy="event-cost"
+            id="event-cost"
+            label="Cost ($)"
+            type="number"
+            min="0"
+            step="0.01"
+            value={draft.cost.toString()}
+            onChange={(event) =>
+              updateDraft({ cost: parseFloat(event.target.value) || 0 })
+            }
+          />
           <label
             className="grid gap-2 text-sm font-medium"
             htmlFor="event-notes"

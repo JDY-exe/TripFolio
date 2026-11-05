@@ -135,6 +135,9 @@ const updateTripVisibility = async (req, res) => {
     if (getTripRole(trip, req.user.id) !== "owner") {
       return res.status(403).json({ message: "Only the trip owner can change visibility" });
     }
+    if (trip.archived) {
+      return res.status(409).json({ message: "Archived trips are read-only" });
+    }
 
     const updated = await checkedUpdate({ Model: Trip, id: trip._id, request: req.body, fields: ['isPublic'], serializeCurrent: (current) => serializeTripForUser(current, req.user.id),
       authorize: async (current) => {
@@ -153,6 +156,9 @@ const deleteTrip = async (req, res) => {
 
     if (!trip || !getTripRole(trip, req.user.id)) {
       return res.status(404).json({ message: 'Trip not found' });
+    }
+    if (trip.archived) {
+      return res.status(409).json({ message: "Archived trips cannot be deleted" });
     }
     if (getTripRole(trip, req.user.id) !== "owner") {
       return res.status(403).json({ message: 'Only the trip owner can delete it' });
@@ -203,6 +209,9 @@ const updateTripProfilePicture = async (req, res) => {
       return res.status(getTripRole(trip, req.user.id) ? 403 : 404).json({
         message: "Only the trip owner can change the trip picture"
       });
+    }
+    if (trip.archived) {
+      return res.status(409).json({ message: "Archived trips are read-only" });
     }
 
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
@@ -341,11 +350,17 @@ const shareTrip = async (req, res) => {
         if (!trip) {
           throw Object.assign(new Error("Trip not found"), { status: 404 });
         }
-        if (!canEditTrip(trip, req.user.id)) {
+        const sharerRole = getTripRole(trip, req.user.id);
+        if (sharerRole !== "owner" && sharerRole !== "editor") {
           throw Object.assign(
             new Error("Only trip owners and editors can share this trip"),
             { status: 403 }
           );
+        }
+        if (trip.archived) {
+          throw Object.assign(new Error("Archived trips must be shared with read-only access"), {
+            status: 409
+          });
         }
         const recipients = await User.find({
           _id: { $in: normalizedIds }
@@ -404,7 +419,7 @@ const shareTrip = async (req, res) => {
   }
 };
 
-/** Grants a trip participant read-only access to an archived trip. */
+/** Sends a pending invitation for read-only access to an archived trip. */
 const shareArchivedTrip = async (req, res) => {
   try {
     const { id: tripId } = req.params;
@@ -425,13 +440,14 @@ const shareArchivedTrip = async (req, res) => {
     const normalizedRecipientId = new mongoose.Types.ObjectId(
       recipientId
     ).toString();
-    const alreadyShared = await mongoose.connection.transaction(
+    await mongoose.connection.transaction(
       async (session) => {
         const trip = await Trip.findById(tripId).session(session);
         if (!trip) {
           throw Object.assign(new Error("Trip not found"), { status: 404 });
         }
-        if (!canEditTrip(trip, req.user.id)) {
+        const role = getTripRole(trip, req.user.id);
+        if (role !== "owner" && role !== "editor") {
           throw Object.assign(
             new Error("Only trip owners and editors can share this trip"),
             { status: 403 }
@@ -458,30 +474,48 @@ const shareArchivedTrip = async (req, res) => {
             { status: 409 }
           );
         }
-
-        const result = await Trip.updateOne(
-          { _id: tripId, archived: true },
-          { $addToSet: { archivedSharedWith: normalizedRecipientId } },
-          { session }
-        );
-        if (!result.matchedCount) {
-          throw Object.assign(new Error("Trip is no longer archived"), {
-            status: 409
-          });
+        if (trip.archivedSharedWith?.some(
+          (sharedUserId) => String(sharedUserId) === normalizedRecipientId
+        )) {
+          throw Object.assign(
+            new Error("Recipient already has access to this trip"),
+            { status: 409 }
+          );
         }
 
-        return result.modifiedCount === 0;
+        const existingInvitation = await TripInvitation.findOne({
+          trip: tripId,
+          recipient: normalizedRecipientId,
+          status: "pending"
+        }).session(session);
+        if (existingInvitation) {
+          throw Object.assign(
+            new Error("A pending invitation already exists for this trip"),
+            { status: 409 }
+          );
+        }
+
+        return TripInvitation.create([{
+          trip: tripId,
+          recipient: normalizedRecipientId,
+          inviter: req.user.id,
+          role: "viewer",
+          archivedReadOnly: true
+        }], { session });
       }
     );
 
-    return res.status(alreadyShared ? 200 : 201).json({
-      message: alreadyShared
-        ? "Archived trip is already shared with this user"
-        : "Archived trip shared successfully",
+    return res.status(201).json({
+      message: "Archived trip invitation sent",
       tripId,
       recipientId: normalizedRecipientId
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "A pending invitation already exists for this trip"
+      });
+    }
     return res.status(error.status || 500).json({
       message: error.status ? error.message : "Unable to share archived trip"
     });
@@ -504,6 +538,9 @@ const addUserToTrip = async (req, res) => {
         message: "Only the trip owner can manage its members"
       });
     }
+    if (existingTrip.archived) {
+      return res.status(409).json({ message: "Archived trips are read-only" });
+    }
 
     if (getTripRole(existingTrip, userId)) {
       return res.status(409).json({ message: 'This user is already a member. Use the checked member-role editor to change their role.' });
@@ -515,9 +552,13 @@ const addUserToTrip = async (req, res) => {
       },
       ...(role === "editor" ? { $pull: { viewerIds: userId } } : {})
     };
-    const trip = await Trip.findByIdAndUpdate(tripId, update, { new: true });
+    const trip = await Trip.findOneAndUpdate(
+      { _id: tripId, archived: { $ne: true } },
+      update,
+      { new: true }
+    );
     if (!trip) {
-      return res.status(404).json({ message: "Trip not found" });
+      return res.status(409).json({ message: "Trip is unavailable or archived" });
     }
     return res.status(200).json({
       message: "User added to trip successfully",
@@ -603,10 +644,10 @@ const getTripInvitations = async (req, res) => {
     if (typeof invitations.populate === "function") {
       invitations = invitations
         .populate({
-          path: "trip", select: "name startDate endDate profilePictureId ownerId users",
+          path: "trip", select: "name startDate endDate profilePictureId ownerId users archived",
           populate: { path: "ownerId", select: "username profile_picture" }
         })
-        .populate("inviter", "username");
+        .populate("inviter", "username profile_picture");
     }
 
     if (typeof invitations.sort === "function") {
@@ -645,13 +686,15 @@ const getTripInvitations = async (req, res) => {
           startDate: trip?.startDate ?? null,
           endDate: trip?.endDate ?? null,
           profilePictureId: trip?.profilePictureId ?? null,
+          archived: Boolean(trip?.archived),
           owner: owner ? { username: owner.username, profile_picture: owner.profile_picture } : null
         },
         inviter: inviter ? {
           _id: inviter._id ?? inviter.id,
           username: inviter.username ?? null,
           profile_picture: inviter.profile_picture ?? null
-        } : null
+        } : null,
+        archivedReadOnly: Boolean(invitation.archivedReadOnly)
       };
     }));
     return res.status(200).json({ invites: results });
@@ -688,7 +731,18 @@ const acceptTripInvitation = async (req, res) => {
       return res.status(404).json({ message: "Pending invitation not found" });
     }
 
+    if (invitation.archivedReadOnly) {
+      await acceptArchivedTripInvitation(invitation, req.user.id);
+      return res.status(200).json({
+        message: "Archived trip invitation accepted.",
+        invitation
+      });
+    }
+
     const trip = await Trip.findById(invitation.trip);
+    if (trip?.archived) {
+      return res.status(409).json({ message: "Archived trips cannot accept invitations" });
+    }
     if (trip && getTripRole(trip, req.user.id)) {
       invitation.status = "accepted";
       await invitation.save();
@@ -698,13 +752,13 @@ const acceptTripInvitation = async (req, res) => {
       });
     }
 
-    const updatedTrip = await Trip.findByIdAndUpdate(
-      invitation.trip,
+    const updatedTrip = await Trip.findOneAndUpdate(
+      { _id: invitation.trip, archived: { $ne: true } },
       getInvitationMembershipUpdate(invitation, req.user.id),
       { new: true }
     );
     if (!updatedTrip) {
-      return res.status(404).json({ message: "Trip no longer exists" });
+      return res.status(409).json({ message: "Trip is unavailable or archived" });
     }
 
     invitation.status = "accepted";
@@ -714,8 +768,51 @@ const acceptTripInvitation = async (req, res) => {
       invitation
     });
   } catch (error) {
-    return res.status(500).json({ message: "Unable to respond to invitation" });
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to respond to invitation"
+    });
   }
+};
+
+/** Grants an archived-trip share only when its recipient accepts the invitation. */
+const acceptArchivedTripInvitation = async (invitation, userId) => {
+  await mongoose.connection.transaction(async (session) => {
+    const pendingInvitation = await TripInvitation.findOne({
+      _id: invitation._id,
+      recipient: userId,
+      status: "pending",
+      archivedReadOnly: true
+    }).session(session);
+    if (!pendingInvitation) {
+      throw Object.assign(new Error("Pending invitation not found"), {
+        status: 404
+      });
+    }
+
+    const trip = await Trip.findById(pendingInvitation.trip).session(session);
+    if (!trip || !trip.archived) {
+      throw Object.assign(new Error("Trip is no longer archived"), {
+        status: 409
+      });
+    }
+
+    if (!getTripRole(trip, userId)) {
+      const result = await Trip.updateOne(
+        { _id: trip._id, archived: true },
+        { $addToSet: { archivedSharedWith: userId } },
+        { session }
+      );
+      if (!result.matchedCount) {
+        throw Object.assign(new Error("Trip is no longer archived"), {
+          status: 409
+        });
+      }
+    }
+
+    pendingInvitation.status = "accepted";
+    await pendingInvitation.save({ session });
+    invitation.status = "accepted";
+  });
 };
 
 const rejectTripInvitation = async (req, res) => {
@@ -741,7 +838,9 @@ const rejectTripInvitation = async (req, res) => {
       invitation
     });
   } catch (error) {
-    return res.status(500).json({ message: "Unable to respond to invitation" });
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to respond to invitation"
+    });
   }
 };
 
@@ -757,9 +856,16 @@ const respondToTripInvitation = async (req, res) => {
     });
     if (!invitation) return res.status(404).json({ message: "Pending invitation not found" });
     if (status === "accepted") {
+      if (invitation.archivedReadOnly) {
+        await acceptArchivedTripInvitation(invitation, req.user.id);
+        return res.status(200).json({ invitation });
+      }
       const currentTrip = await Trip.findById(invitation.trip);
       if (!currentTrip) {
         return res.status(404).json({ message: "Trip no longer exists" });
+      }
+      if (currentTrip.archived) {
+        return res.status(409).json({ message: "Archived trips cannot accept invitations" });
       }
       if (getTripRole(currentTrip, req.user.id)) {
         invitation.status = "accepted";
@@ -769,20 +875,22 @@ const respondToTripInvitation = async (req, res) => {
           invitation
         });
       }
-      const updatedTrip = await Trip.findByIdAndUpdate(
-        invitation.trip,
+      const updatedTrip = await Trip.findOneAndUpdate(
+        { _id: invitation.trip, archived: { $ne: true } },
         getInvitationMembershipUpdate(invitation, req.user.id),
         { new: true }
       );
       if (!updatedTrip) {
-        return res.status(404).json({ message: "Trip no longer exists" });
+        return res.status(409).json({ message: "Trip is unavailable or archived" });
       }
     }
     invitation.status = status;
     await invitation.save();
     return res.status(200).json({ invitation });
   } catch (error) {
-    return res.status(500).json({ message: "Unable to respond to invitation" });
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to respond to invitation"
+    });
   }
 };
 
@@ -943,7 +1051,8 @@ const archiveTrip = async (req, res) => {
       });
     }
 
-    if (!canEditTrip(trip, userId)) {
+    const role = getTripRole(trip, userId);
+    if (role !== "owner" && role !== "editor") {
       return res.status(getTripRole(trip, userId) ? 403 : 404).json({
         message: "You must be an owner or editor to change its archive status"
       });
@@ -960,7 +1069,8 @@ const archiveTrip = async (req, res) => {
 
     const updated = await checkedUpdate({ Model: Trip, id: trip._id, request: req.body, fields: ['archived'], serializeCurrent: (current) => serializeTripForUser(current, req.user.id),
       authorize: async (current) => {
-        if (!canEditTrip(current, userId)) throw Object.assign(new Error('Cannot archive this trip'), { status: 403 });
+        const currentRole = getTripRole(current, userId);
+        if (currentRole !== 'owner' && currentRole !== 'editor') throw Object.assign(new Error('Cannot archive this trip'), { status: 403 });
       },
       prepare: async (merged) => {
         if (new Date() <= merged.endDate) throw Object.assign(new Error('Cannot archive a trip that has not ended'), { status: 400 });
@@ -1021,7 +1131,7 @@ const getArchivedTrip = async (req, res) => {
     }
 
     const trip = await Trip.findById(req.params.id);
-    if (!trip || !canReadTrip(trip, req.user.id)) {
+    if (!trip || !trip.archived || !canReadTrip(trip, req.user.id)) {
       return res.status(404).json({ message: "Trip not found" });
     }
 

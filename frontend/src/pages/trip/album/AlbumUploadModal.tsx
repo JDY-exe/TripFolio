@@ -8,7 +8,7 @@ import {
 } from '../../../components/common';
 import { useUploadPhoto } from '../../../queries/photos';
 import { getApiErrorMessage } from '../../../utils/api';
-import { PHOTO_ACCEPT, validatePhotoUpload } from '../../../utils/photoUpload';
+import { MAX_ALBUM_PHOTO_BYTES, PHOTO_ACCEPT, validatePhotoUpload } from '../../../utils/photoUpload';
 
 interface AlbumUploadModalProps {
   tripId: string;
@@ -36,7 +36,7 @@ const AlbumUploadModal = ({ tripId, open, onClose }: AlbumUploadModalProps) => {
     try {
       for (const [index, file] of files.entries()) {
         setStatus(`Uploading photo ${index + 1} of ${files.length}`);
-        const validation = validatePhotoUpload(file);
+        const validation = validatePhotoUpload(file, MAX_ALBUM_PHOTO_BYTES);
         if (validation) {
           displayAlert({
             message: `${file.name}: ${validation}`,

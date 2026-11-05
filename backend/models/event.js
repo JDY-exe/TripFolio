@@ -48,6 +48,10 @@ const eventSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Reservation",
     default: null
+  },
+  cost: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 

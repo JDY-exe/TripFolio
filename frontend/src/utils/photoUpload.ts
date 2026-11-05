@@ -1,4 +1,5 @@
 export const MAX_PHOTO_BYTES = 16 * 1024 * 1024;
+export const MAX_ALBUM_PHOTO_BYTES = 100 * 1024 * 1024;
 export const PHOTO_ACCEPT =
   'image/jpeg,image/png,image/heic,image/heif,image/webp,image/avif,.jpg,.jpeg,.png,.heic,.heif,.webp,.avif';
 
@@ -8,8 +9,8 @@ export const PHOTO_ACCEPT =
  * @param file - Selected photo.
  * @returns A recoverable validation message, or undefined for an eligible file.
  */
-export const validatePhotoUpload = (file: File): string | undefined => {
+export const validatePhotoUpload = (file: File, maxBytes: number = MAX_PHOTO_BYTES): string | undefined => {
   if (file.size === 0) return 'Choose a non-empty photo.';
-  if (file.size > MAX_PHOTO_BYTES) return 'Photos must not exceed 16 MiB.';
+  if (file.size > maxBytes) return 'Photos must not exceed 16 MiB.';
   return undefined;
 };

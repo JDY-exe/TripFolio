@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Reservation = require("../models/Reservation");
 const Itinerary = require("../models/itinerary");
 const Trip = require("../models/trip");
+const Expense = require("../models/Expense");
 const { EVENT_TYPE } = require("../utils/eventTypes");
 const {
   validateActions,
@@ -24,6 +25,7 @@ const editableFields = [
   "notes",
   "eventType",
   "reservationMade",
+  "cost",
 ];
 const invalid = (message, status = 400) =>
   Object.assign(new Error(message), { status });
@@ -75,6 +77,7 @@ const createEvent = async (req, res) => {
       endTime,
       notes,
       reservationMade,
+      cost,
     } = req.body;
     const itinerary = await Itinerary.findById(itineraryID);
     if (!itinerary) throw invalid("Itinerary not found", 404);
@@ -111,6 +114,7 @@ const createEvent = async (req, res) => {
       reservation: booking?._id || null,
       ...(booking ? { title: booking.name, ...location } : {}),
       reservationMade: booking ? true : Boolean(reservationMade),
+      cost: cost || 0,
     });
     if (booking) {
       await mongoose.connection.transaction(async (session) => {
@@ -134,6 +138,16 @@ const createEvent = async (req, res) => {
         await newEvent.save({ session });
       });
     } else await newEvent.save();
+    if (newEvent.cost > 0) {
+      await Expense.create({
+        tripId: trip._id,
+        eventId: newEvent._id,
+        description: newEvent.title,
+        amount: newEvent.cost,
+        paidBy: req.user.id,
+        splitAmong: [req.user.id],
+      });
+    }
     res.status(201).json(newEvent);
   } catch (error) {
     sendError(res, error);
@@ -283,11 +297,24 @@ const updateEvent = async (req, res) => {
             });
         },
       });
-    res.json(
-      event.reservation
-        ? await mongoose.connection.transaction(persist)
-        : await persist(),
-    );
+    const updatedEvent = event.reservation
+      ? await mongoose.connection.transaction(persist)
+      : await persist();
+    if (updatedEvent.cost > 0) {
+      const trip = await findEventTrip(updatedEvent);
+      await Expense.findOneAndUpdate(
+        { eventId: updatedEvent._id },
+        {
+          tripId: trip._id,
+          description: updatedEvent.title,
+          amount: updatedEvent.cost,
+        },
+        { upsert: true, returnDocument: "after" },
+      );
+    } else if (event.cost > 0) {
+      await Expense.findOneAndDelete({ eventId: updatedEvent._id });
+    }
+    res.json(updatedEvent);
   } catch (error) {
     sendError(res, error);
   }
@@ -312,6 +339,9 @@ const deleteEvent = async (req, res) => {
         );
       }
       await checkedDelete(Event, event, req.body?.expectedVersion, session);
+      if (event.cost > 0) {
+        await Expense.findOneAndDelete({ eventId: event._id }, { session });
+      }
     };
     await mongoose.connection.transaction(persist);
     res.json({ message: "Event deleted successfully" });

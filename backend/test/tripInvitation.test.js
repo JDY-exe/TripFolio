@@ -18,6 +18,7 @@ test("trip invitations require trip, existing-profile recipient, and inviter", a
   );
   assert.equal(invitation.status, "pending");
   assert.equal(invitation.role, "editor");
+  assert.equal(invitation.archivedReadOnly, false);
 });
 
 test("trip invitations accept only pending, accepted, or declined statuses", async () => {

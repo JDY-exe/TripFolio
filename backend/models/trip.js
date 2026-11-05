@@ -78,6 +78,11 @@ const tripSchema = new mongoose.Schema({
   archived: {
     type: Boolean,
     default: false,
+  },
+  budget: {
+    type: Number,
+    default: 0,
+    min: [0, 'Budget cannot be negative']
   }
 }, { timestamps: true });
 

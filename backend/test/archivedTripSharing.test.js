@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 
 const Trip = require("../models/trip");
+const TripInvitation = require("../models/TripInvitation");
 const User = require("../models/User");
 const tripRoutes = require("../routes/tripRoutes");
 
@@ -15,8 +16,10 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
 
   const original = {
     tripFindById: Trip.findById,
-    tripUpdateOne: Trip.updateOne,
     userFindById: User.findById,
+    invitationFind: TripInvitation.find,
+    invitationFindOne: TripInvitation.findOne,
+    invitationCreate: TripInvitation.create,
     transaction: mongoose.connection.transaction
   };
   const ids = Object.fromEntries(
@@ -38,6 +41,7 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
       .map(([, id]) => id)
   );
   const session = {};
+  const invitations = [];
   let transactions = 0;
 
   mongoose.connection.transaction = async (callback) => {
@@ -56,20 +60,47 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
       return profiles.has(String(userId)) ? { _id: userId } : null;
     }
   });
-  Trip.updateOne = async (filter, update, options) => {
-    assert.equal(options.session, session);
-    if (
-      String(filter._id) !== ids.trip ||
-      filter.archived !== true ||
-      !trip.archived
-    ) {
-      return { matchedCount: 0, modifiedCount: 0 };
+  TripInvitation.findOne = (filter) => ({
+    session: async (currentSession) => {
+      assert.equal(currentSession, session);
+      return invitations.find((invitation) =>
+        invitation.trip === String(filter.trip) &&
+        invitation.recipient === String(filter.recipient) &&
+        invitation.status === filter.status
+      ) ?? null;
     }
-
-    const recipientId = update.$addToSet.archivedSharedWith;
-    const alreadyShared = trip.archivedSharedWith.includes(recipientId);
-    if (!alreadyShared) trip.archivedSharedWith.push(recipientId);
-    return { matchedCount: 1, modifiedCount: alreadyShared ? 0 : 1 };
+  });
+  TripInvitation.find = (filter) => ({
+    populate() {
+      return this;
+    },
+    sort() {
+      return invitations.filter((invitation) =>
+        invitation.recipient === String(filter.recipient) &&
+        invitation.status === filter.status
+      ).map((invitation) => ({
+        ...invitation,
+        tripRecord: {
+          _id: ids.trip,
+          name: "Archived trip",
+          startDate: new Date("2020-01-01"),
+          endDate: new Date("2020-01-05"),
+          archived: true,
+          ownerId: { username: "trip-owner", profile_picture: null }
+        },
+        inviterRecord: { username: "trip-sender" }
+      }));
+    }
+  });
+  TripInvitation.create = async (documents, options) => {
+    assert.equal(options.session, session);
+    const [invitation] = documents.map((document) => ({
+      _id: new mongoose.Types.ObjectId().toString(),
+      ...document,
+      status: "pending"
+    }));
+    invitations.push(invitation);
+    return [invitation];
   };
 
   const app = express();
@@ -98,29 +129,52 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
     Trip.findById = original.tripFindById;
-    Trip.updateOne = original.tripUpdateOne;
     User.findById = original.userFindById;
+    TripInvitation.find = original.invitationFind;
+    TripInvitation.findOne = original.invitationFindOne;
+    TripInvitation.create = original.invitationCreate;
     mongoose.connection.transaction = original.transaction;
     if (previousSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = previousSecret;
   });
 
-  await t.test("owners and editors can grant access; repeating a grant is safe", async () => {
+  await t.test("owners and editors create pending read-only invitations", async () => {
     const originalMembers = [...trip.users];
 
     for (const sharer of [ids.owner, ids.editor]) {
       const recipientId = sharer === ids.owner ? ids.recipient : ids.stranger;
       const { response, data } = await send({ recipientId }, sharer);
       assert.equal(response.status, 201);
-      assert.equal(data.message, "Archived trip shared successfully");
+      assert.equal(data.message, "Archived trip invitation sent");
       assert.equal(data.tripId, ids.trip);
       assert.equal(data.recipientId, recipientId);
+      const invitation = invitations.at(-1);
+      assert.equal(invitation.recipient, recipientId);
+      assert.equal(invitation.inviter, sharer);
+      assert.equal(invitation.archivedReadOnly, true);
+      assert.equal(invitation.role, "viewer");
+      assert.equal(invitation.status, "pending");
     }
 
     const repeated = await send({ recipientId: ids.recipient });
-    assert.equal(repeated.response.status, 200);
-    assert.deepEqual(trip.archivedSharedWith, [ids.recipient, ids.stranger]);
+    assert.equal(repeated.response.status, 409);
+    assert.deepEqual(trip.archivedSharedWith, []);
     assert.deepEqual(trip.users, originalMembers);
+
+    const invitationsResponse = await fetch(`${baseUrl}/trip/invitations`, {
+      headers: {
+        Authorization: `Bearer ${jwt.sign(
+          { id: ids.recipient },
+          process.env.JWT_SECRET
+        )}`
+      }
+    });
+    const invitationData = await invitationsResponse.json();
+    assert.equal(invitationsResponse.status, 200);
+    assert.equal(invitationData.invites.length, 1);
+    assert.equal(invitationData.invites[0].archivedReadOnly, true);
+    assert.equal(invitationData.invites[0].trip.archived, true);
+    assert.equal(invitationData.invites[0].inviter.username, "trip-sender");
   });
 
   await t.test("rejects malformed identifiers before starting a transaction", async () => {
@@ -166,6 +220,6 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
       (await send({ recipientId: ids.member })).response.status,
       409
     );
-    assert.equal(trip.archivedSharedWith.length, 2);
+    assert.deepEqual(trip.archivedSharedWith, []);
   });
 });

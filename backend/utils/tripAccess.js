@@ -63,13 +63,15 @@ const canReadTrip = (trip, userId) => {
 };
 
 /**
- * Restricts trip mutations to owners and editors, never read-only viewers.
+ * Restricts active-trip mutations to owners and editors, never viewers or
+ * participants of archived trips.
  *
  * @param {object} trip - Trip document or plain trip record.
  * @param {string|object} userId - Authenticated user's ID.
  * @returns {boolean} Whether the user can modify trip content.
  */
 const canEditTrip = (trip, userId) => {
+  if (!trip || trip.archived) return false;
   const role = getTripRole(trip, userId);
   return role === 'owner' || role === 'editor';
 };

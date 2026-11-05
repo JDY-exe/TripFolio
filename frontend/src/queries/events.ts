@@ -33,6 +33,7 @@ export interface EventData {
   endTime: string;
   notes?: string;
   reservationMade?: boolean;
+  cost: number;
 }
 
 export interface EventPhotoData {

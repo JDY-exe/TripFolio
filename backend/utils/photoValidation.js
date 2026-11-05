@@ -1,7 +1,7 @@
 const sharp = require("sharp");
 const { Worker } = require("node:worker_threads");
 
-const MAX_PHOTO_BYTES = 16 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 100 * 1024 * 1024;
 const MAX_PHOTO_PIXELS = 60_000_000;
 
 /** An expected client error that is safe to return through the API. */
