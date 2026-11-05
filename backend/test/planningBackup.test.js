@@ -59,10 +59,13 @@ test("planning backup preserves BSON identity, dates, arrays and field absence a
     restored.snapshot.photoReferences[0].linkedEvent.toHexString(),
     snapshot.photoReferences[0].linkedEvent.toHexString(),
   );
-  assert.equal(
-    (await fs.stat(path.join(directory, "planning.ejson"))).mode & 0o777,
-    0o600,
+  const fileStats = await fs.stat(
+    path.join(directory, "planning.ejson"),
   );
+
+  if (process.platform !== "win32") {
+    assert.equal(fileStats.mode & 0o777, 0o600);
+  }
   await assert.rejects(writeBackup(directory, {}, snapshot), {
     code: "EEXIST",
   });

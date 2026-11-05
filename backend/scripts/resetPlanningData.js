@@ -17,7 +17,9 @@ const durableWrite = async (filename, text) => {
   const file = await fs.open(filename, "wx", 0o600);
   try {
     await file.writeFile(text);
-    await file.sync();
+    if (process.platform !== "win32") {
+      await file.sync();
+    }
   } finally {
     await file.close();
   }
@@ -48,11 +50,13 @@ const writeBackup = async (directory, target, snapshot) => {
     throw new Error(
       "Backup round-trip verification failed; no deletion allowed",
     );
-  const folder = await fs.open(directory, "r");
-  try {
-    await folder.sync();
-  } finally {
-    await folder.close();
+  if (process.platform !== "win32") {
+    const folder = await fs.open(directory, "r");
+    try {
+      await folder.sync();
+    } finally {
+      await folder.close();
+    }
   }
   return manifest;
 };
