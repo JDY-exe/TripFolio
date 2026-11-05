@@ -49,14 +49,23 @@ const uploadPhoto = async (req, res, next) => {
   let fileId;
   let photoId;
   try {
-    if (Object.keys(req.body || {}).length > 0) throw new PhotoError("Unexpected upload fields");
+    // Allow 'eventId' field in the multipart request
+    const allowedFields = ['eventId'];
+    if (Object.keys(req.body || {}).some(key => !allowedFields.includes(key))) {
+      throw new PhotoError("Unexpected upload fields");
+    }
+    
     const originalBuffer = req.file?.buffer;
     const [location, takenAt] = await Promise.all([
       extractPhotoLocation(originalBuffer),
       extractPhotoTakenAt(originalBuffer),
     ]);
-    let linkedEvent = null;
-    if (location) {
+    
+    // Read the manually selected event ID from the URL query
+    let linkedEvent = req.query.eventId ? { _id: req.query.eventId } : null;
+    
+    // Only run the GPS auto-tagger if the user didn't manually select an event
+    if (!linkedEvent && location) {
       const itinerary = await Itinerary.findOne({ tripId: req.params.tripId }).select("_id");
       if (itinerary) {
         const events = await Event.find({

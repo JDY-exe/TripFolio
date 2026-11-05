@@ -9,6 +9,7 @@ import {
 import { useUploadPhoto } from '../../../queries/photos';
 import { getApiErrorMessage } from '../../../utils/api';
 import { MAX_ALBUM_PHOTO_BYTES, PHOTO_ACCEPT, validatePhotoUpload } from '../../../utils/photoUpload';
+import { useQuery } from '@tanstack/react-query';
 
 interface AlbumUploadModalProps {
   tripId: string;
@@ -24,6 +25,32 @@ const AlbumUploadModal = ({ tripId, open, onClose }: AlbumUploadModalProps) => {
   const { mutateAsync } = useUploadPhoto(tripId);
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState('');
+  const [selectedEventId, setSelectedEventId] = useState('');
+
+  // Fetch the itinerary first using the tripId
+  const { data: itineraries } = useQuery({
+    queryKey: ['itinerary', tripId],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/itinerary?tripId=${tripId}`); 
+      if (!res.ok) throw new Error('Failed to fetch itinerary');
+      return res.json();
+    },
+    enabled: !!tripId,
+  });
+
+  // Extract the ID
+  const itineraryId = itineraries?.[0]?._id || itineraries?._id;
+
+  // Fetch the events using retrieved itineraryId
+  const { data: events = [] } = useQuery({
+    queryKey: ['events', itineraryId],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/events?itinerary_id=${itineraryId}`);
+      if (!res.ok) throw new Error('Failed to fetch events');
+      return res.json();
+    },
+    enabled: !!itineraryId,
+  });
 
   /** Sends originals sequentially so one rejection does not lose the batch.
    * @param files - Original files selected or dropped into the shared uploader.
@@ -45,7 +72,7 @@ const AlbumUploadModal = ({ tripId, open, onClose }: AlbumUploadModalProps) => {
           continue;
         }
         try {
-          await mutateAsync(file);
+          await mutateAsync({ file, eventId: selectedEventId || undefined });
           uploaded += 1;
         } catch (error) {
           displayAlert({
@@ -73,6 +100,23 @@ const AlbumUploadModal = ({ tripId, open, onClose }: AlbumUploadModalProps) => {
         </Button>
       }
     >
+      <div className="mb-4 flex flex-col gap-1">
+        <label className="text-sm font-medium text-on-surface">Link to Itinerary Event (Optional)</label>
+        <select
+          className="rounded border border-gray-600 bg-surface p-2 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          value={selectedEventId}
+          onChange={(e) => setSelectedEventId(e.target.value)}
+          disabled={uploading}
+        >
+          <option value="">-- No Event --</option>
+          {events.map((event: any) => (
+            <option key={event._id} value={event._id}>
+              {event.title}
+            </option>
+          ))}
+        </select>
+      </div>
+      
       <MediaUpload
         mediaType="image"
         accept={PHOTO_ACCEPT}

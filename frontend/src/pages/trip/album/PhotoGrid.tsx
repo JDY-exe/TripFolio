@@ -3,6 +3,8 @@ import { Text } from '../../../components/common';
 import type { TripPhoto } from '../../../queries/photos';
 import AlbumPhoto from './AlbumPhoto';
 import { groupPhotosByTakenDate } from './photoDates';
+import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'react-router';
 
 interface PhotoGridProps {
   photos: TripPhoto[];
@@ -25,6 +27,32 @@ const PhotoGrid = ({
   disabled = false,
   onToggle,
 }: PhotoGridProps) => {
+  const { id: tripId } = useParams();
+
+  // Fetch the itinerary first using the tripId
+  const { data: itineraries } = useQuery({
+    queryKey: ['itinerary', tripId],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/itinerary?tripId=${tripId}`); 
+      if (!res.ok) throw new Error('Failed to fetch itinerary');
+      return res.json();
+    },
+    enabled: !!tripId,
+  });
+
+  const itineraryId = itineraries?.[0]?._id || itineraries?._id;
+
+  // Fetch the events using the safely retrieved itineraryId
+  const { data: events = [] } = useQuery({
+    queryKey: ['events', itineraryId],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/events?itinerary_id=${itineraryId}`);
+      if (!res.ok) throw new Error('Failed to fetch events');
+      return res.json();
+    },
+    enabled: !!itineraryId,
+  });
+  
   const groups = groupPhotosByTakenDate(photos);
 
   return (
@@ -56,7 +84,7 @@ const PhotoGrid = ({
                 data-cy="album-photo"
                 className={`relative aspect-square overflow-hidden bg-surface-container-low transition-opacity hover:opacity-85 focus-visible:z-10 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait motion-reduce:transition-none ${editing && selectedIds.includes(photo.id) ? 'ring-3 ring-inset ring-primary' : ''}`}
               >
-                <AlbumPhoto photo={photo} />
+                <AlbumPhoto photo={photo} events={events} />
                 {editing && (
                   <>
                     {selectedIds.includes(photo.id) && (
