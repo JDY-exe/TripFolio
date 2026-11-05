@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LngLatBounds } from 'maplibre-gl';
-import { Images } from 'lucide-react';
+import { Images, MapPin } from 'lucide-react';
 import { Button, Text } from '../../../components/common';
 import { useItinerary } from '../../../queries/itineraries';
 import { useEvents } from '../../../queries/events';
+import { useEventLocations } from '../../../queries/eventLocations';
 import type { TripPhoto } from '../../../queries/photos';
 import { useMapRuntime } from '../itinerary/map/useMapRuntime';
 import MemoryStack from './atlas/MemoryStack';
+import EventPin from './atlas/EventPin';
 import {
   getMemoryLabel,
   groupAtlasPhotos,
@@ -51,7 +53,9 @@ const AlbumMap = ({
     bounds?: LngLatBounds;
   }>({ zoom: 1 });
   const { itinerary } = useItinerary(tripId);
-  const { events } = useEvents(itinerary?._id);
+  const { events, isPending: eventsLoading } = useEvents(itinerary?._id);
+  const { locatedEvents, isLoading: locatingEvents } =
+    useEventLocations(events);
   const titles = useMemo(
     () => new Map(events.map((event) => [event._id, event.title])),
     [events],
@@ -79,16 +83,24 @@ const AlbumMap = ({
   }, [map]);
 
   useEffect(() => {
-    if (!map || fitted.current || located.length === 0 || loadingMore) return;
+    if (
+      !map ||
+      (located.length === 0 && locatedEvents.length === 0) ||
+      loadingMore ||
+      eventsLoading ||
+      locatingEvents
+    )
+      return;
     /** Fits once the atlas is visible, leaving room above bottom-anchored prints. */
     const fit = () => {
       const { clientWidth: width, clientHeight: height } = map.getContainer();
-      if (fitted.current || width === 0 || height === 0) return;
+      if (width === 0 || height === 0) return;
       fitted.current = true;
       const bounds = new LngLatBounds();
       located.forEach((photo) =>
         bounds.extend([photo.location.longitude, photo.location.latitude]),
       );
+      locatedEvents.forEach((event) => bounds.extend([event.lng, event.lat]));
       map.fitBounds(bounds, {
         padding: {
           top: Math.min(120, height * 0.5),
@@ -102,11 +114,11 @@ const AlbumMap = ({
       map.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
     };
     map.on('resize', fit);
-    fit();
+    if (!fitted.current) fit();
     return () => {
       map.off('resize', fit);
     };
-  }, [map, located, loadingMore]);
+  }, [map, located, locatedEvents, loadingMore, eventsLoading, locatingEvents]);
 
   /** Sends a snapshot of this stack's photo IDs to the shared album filter. */
   const selectCollection = (collection: MemoryCollection) => {
@@ -131,11 +143,34 @@ const AlbumMap = ({
       >
         Memory Atlas
       </Text>
+      <div
+        className="mb-3 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1"
+        data-cy="atlas-legend"
+      >
+        <Text
+          as="span"
+          variant="caption"
+          color="muted"
+          className="inline-flex items-center gap-1.5"
+        >
+          <MapPin size={16} aria-hidden="true" className="text-primary" />
+          Event pins
+        </Text>
+        <Text
+          as="span"
+          variant="caption"
+          color="muted"
+          className="inline-flex items-center gap-1.5"
+        >
+          <Images size={16} aria-hidden="true" />
+          Photo stacks
+        </Text>
+      </div>
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-panel bg-surface-container-low">
         <div
           ref={container}
           className="h-full w-full"
-          aria-label="Map of photo memories"
+          aria-label="Map of photo memories and itinerary events"
           data-cy="atlas-canvas"
         />
         {map &&
@@ -172,6 +207,11 @@ const AlbumMap = ({
                 onSelect={selectCollection}
               />
             ))}
+        {map &&
+          !failed &&
+          locatedEvents.map((event) => (
+            <EventPin key={event._id} map={map} event={event} />
+          ))}
         {failed && (
           <div className="absolute inset-0 overflow-y-auto bg-surface-container-low p-5">
             <Text variant="title">The map couldn’t load</Text>
