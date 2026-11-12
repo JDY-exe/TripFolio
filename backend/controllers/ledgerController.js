@@ -63,47 +63,65 @@ exports.deleteExpense = async (req, res) => {
 exports.getBalances = async (req, res) => {
   try {
     const expenses = await Expense.find({ tripId: req.params.tripId });
-    
-    // Graph to track who owes whom: balances[owerId][oweeId] = amount
-    const debts = {};
+
+    // Calculate net balance for each user
+    const netBalancesMap = {};
 
     expenses.forEach(exp => {
-      // Safeguard against bad/legacy data to prevent division by zero crashes
       if (!exp.paidBy || !exp.splitAmong || exp.splitAmong.length === 0) return;
 
-      // Safely extract the ID whether it's an ObjectId or a string
       const payerId = exp.paidBy.toString();
-      
-      // Round to nearest cent to prevent floating point errors
-      const splitAmount = Math.round((exp.amount / exp.splitAmong.length) * 100) / 100;
+      const splitAmount = exp.amount / exp.splitAmong.length;
 
+      // Payer is owed the full amount of the expense
+      netBalancesMap[payerId] = (netBalancesMap[payerId] || 0) + exp.amount;
+
+      // Everyone in the split owes their portion
       exp.splitAmong.forEach(userId => {
         if (!userId) return;
         const borrowerId = userId.toString();
-        
-        if (borrowerId !== payerId) {
-          if (!debts[borrowerId]) debts[borrowerId] = {};
-          debts[borrowerId][payerId] = (debts[borrowerId][payerId] || 0) + splitAmount;
-        }
+        netBalancesMap[borrowerId] = (netBalancesMap[borrowerId] || 0) - splitAmount;
       });
     });
 
-    // Coalesce mutual debts (If A owes B $50 and B owes A $30 -> A owes B $20)
+    // Convert the map to an array of objects
+    const netBalances = Object.keys(netBalancesMap).map(userId => ({
+      userId,
+      net: netBalancesMap[userId]
+    }));
+
+    // Separate into Debtors and Creditors and sort them
+    const debtors = netBalances.filter(b => b.net < -0.01).sort((a, b) => a.net - b.net);
+    const creditors = netBalances.filter(b => b.net > 0.01).sort((a, b) => b.net - a.net);
+
     const finalBalances = [];
-    Object.keys(debts).forEach(ower => {
-      Object.keys(debts[ower]).forEach(owee => {
-        let amountOwed = debts[ower][owee];
-        let amountOwedBack = (debts[owee] && debts[owee][ower]) ? debts[owee][ower] : 0;
+    let i = 0; // Debtor index
+    let j = 0; // Creditor index
 
-        if (amountOwed > amountOwedBack) {
-          finalBalances.push({
-            owerId: ower,
-            oweeId: owee,
-            amount: Math.round((amountOwed - amountOwedBack) * 100) / 100
-          });
-        }
-      });
-    });
+    // Greedily match debtors to creditors
+    while (i < debtors.length && j < creditors.length) {
+      const debtor = debtors[i];
+      const creditor = creditors[j];
+
+      // Settlement amount is the min of what the debtor owes and creditor is owed
+      const settlementAmount = Math.min(Math.abs(debtor.net), creditor.net);
+      const amount = Math.round(settlementAmount * 100) / 100;
+
+      if (amount > 0) {
+        finalBalances.push({
+          owerId: debtor.userId,
+          oweeId: creditor.userId,
+          amount: amount
+        });
+      }
+
+      // Adjust remaining balances
+      debtor.net += amount;
+      creditor.net -= amount;
+
+      if (Math.abs(debtor.net) < 0.01) i++;
+      if (creditor.net < 0.01) j++;
+    }
 
     res.status(200).json(finalBalances);
   } catch (error) {
