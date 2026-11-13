@@ -83,7 +83,15 @@ const tripSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     min: [0, 'Budget cannot be negative']
-  }
+  },
+  essentials: [{
+    title: { type: String, required: true },
+    value: { type: String },
+    fileUrl: { type: String },
+    fileName: { type: String },
+    mimetype: { type: String },
+    createdAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 // Script for cascading delete middleware

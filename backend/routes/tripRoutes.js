@@ -26,6 +26,7 @@ const {
 } = require("../controllers/tripController");
 const { MAX_TRIP_PICTURE_SIZE_BYTES } = require("../utils/tripMedia");
 const authenticateToken = require("../middleware/authenticateToken");
+const essentialsRoutes = require('./essentialsRoutes');
 
 const upload = multer({
 	storage: multer.memoryStorage(),
@@ -69,6 +70,7 @@ router.delete('/:id', deleteTrip);
 router.patch('/user', addUserToTrip);
 router.patch('/votes', modifyGlobalVotes);
 router.patch('/hideUser', hideUserFromTrip);
-router.patch('/archive', archiveTrip)
+router.patch('/archive', archiveTrip);
+router.use('/:tripId/essentials', essentialsRoutes);
 
 module.exports = router;

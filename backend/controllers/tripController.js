@@ -8,6 +8,9 @@ const mongoose = require("mongoose");
 const { validateTripProfilePicture } = require("../utils/tripMedia");
 const { canEditTrip, canReadTrip, getTripRole } = require("../utils/tripAccess");
 
+const fs = require('fs');
+const path = require('path');
+
 const serializeTrip = (trip) => {
   const tripData = {
     ...(typeof trip.toObject === "function" ? trip.toObject({ flattenMaps: true }) : trip)
@@ -152,6 +155,7 @@ const updateTripVisibility = async (req, res) => {
 
 const deleteTrip = async (req, res) => {
   try {
+    const { id } = req.params;
     const trip = await Trip.findById(req.params.id);
 
     if (!trip || !getTripRole(trip, req.user.id)) {
@@ -180,6 +184,17 @@ const deleteTrip = async (req, res) => {
         bucketName: "tripProfilePictures"
       });
       await bucket.delete(deletedTrip.profilePictureId).catch(() => undefined);
+    }
+
+    if (deletedTrip.essentials && deletedTrip.essentials.length > 0) {
+      deletedTrip.essentials.forEach(essential => {
+        if (essential.fileUrl) {
+          const filePath = path.join(__dirname, '..', essential.fileUrl);
+          if (fs.existsSync(filePath)) {
+            try { fs.unlinkSync(filePath); } catch (err) {}
+          }
+        }
+      });
     }
 
     return res.status(200).json({ message: 'Trip successfully deleted' });

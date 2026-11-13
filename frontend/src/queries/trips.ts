@@ -10,6 +10,15 @@ export interface TripTraveler {
 
 export type TripMemberRole = 'owner' | 'editor' | 'viewer';
 
+export interface TripEssential {
+  _id: string;
+  title: string;
+  value?: string;
+  fileUrl?: string;
+  fileName?: string;
+  mimetype?: string;
+}
+
 export interface Trip {
   version: number;
   _id: string;
@@ -23,6 +32,7 @@ export interface Trip {
   memberRoles?: Record<string, TripMemberRole>;
   travelers?: TripTraveler[];
   sharedWithYou?: boolean;
+  essentials?: TripEssential[];
 }
 
 /** Creates the cache key for a user's trips. */
