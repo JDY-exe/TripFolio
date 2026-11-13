@@ -24,7 +24,7 @@ const TripMembersPanel = ({
 }) => (
   <section
     aria-labelledby="trip-members-heading"
-    className="mb-8 max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5"
+    className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5"
     data-cy="trip-members"
   >
     <div className="flex items-center gap-3">

@@ -12,5 +12,6 @@ router.patch('/:id', itineraryController.updateItinerary);
 router.get('/:tripId/notes', archivedItineraryNoteController.getArchivedItineraryNote);
 router.post('/:tripId/notes', archivedItineraryNoteController.createArchivedItineraryNote);
 router.patch('/:tripId/notes', archivedItineraryNoteController.updateArchivedItineraryNote);
+router.get('/:tripId/export', itineraryController.getItineraryForExport);
 
 module.exports = router;
