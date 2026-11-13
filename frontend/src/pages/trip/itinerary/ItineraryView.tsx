@@ -19,6 +19,7 @@ import ErrorDisplay from '../../../components/common/ErrorDisplay/ErrorDisplay';
 import { getItineraryDays } from './itineraryDays';
 import ArchivedTripShare from './ArchivedTripShare';
 import { ArrowDown, ArrowUp } from 'lucide-react';
+import { TripEssentialsBoard } from './essentialsBoard/TripEssentialsBoard';
 
 /** Loads and displays the trip itinerary and event cards.
  * @param props - Read-only permissions and whether to load archived trip metadata.
@@ -309,6 +310,12 @@ const ItineraryView = ({
             </Button>
           </div>
         )}
+        {/* Essentials board */}
+        <TripEssentialsBoard 
+          tripId={id} 
+          essentials={trip?.essentials} 
+          canEdit={!readOnly} 
+        />
         {!(eventsError && events.length === 0) &&
           days.map((date, index) => (
             <div key={date} id={`day-${index + 1}`}>
