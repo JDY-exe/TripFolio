@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { checkedUpdate } = require('../utils/checkedUpdate');
 const { ensureItinerary } = require('../utils/ensureItinerary');
 const { canEditTrip, canReadTrip, getTripRole } = require('../utils/tripAccess');
+const Event = require('../models/event');
 
 const denyTripAccess = (res, trip, userId) => {
   const role = getTripRole(trip, userId);
@@ -101,4 +102,33 @@ const updateItinerary = async (req, res) => {
   }
 };
 
-module.exports = { createItinerary, getItinerary, updateItinerary };
+const getItineraryForExport = async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    
+    const trip = await Trip.findById(tripId);
+    if (!trip) return res.status(404).json({ error: "Trip not found" });
+
+    const itinerary = await Itinerary.findOne({ tripId });
+    
+    let events = [];
+    if (itinerary) {
+      // CHANGED: itineraryId -> itineraryID to match your schema exactly
+      events = await Event.find({ itineraryID: itinerary._id }).sort({ startTime: 1 });
+    }
+
+    const itineraryExport = {
+      tripName: trip.name,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      events: events
+    };
+
+    res.status(200).json(itineraryExport);
+  } catch (error) {
+    console.error("Export Error:", error);
+    res.status(500).json({ error: "Failed to compile itinerary for export" });
+  }
+};
+
+module.exports = { createItinerary, getItinerary, updateItinerary, getItineraryForExport };
