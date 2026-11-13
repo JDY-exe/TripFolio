@@ -124,6 +124,7 @@ pass through; native `size` is intentionally omitted.
 | `labelAction` | `ReactNode` | — | Places an optional help control beside the label. |
 | `hint` | `string` | — | Shows supporting text below the input. |
 | `error` | `string` | — | Shows error text and applies the invalid treatment. |
+| `as` | `input \| select` | `input` | Renders a native select with option children. Native attributes and change events are typed for the chosen element. |
 
 When both `error` and `hint` are supplied, the error is displayed. Validation
 and form state remain the responsibility of the consuming feature.
@@ -402,6 +403,9 @@ The pulse stops automatically for reduced-motion preferences.
 
 ## 16. ShareWithFriends
 
+Uses the shared `Combobox` below with friend-query data, member exclusions,
+and removable chips. Its existing selection API remains unchanged.
+
 A controlled combobox with removable chips inside its outlined input surface.
 Results appear in an anchored dropdown on focus or typing, rather than a
 permanently visible list. Arrow keys navigate available friends, Enter toggles
@@ -468,7 +472,11 @@ A removable MD3 input chip for selections, following the
 The visual container is 32px tall with 8px corners, label typography, an
 optional 24px avatar, and an 18px trailing remove icon. A 48px button target
 provides keyboard access, focus indication, hover, and disabled states.
-This component represents an existing selection; it is not an action or filter chip.
+With `onRemove`, this component represents an existing removable selection.
+For inclusion toggles, pass `selected` and `onToggle` instead of `onRemove`.
+Selectable chips show only their label and optional avatar, expose `aria-pressed`,
+and use primary fill when selected and a neutral fill when unselected. Both modes
+retain the same touch target and keyboard behavior; existing removable uses keep their X.
 
 ```tsx
 <Chip label="Alex" onRemove={removeAlex} />
@@ -479,12 +487,34 @@ This component represents an existing selection; it is not an action or filter c
 | `label` | `string` | Required visible selection name. |
 | `avatar` | `ReactNode` | Optional decorative avatar. |
 | `onRemove` | `() => void` | Required removal action. |
+| `selected` | `boolean` | Current state for selectable chips; pair with `onToggle` instead of `onRemove`. |
+| `onToggle` | `() => void` | Toggles inclusion without a trailing icon. |
 | `removeLabel` | `string` | Accessible action name; defaults to `Remove ${label}`. |
 | `disabled` | `boolean` | Blocks removal. |
 | `className` | `string` | Adds button layout classes. |
 
 Other native button attributes pass through. The entire chip removes the
 selection on click, Enter, or Space; no nested buttons or checkboxes are used.
+
+## 20. Combobox
+
+A searchable option picker with controlled single or multiple selection. It accepts
+`options` (`id`, `label`, optional `searchText`, `imageUrl`, `disabled`, and
+`disabledReason`), `selectedIds`, and `onSelectionChange`. Selection only commits
+an existing enabled option; typing does not create or change the selected value.
+
+Use `multiple={false}` and `selectionDisplay="text"` for a single value such as
+an expense payer. The selected label appears in the input; choosing another option
+replaces it and closes the list. Escape, blur, or an outside press discard uncommitted
+search text and restore the selected label. `required` prevents toggling off the
+single selection. The default `selectionDisplay="chips"` supports removable selections
+and `multiple` enables more than one selection.
+
+`label`, `id`, `name`, `placeholder`, `error`, and `disabled` configure the field.
+`loading`, `loadError`, `onRetry`, `emptyMessage`, and `noResultsMessage` cover
+remote or empty options. Arrow keys navigate enabled results and Enter commits
+the active option; Escape closes the list without closing a containing modal.
+Feature code imports `Combobox` and `ComboboxOption` from the common barrel.
 
 ## Shared control tokens
 

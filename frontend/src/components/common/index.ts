@@ -1,4 +1,6 @@
 export { Chip } from './Chip/Chip';
+export { Combobox } from './Combobox/Combobox';
+export type { ComboboxProps, ComboboxOption } from './Combobox/Combobox';
 export type { ChipProps } from './Chip/Chip';
 export { Switch } from './Switch/Switch';
 export type { SwitchProps } from './Switch/Switch';

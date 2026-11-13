@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Modal, Text, displayAlert } from '../../../components/common';
 import { patchToApi, getApiErrorMessage } from '../../../utils/api';
-import { expensesQueryKey, balancesQueryKey } from './LedgerView';
+import { expensesQueryKey, balancesQueryKey } from '../../../queries/ledger';
 
 export default function EditExpenseModal({ expense, tripId, travelers, open, onClose }: any) {
   const queryClient = useQueryClient();

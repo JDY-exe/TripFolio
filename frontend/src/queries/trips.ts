@@ -20,6 +20,7 @@ export interface TripEssential {
 }
 
 export interface Trip {
+  budget?: number;
   version: number;
   _id: string;
   name: string;

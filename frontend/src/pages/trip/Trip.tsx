@@ -61,7 +61,12 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
             }
           />
         )}
-        {section === 'ledger' && <LedgerView />}
+        {section === 'ledger' && (
+          <LedgerView
+            readOnly={readOnly}
+            archived={archived || trip?.archived === true}
+          />
+        )}
         {section === 'logistics' && <LogisticsView readOnly={readOnly} />}
         {section === 'album' && <AlbumView readOnly={readOnly} />}
         {section === 'settings' && <TripSettings readOnly={readOnly} />}
