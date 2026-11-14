@@ -26,6 +26,8 @@ import {
 } from '../../queries/trips';
 import { useReactToPrint } from 'react-to-print';
 import { PrintableItinerary, type ExportedTripData } from './itinerary/PrintableItinerary';
+import { toPng } from 'html-to-image';
+import { TripStatsCard, type TripStatsData } from './itinerary/TripStatsCard';
 import {
   deleteFromApi,
   getBlobFromApi,
@@ -97,6 +99,58 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
       setIsPrinting(false);
     }
   };
+
+  // Trip Stats PNG Export Logic
+  const statsCardRef = useRef<HTMLDivElement>(null);
+  const [statsData, setStatsData] = useState<TripStatsData | null>(null);
+  const [isExportingStats, setIsExportingStats] = useState(false);
+
+  const handleExportStats = async () => {
+    if (!id || isExportingStats) return;
+    setIsExportingStats(true);
+    try {
+      const data = await getFromApi<TripStatsData>(`/trip/${id}/stats`);
+      setStatsData(data);
+
+      setTimeout(async () => {
+        try {
+          if (!statsCardRef.current) {
+            throw new Error('Stats card element not ready.');
+          }
+          const dataUrl = await toPng(statsCardRef.current, {
+            cacheBust: true,
+            pixelRatio: 2,
+          });
+
+          const safeName = (data.tripName || 'trip')
+            .replace(/[^a-z0-9]/gi, '_')
+            .toLowerCase();
+          const link = document.createElement('a');
+          link.download = `${safeName}_stats.png`;
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+
+          displayAlert({ message: 'Trip stats image downloaded!', tone: 'success' });
+        } catch (err) {
+          displayAlert({
+            message: getApiErrorMessage(err, 'Could not generate stats image.'),
+            tone: 'error',
+          });
+        } finally {
+          setIsExportingStats(false);
+        }
+      }, 150);
+    } catch (error) {
+      displayAlert({
+        message: getApiErrorMessage(error, 'Could not fetch trip statistics.'),
+        tone: 'error',
+      });
+      setIsExportingStats(false);
+    }
+  };
+
   const hideUserMutation = useMutation({
     mutationFn: () =>
       saveChecked<{ hidden: boolean; version: number }>(
@@ -552,7 +606,33 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
             </div>
           </div>
 
-          {/* 7. Archive trip */}
+          {/* 7. Export Trip Stats */}
+          <div className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
+            <Text as="h3" variant="title">
+              Export trip statistics
+            </Text>
+            <Text color="muted" className="mt-1 mb-4">
+              Download a shareable summary graphic of your trip&apos;s duration,
+              expenses, events, culinary stops, distance, and photos.
+            </Text>
+            <Button
+              data-cy="export-trip-stats-btn"
+              onClick={() => void handleExportStats()}
+              disabled={isExportingStats}
+            >
+              {isExportingStats ? 'Generating Image...' : 'Export Trip Stats'}
+            </Button>
+
+            {/* Off-screen container so html-to-image can measure and capture the card */}
+            <div
+              className="pointer-events-none fixed -left-[10000px] top-0 overflow-hidden"
+              aria-hidden="true"
+            >
+              <TripStatsCard ref={statsCardRef} stats={statsData} />
+            </div>
+          </div>
+
+          {/* 8. Archive trip */}
           {canChangeArchive && (
             <div className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
               <Text as="h3" variant="title">
@@ -579,7 +659,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
             </div>
           )}
 
-          {/* 8. Delete trip */}
+          {/* 9. Delete trip */}
           {canChangeVisibility && (
             <div className="max-w-2xl rounded-panel border border-error/30 bg-surface-container-low p-5">
               <Text as="h3" variant="title">
