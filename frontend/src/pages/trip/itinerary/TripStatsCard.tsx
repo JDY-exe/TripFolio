@@ -6,7 +6,7 @@ import {
   Utensils,
   Camera,
   Navigation,
-  Sparkles,
+  History,
   Users,
   Flame,
   MapPin,
@@ -90,6 +90,8 @@ export const TripStatsCard = forwardRef<HTMLDivElement, TripStatsCardProps>(
         ? `on ${formatShortDate(safeStats.busiestDay.date)}`
         : 'No events scheduled';
 
+    const hasTopCities = safeStats.topCities.length > 0;
+
     return (
       <div
         ref={ref}
@@ -99,19 +101,19 @@ export const TripStatsCard = forwardRef<HTMLDivElement, TripStatsCardProps>(
         {/* Header Banner */}
         <div className="border-b border-teal-500/30 pb-6">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-400/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-teal-300">
-                <Sparkles size={14} />
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-teal-400/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-teal-300">
+                <History size={14} className="shrink-0" />
                 TripFolio Wrapped
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/25 bg-[#162d29] px-3 py-1 text-xs font-medium text-teal-200">
-                <Users size={13} className="text-teal-300" />
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-teal-500/25 bg-[#162d29] px-3 py-1 text-xs font-medium text-teal-200">
+                <Users size={13} className="shrink-0 text-teal-300" />
                 {safeStats.travelerCount}{' '}
                 {safeStats.travelerCount === 1 ? 'Traveler' : 'Travelers'}
               </span>
             </div>
             {safeStats.startDate && safeStats.endDate && (
-              <span className="text-sm font-medium text-teal-200/70">
+              <span className="whitespace-nowrap text-sm font-medium text-teal-200/70">
                 {formatDateRange(safeStats.startDate, safeStats.endDate)}
               </span>
             )}
@@ -124,18 +126,19 @@ export const TripStatsCard = forwardRef<HTMLDivElement, TripStatsCardProps>(
           </p>
         </div>
 
-        {/* 8-Metric (2x4) Grid */}
-        <div className="mt-6 grid grid-cols-2 gap-4">
+        {/* 8-Metric (2x4) Uniform-Height Grid */}
+        <div className="mt-6 grid auto-rows-fr grid-cols-2 gap-4">
+          {/* ROW 1: TRIP SCOPE (TIME & BUDGET) */}
           {/* 1. Duration */}
           <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
               <Calendar size={24} />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
                 Duration
               </p>
-              <p className="mt-0.5 truncate text-2xl font-bold tabular-nums text-white">
+              <p className="mt-0.5 whitespace-nowrap text-2xl font-bold tabular-nums text-white">
                 {safeStats.durationDays}{' '}
                 {safeStats.durationDays === 1 ? 'Day' : 'Days'}
               </p>
@@ -147,18 +150,18 @@ export const TripStatsCard = forwardRef<HTMLDivElement, TripStatsCardProps>(
             <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
               <DollarSign size={24} />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
                 Total Expenses
               </p>
-              <p className="mt-0.5 truncate text-2xl font-bold tabular-nums text-white">
+              <p className="mt-0.5 whitespace-nowrap text-2xl font-bold tabular-nums text-white">
                 $
                 {safeStats.totalExpenses.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </p>
-              <p className="mt-0.5 truncate text-xs font-medium tabular-nums text-teal-300/80">
+              <p className="mt-0.5 whitespace-nowrap text-xs font-medium tabular-nums text-teal-300/80">
                 $
                 {safeStats.averageDailySpend.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
@@ -169,108 +172,111 @@ export const TripStatsCard = forwardRef<HTMLDivElement, TripStatsCardProps>(
             </div>
           </div>
 
-          {/* 3. Total Events */}
-          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
-              <CalendarCheck size={24} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
-                Total Events
-              </p>
-              <p className="mt-0.5 truncate text-2xl font-bold tabular-nums text-white">
-                {safeStats.totalEvents}
-              </p>
-            </div>
-          </div>
-
-          {/* 4. Culinary Stops */}
-          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
-              <Utensils size={24} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
-                Culinary Stops
-              </p>
-              <p className="mt-0.5 truncate text-2xl font-bold tabular-nums text-white">
-                {safeStats.culinaryStops}
-              </p>
-            </div>
-          </div>
-
-          {/* 5. Distance Covered */}
-          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
-              <Navigation size={24} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
-                Distance Covered
-              </p>
-              <p className="mt-0.5 truncate text-2xl font-bold tabular-nums text-white">
-                {safeStats.totalDistanceMiles} mi
-              </p>
-            </div>
-          </div>
-
-          {/* 6. Album Photos */}
-          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
-              <Camera size={24} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
-                Album Photos
-              </p>
-              <p className="mt-0.5 truncate text-2xl font-bold tabular-nums text-white">
-                {safeStats.totalPhotos}
-              </p>
-            </div>
-          </div>
-
-          {/* 7. Busiest Day */}
-          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
-              <Flame size={24} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
-                Busiest Day
-              </p>
-              <p className="mt-0.5 truncate text-2xl font-bold tabular-nums text-white">
-                {busiestDayValue}
-              </p>
-              <p className="mt-0.5 truncate text-xs font-medium text-teal-300/80">
-                {busiestDaySubtext}
-              </p>
-            </div>
-          </div>
-
-          {/* 8. Cities Visited + Top 3 Longest Duration */}
+          {/* ROW 2: GEOGRAPHY & EXPLORATION */}
+          {/* 3. Cities Visited + Top 3 */}
           <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
               <MapPin size={24} />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
-                Cities Visited
+                Cities Visited{hasTopCities ? '*' : ''}
               </p>
-              <p className="mt-0.5 truncate text-2xl font-bold tabular-nums text-white">
+              <p className="mt-0.5 whitespace-nowrap text-2xl font-bold tabular-nums text-white">
                 {safeStats.uniqueCitiesCount}{' '}
                 {safeStats.uniqueCitiesCount === 1 ? 'City' : 'Cities'}
               </p>
-              {safeStats.topCities.length > 0 ? (
-                <p className="mt-0.5 truncate text-xs font-medium text-teal-300/85">
+              {hasTopCities ? (
+                <p className="mt-0.5 break-words text-xs font-medium text-teal-300/85">
                   {safeStats.topCities
                     .map((city, idx) => `${idx + 1}. ${city.name}`)
                     .join(' · ')}
                 </p>
               ) : (
-                <p className="mt-0.5 truncate text-xs text-teal-200/50">
+                <p className="mt-0.5 text-xs text-teal-200/50">
                   No locations logged
                 </p>
               )}
+            </div>
+          </div>
+
+          {/* 4. Distance Covered */}
+          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
+              <Navigation size={24} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
+                Distance Covered
+              </p>
+              <p className="mt-0.5 whitespace-nowrap text-2xl font-bold tabular-nums text-white">
+                {safeStats.totalDistanceMiles} mi
+              </p>
+            </div>
+          </div>
+
+          {/* ROW 3: SCHEDULE DENSITY */}
+          {/* 5. Total Events */}
+          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
+              <CalendarCheck size={24} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
+                Total Events
+              </p>
+              <p className="mt-0.5 whitespace-nowrap text-2xl font-bold tabular-nums text-white">
+                {safeStats.totalEvents}
+              </p>
+            </div>
+          </div>
+
+          {/* 6. Busiest Day */}
+          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
+              <Flame size={24} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
+                Busiest Day
+              </p>
+              <p className="mt-0.5 whitespace-nowrap text-2xl font-bold tabular-nums text-white">
+                {busiestDayValue}
+              </p>
+              <p className="mt-0.5 text-xs font-medium text-teal-300/80">
+                {busiestDaySubtext}
+              </p>
+            </div>
+          </div>
+
+          {/* ROW 4: FOOD & MEMORIES */}
+          {/* 7. Culinary Stops */}
+          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
+              <Utensils size={24} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
+                Culinary Stops
+              </p>
+              <p className="mt-0.5 whitespace-nowrap text-2xl font-bold tabular-nums text-white">
+                {safeStats.culinaryStops}
+              </p>
+            </div>
+          </div>
+
+          {/* 8. Album Photos */}
+          <div className="flex items-center gap-4 rounded-2xl border border-teal-500/20 bg-[#162d29] p-4">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 text-teal-300">
+              <Camera size={24} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-teal-200/70">
+                Album Photos
+              </p>
+              <p className="mt-0.5 whitespace-nowrap text-2xl font-bold tabular-nums text-white">
+                {safeStats.totalPhotos}
+              </p>
             </div>
           </div>
         </div>
@@ -278,6 +284,7 @@ export const TripStatsCard = forwardRef<HTMLDivElement, TripStatsCardProps>(
         {/* Footer */}
         <div className="mt-6 flex items-center justify-between border-t border-teal-500/20 pt-4 text-xs text-teal-200/50">
           <span>Generated with TripFolio</span>
+          {hasTopCities && <span>*Top cities ranked by event duration</span>}
           <span>#TripFolioStats</span>
         </div>
       </div>
