@@ -8,6 +8,8 @@ import {
   saveFailure,
   cardTravelers,
   cardExpenses,
+  pickerTravelers,
+  editedExpense,
 } from '../fixtures/ledger';
 import { visitAsUser } from '../support/auth';
 
@@ -66,7 +68,7 @@ const fillExpense = () => {
 };
 
 describe('compact expense modal', () => {
-  it('toggles visible chips, selects all, and saves through refreshed ledger queries', () => {
+  it('toggles avatar selections, selects all, and saves through refreshed ledger queries', () => {
     let saved = false;
     cy.intercept(
       { method: 'POST', pathname: '/api/ledger/expenses' },
@@ -93,6 +95,24 @@ describe('compact expense modal', () => {
       (request) => request.reply({ body: saved ? balances : [] }),
     ).as('refreshBalances');
     fillExpense();
+    cy.get('[data-cy="expense-description"]').should(
+      'have.css',
+      'border-top-width',
+      '0px',
+    );
+    cy.get('[data-cy="expense-description"]')
+      .focus()
+      .should('not.have.css', 'box-shadow', 'none');
+    cy.get('[data-cy="expense-payer-combobox"]').should(
+      'have.css',
+      'border-top-width',
+      '0px',
+    );
+    cy.get('[data-cy="expense-participant-search"]').should(
+      'have.css',
+      'border-top-width',
+      '0px',
+    );
     cy.get('[data-cy="expense-split-label"]').should(
       'have.text',
       'Paid for 6 people',
@@ -342,5 +362,183 @@ describe('IOU expense cards', () => {
     visitLedger(true, cardExpenses, cardTravelers);
     cy.get('[data-cy="expense-card-actions"]').should('not.exist');
     cy.get('[data-cy="expense-recipient-toggle"]').should('exist');
+  });
+});
+
+describe('expense participant picker', () => {
+  it('retains selections across search, highlights selected borders, and supports keyboard toggles', () => {
+    cy.viewport(1000, 1000);
+    cy.intercept('GET', '/test-avatar.png', { fixture: 'avatar.png' });
+    cy.intercept('GET', '/broken-avatar.png', { statusCode: 404 });
+    visitLedger(false, [], pickerTravelers);
+    fillExpense();
+    cy.get('[data-cy="expense-participant-grid"] button').should(
+      'have.length',
+      10,
+    );
+    cy.get(
+      `[data-cy="expense-person-${travelers[1].id}"] [data-cy="avatar-image"]`,
+    ).should(($image) => {
+      expect(($image[0] as HTMLImageElement).naturalWidth).to.be.greaterThan(0);
+    });
+    cy.get(
+      `[data-cy="expense-person-${travelers[2].id}"] [data-cy="avatar-fallback"]`,
+    ).should('exist');
+    cy.get(
+      `[data-cy="expense-person-${travelers[1].id}"] [data-cy="avatar-toggle-border"]`,
+    )
+      .invoke('css', 'border-top-color')
+      .then((selectedColor) => {
+        cy.get(`[data-cy="expense-person-${travelers[1].id}"]`).focus();
+        cy.press(Cypress.Keyboard.Keys.SPACE);
+        cy.get(`[data-cy="expense-person-${travelers[1].id}"]`).should(
+          'have.attr',
+          'aria-pressed',
+          'false',
+        );
+        cy.get(
+          `[data-cy="expense-person-${travelers[1].id}"] [data-cy="avatar-toggle-border"]`,
+        ).should('not.have.css', 'border-top-color', selectedColor);
+        cy.get(
+          `[data-cy="expense-person-${travelers[1].id}"] [data-cy="avatar-toggle-check"]`,
+        ).should('have.css', 'opacity', '0');
+      });
+    cy.get('[data-cy="expense-split-label"]').should(
+      'have.text',
+      'Paid for 9 people',
+    );
+    cy.get('[data-cy="expense-participant-search"]').type(' mAy ');
+    cy.get('[data-cy="expense-participant-grid"] button')
+      .should('have.length', 1)
+      .and('have.attr', 'aria-label', 'Maya');
+    cy.get(`[data-cy="expense-person-${travelers[1].id}"]`).should(
+      'have.attr',
+      'aria-pressed',
+      'false',
+    );
+    cy.get('[data-cy="expense-select-all"]').click();
+    cy.get('[data-cy="expense-split-label"]').should(
+      'have.text',
+      'Paid for 10 people',
+    );
+    cy.get('[data-cy="expense-participant-search"]').clear();
+    cy.get('[data-cy="expense-participant-grid"] button').should(($buttons) => {
+      expect(
+        [...$buttons].map((button) => button.getAttribute('data-cy')),
+      ).to.deep.equal(
+        pickerTravelers.map((traveler) => `expense-person-${traveler.id}`),
+      );
+    });
+    cy.get(`[data-cy="expense-person-${travelers[1].id}"]`).should(
+      'have.attr',
+      'aria-pressed',
+      'true',
+    );
+    cy.get('[data-cy="expense-participant-picker"]').screenshot(
+      'expense-avatar-picker-desktop',
+    );
+    cy.get('[data-cy="expense-participant-search"]').type(
+      'nobody matches{enter}',
+    );
+    cy.get('[data-cy="expense-participant-empty"]').should('be.visible');
+    cy.get('[data-cy="add-expense-dialog"]').should('be.visible');
+    cy.get('[data-cy="expense-participant-search"]')
+      .type('{esc}')
+      .should('have.value', '');
+    cy.get('[data-cy="expense-participant-grid"] button').should(
+      'have.length',
+      10,
+    );
+    cy.get('[data-cy="expense-split-label"]').should(
+      'have.text',
+      'Paid for 10 people',
+    );
+    cy.viewport(390, 844);
+    cy.get('[data-cy="expense-participant-picker"]').screenshot(
+      'expense-avatar-picker-mobile',
+    );
+    cy.get('[data-cy="expense-participant-grid"]').should(($grid) => {
+      expect($grid[0].scrollWidth).to.be.at.most($grid[0].clientWidth);
+      expect(
+        getComputedStyle($grid[0]).gridTemplateColumns.split(' '),
+      ).to.have.length(3);
+    });
+  });
+
+  it('loads saved selections in edit, retains a failed draft, and refreshes the ledger after retry', () => {
+    let saved = false;
+    visitLedger(false, cardExpenses, cardTravelers);
+    cy.intercept(
+      { method: 'PATCH', pathname: `/api/ledger/expenses/${expense._id}` },
+      (request) => {
+        expect(request.body).to.deep.equal({
+          description: editedExpense.description,
+          amount: editedExpense.amount,
+          paidBy: editedExpense.paidBy,
+          splitAmong: editedExpense.splitAmong,
+        });
+        request.reply(
+          saved
+            ? { body: editedExpense, delay: 300 }
+            : { statusCode: 500, body: saveFailure },
+        );
+        saved = true;
+      },
+    ).as('updateExpense');
+    cy.intercept(
+      { method: 'GET', pathname: `/api/ledger/expenses/${ledgerTrip._id}` },
+      { body: [editedExpense, cardExpenses[1]] },
+    ).as('updatedExpenses');
+    cy.get(`[data-cy="edit-expense-${expense._id}"]`).focus().click();
+    cy.get('[data-cy="expense-split-label"]').should(
+      'have.text',
+      'Paid for 1 person',
+    );
+    cy.get(`[data-cy="expense-person-${travelers[1].id}"]`).should(
+      'have.attr',
+      'aria-pressed',
+      'true',
+    );
+    cy.get(`[data-cy="expense-person-${travelers[0].id}"]`).should(
+      'have.attr',
+      'aria-pressed',
+      'false',
+    );
+    cy.get('[data-cy="expense-amount"]').clear().type('128.00');
+    cy.get('[data-cy="expense-participant-search"]').type('Robin');
+    cy.get(`[data-cy="expense-person-${cardTravelers[9].id}"]`)
+      .click()
+      .should('have.attr', 'aria-pressed', 'true');
+    cy.get('[data-cy="expense-save"]').click();
+    cy.wait('@updateExpense');
+    cy.get('[data-cy="expense-submit-error"]').should(
+      'have.text',
+      saveFailure.message,
+    );
+    cy.get('[data-cy="expense-participant-search"]').should(
+      'have.value',
+      'Robin',
+    );
+    cy.get('[data-cy="expense-amount"]').should('have.value', '128.00');
+    cy.get('[data-cy="expense-split-label"]').should(
+      'have.text',
+      'Paid for 2 people',
+    );
+    cy.get('[data-cy="expense-share"]').should('have.text', '$64.00 each');
+    cy.get('[data-cy="expense-save"]').click().should('be.disabled');
+    cy.get('[data-cy="expense-participant-search"]').should('be.disabled');
+    cy.get(`[data-cy="expense-person-${cardTravelers[9].id}"]`).should(
+      'be.disabled',
+    );
+    cy.wait(['@updateExpense', '@updatedExpenses']);
+    cy.get('[data-cy="edit-expense-dialog"]').should('not.exist');
+    cy.get(
+      `[data-cy="expense-card-${expense._id}"] [data-cy="expense-card-amount"]`,
+    ).should('have.text', '$128.00');
+  });
+
+  it('handles an empty member directory without exposing a saveable draft', () => {
+    visitLedger(false, [], []);
+    cy.get('[data-cy="add-expense"]').should('be.disabled');
   });
 });

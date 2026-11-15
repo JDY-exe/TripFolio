@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getFromApi, postToApi } from '../utils/api';
+import { getFromApi, patchToApi, postToApi } from '../utils/api';
+import type { QueryClient } from '@tanstack/react-query';
 
 export interface Expense {
   _id: string;
@@ -18,6 +19,34 @@ export interface LedgerBalance {
 }
 
 export type CreateExpenseInput = Omit<Expense, '_id'>;
+export type ExpenseDraft = Pick<
+  Expense,
+  'description' | 'amount' | 'paidBy' | 'splitAmong'
+>;
+
+interface UpdateExpenseInput {
+  expenseId: string;
+  tripId: string;
+  eventId?: string | null;
+  draft: ExpenseDraft;
+}
+
+/** Refreshes every server-state consumer affected by creating or editing an expense.
+ * @param client - Shared query client.
+ * @param tripId - Trip whose expense and balance queries should refresh.
+ * @param eventId - Optional linked event whose cost also changed.
+ * @returns A promise for all applicable cache invalidations.
+ */
+const refreshLedger = (
+  client: QueryClient,
+  tripId: string,
+  eventId?: string | null,
+) =>
+  Promise.all([
+    client.invalidateQueries({ queryKey: expensesQueryKey(tripId) }),
+    client.invalidateQueries({ queryKey: balancesQueryKey(tripId) }),
+    ...(eventId ? [client.invalidateQueries({ queryKey: ['events'] })] : []),
+  ]);
 
 /** Builds the expense cache key for a trip.
  * @param tripId - Trip whose expenses are cached.
@@ -72,13 +101,32 @@ export const useCreateExpense = () => {
           expense,
         ],
       );
-      await Promise.all([
-        client.invalidateQueries({ queryKey: expensesQueryKey(input.tripId) }),
-        client.invalidateQueries({ queryKey: balancesQueryKey(input.tripId) }),
-        ...(input.eventId
-          ? [client.invalidateQueries({ queryKey: ['events'] })]
-          : []),
-      ]);
+      await refreshLedger(client, input.tripId, input.eventId);
+    },
+    retry: 0,
+  });
+};
+
+/** Updates an expense through shared transport, then synchronizes cards, balances, and linked costs.
+ * @returns A mutation accepting an expense draft and the query context it affects.
+ */
+export const useUpdateExpense = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ expenseId, draft }: UpdateExpenseInput) =>
+      patchToApi<Expense, ExpenseDraft>(
+        `/api/ledger/expenses/${expenseId}`,
+        draft,
+      ),
+    onSuccess: async (expense, input) => {
+      client.setQueryData<Expense[]>(
+        expensesQueryKey(input.tripId),
+        (current) =>
+          current?.map((item) =>
+            item._id === input.expenseId ? expense : item,
+          ),
+      );
+      await refreshLedger(client, input.tripId, input.eventId);
     },
     retry: 0,
   });

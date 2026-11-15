@@ -52,3 +52,19 @@ export const cardExpenses = [
     splitAmong: cardTravelers.map((traveler) => traveler.id),
   },
 ];
+
+export const pickerTravelers = cardTravelers.map((traveler, index) => ({
+  ...traveler,
+  profile_picture:
+    index === 1
+      ? '/test-avatar.png'
+      : index === 2
+        ? '/broken-avatar.png'
+        : null,
+}));
+
+export const editedExpense = {
+  ...cardExpenses[0],
+  amount: 128,
+  splitAmong: [travelers[1].id, cardTravelers[9].id],
+};

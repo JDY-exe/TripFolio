@@ -6,6 +6,7 @@ import { InfoPopover } from '../InfoPopover/InfoPopover';
 import LoadingIndicator from '../LoadingIndicator';
 import IconButton from '../IconButton';
 import Text from '../Text';
+import { inputSurfaceClasses } from '../styles/inputStyles';
 
 export interface ComboboxOption {
   id: string;
@@ -167,7 +168,7 @@ export const Combobox = ({
       }}
     >
       <div className="mb-2 flex items-center gap-1">
-        <Text as="label" htmlFor={searchId} variant="label">
+        <Text as="label" htmlFor={searchId} variant="label" color="muted">
           {label}
         </Text>
         {!!description && (
@@ -180,9 +181,10 @@ export const Combobox = ({
         <div
           data-cy={`${dataCyPrefix}-combobox`}
           className={[
-            'flex min-h-12 flex-wrap items-center gap-x-2 rounded-xl border border-outline bg-surface-container-low px-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25',
+            inputSurfaceClasses,
+            'flex min-h-12 flex-wrap items-center gap-x-2 px-3 focus-within:ring-2 focus-within:ring-primary/40',
             disabled ? 'opacity-50' : '',
-            error ? 'border-error' : '',
+            error ? 'ring-2 ring-error/60 focus-within:ring-error/60' : '',
           ].join(' ')}
         >
           {!textMode &&
@@ -223,7 +225,7 @@ export const Combobox = ({
             }
             autoComplete="off"
             disabled={disabled}
-            className="min-h-12 min-w-0 flex-1 basis-24 bg-transparent py-3 text-body text-on-surface outline-none placeholder:text-on-surface-variant disabled:cursor-not-allowed"
+            className={`min-h-12 min-w-0 flex-1 bg-transparent py-3 text-body text-on-surface outline-none placeholder:text-on-surface-variant disabled:cursor-not-allowed ${textMode ? 'basis-0' : 'basis-24'}`}
             onFocus={() => {
               setOpen(true);
               if (textMode) setSearch('');

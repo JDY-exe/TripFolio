@@ -4,6 +4,7 @@ import type {
   SelectHTMLAttributes,
 } from 'react';
 import Text from '../Text/Text';
+import { inputFocusClasses, inputSurfaceClasses } from '../styles/inputStyles';
 
 interface FieldCopy {
   id: string;
@@ -11,6 +12,9 @@ interface FieldCopy {
   labelAction?: ReactNode;
   hint?: string;
   error?: string;
+  hideLabel?: boolean;
+  leadingIcon?: ReactNode;
+  textSize?: 'body' | 'title';
 }
 
 export type TextFieldProps = FieldCopy &
@@ -32,6 +36,9 @@ export type TextFieldProps = FieldCopy &
  * @param props.label - Visible label associated with the input identifier.
  * @param props.hint - Optional supporting guidance shown below the input.
  * @param props.error - Optional validation message that marks the input invalid.
+ * @param props.hideLabel - Visually hides a label when the placeholder and icon make the field clear.
+ * @param props.leadingIcon - Decorative icon placed inside the input surface.
+ * @param props.textSize - Body text by default, or a larger title treatment for important values.
  * @returns An accessible tokenized text field.
  */
 const TextField = ({
@@ -39,6 +46,9 @@ const TextField = ({
   labelAction,
   hint,
   error,
+  hideLabel = false,
+  leadingIcon,
+  textSize = 'body',
   id,
   className,
   'aria-describedby': ariaDescribedBy,
@@ -47,7 +57,11 @@ const TextField = ({
   const supportingId = id && (error || hint) ? `${id}-supporting` : undefined;
   const describedBy = [ariaDescribedBy, supportingId].filter(Boolean).join(' ');
   const fieldClassName = [
-    'min-h-12 w-full rounded-xl border border-outline bg-surface-container-low px-4 py-3 text-body text-on-surface outline-none placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-error aria-invalid:focus-visible:ring-error/25 motion-safe:transition-colors motion-safe:duration-200',
+    inputSurfaceClasses,
+    inputFocusClasses,
+    'min-h-12 w-full px-4 py-3 placeholder:text-on-surface-variant disabled:cursor-not-allowed disabled:opacity-50',
+    textSize === 'title' ? 'text-title' : 'text-body',
+    leadingIcon ? 'pl-11' : '',
     className,
   ]
     .filter(Boolean)
@@ -55,30 +69,50 @@ const TextField = ({
 
   return (
     <div className="grid gap-2">
-      <div className="flex items-center gap-1">
-        <Text as="label" htmlFor={id} variant="label">
+      <div
+        className={
+          hideLabel && !labelAction ? 'sr-only' : 'flex items-center gap-1'
+        }
+      >
+        <Text
+          as="label"
+          htmlFor={id}
+          variant="label"
+          color="muted"
+          className={hideLabel ? 'sr-only' : undefined}
+        >
           {label}
         </Text>
         {labelAction}
       </div>
-      {props.as !== 'select' && (
-        <input
-          id={id}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy || undefined}
-          className={fieldClassName}
-          {...omitInputAs(props)}
-        />
-      )}
-      {props.as === 'select' && (
-        <select
-          id={id}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy || undefined}
-          className={fieldClassName}
-          {...omitSelectAs(props)}
-        />
-      )}
+      <div className="relative min-w-0">
+        {!!leadingIcon && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant"
+          >
+            {leadingIcon}
+          </span>
+        )}
+        {props.as !== 'select' && (
+          <input
+            id={id}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy || undefined}
+            className={fieldClassName}
+            {...omitInputAs(props)}
+          />
+        )}
+        {props.as === 'select' && (
+          <select
+            id={id}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy || undefined}
+            className={fieldClassName}
+            {...omitSelectAs(props)}
+          />
+        )}
+      </div>
       {(error || hint) && (
         <Text
           id={supportingId}

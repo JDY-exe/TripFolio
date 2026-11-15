@@ -203,6 +203,7 @@ const LedgerView = ({
       )}
       {!readOnly && expenseToEdit && (
         <EditExpenseModal
+          key={expenseToEdit._id}
           open={!!expenseToEdit}
           expense={expenseToEdit}
           tripId={id}
