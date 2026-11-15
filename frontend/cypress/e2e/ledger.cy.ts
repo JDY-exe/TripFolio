@@ -6,14 +6,22 @@ import {
   expense,
   balances,
   saveFailure,
+  cardTravelers,
+  cardExpenses,
 } from '../fixtures/ledger';
 import { visitAsUser } from '../support/auth';
 
 /** Opens the ledger with isolated read/write API fixtures.
  * @param readOnly - Whether the trip should expose viewer permissions.
+ * @param initialExpenses - Expenses to show before mutations.
+ * @param tripTravelers - Member directory used to resolve expense participants.
  * @returns Nothing; queues API mocks and navigation.
  */
-const visitLedger = (readOnly = false) => {
+const visitLedger = (
+  readOnly = false,
+  initialExpenses = [] as (typeof expense)[],
+  tripTravelers = travelers,
+) => {
   cy.intercept(
     {
       method: 'GET',
@@ -29,7 +37,7 @@ const visitLedger = (readOnly = false) => {
   );
   cy.intercept(
     { method: 'GET', hostname: 'localhost', pathname: '/trip' },
-    { body: [ledgerTrip] },
+    { body: [{ ...ledgerTrip, travelers: tripTravelers }] },
   );
   cy.intercept(
     { method: 'GET', hostname: 'localhost', pathname: '/trip/archived' },
@@ -37,7 +45,7 @@ const visitLedger = (readOnly = false) => {
   );
   cy.intercept(
     { method: 'GET', pathname: `/api/ledger/expenses/${ledgerTrip._id}` },
-    { body: [] },
+    { body: initialExpenses },
   ).as('expenses');
   cy.intercept(
     { method: 'GET', pathname: `/api/ledger/${ledgerTrip._id}/balances` },
@@ -224,5 +232,115 @@ describe('compact expense modal', () => {
     cy.get('[data-cy="add-expense"]').should('have.focus');
     visitLedger(true);
     cy.get('[data-cy="add-expense"]').should('not.exist');
+  });
+});
+
+describe('IOU expense cards', () => {
+  it('fits recipient previews to half a card and animates inline overflow after resizing', () => {
+    cy.viewport(1440, 1000);
+    visitLedger(false, cardExpenses, cardTravelers);
+    cy.get('[data-cy="expense-list"]').children().should('have.length', 2);
+    cy.get(`[data-cy="expense-card-${cardExpenses[0]._id}"]`).within(() => {
+      cy.get('[data-cy="expense-card-amount"]').should('have.text', '$96.00');
+      cy.contains('Paid by')
+        .parent()
+        .should('contain.text', 'owner')
+        .and('contain.text', 'for');
+      cy.get('[data-cy="expense-recipient-preview"]').should(
+        'contain.text',
+        'Maya',
+      );
+      cy.get('[data-cy="expense-recipient-toggle"]').should('not.exist');
+    });
+    cy.get(`[data-cy="expense-card-${cardExpenses[1]._id}"]`).as('groupCard');
+    cy.get('@groupCard').within(() => {
+      cy.get('[data-cy="expense-recipient-preview"]').then(($preview) => {
+        const preview = $preview[0];
+        const card = preview.closest('article')!;
+        expect(preview.getBoundingClientRect().width).to.be.at.most(
+          card.getBoundingClientRect().width / 2,
+        );
+        expect(preview.scrollWidth).to.be.at.most(preview.clientWidth + 1);
+      });
+      cy.get('[data-cy="expense-recipient-toggle"]')
+        .should('have.attr', 'aria-expanded', 'false')
+        .click()
+        .should('have.attr', 'aria-expanded', 'true');
+      cy.get('[data-cy="expense-recipient-details"]')
+        .should('have.attr', 'aria-hidden', 'false')
+        .and('contain.text', 'Robin');
+      cy.get('[data-cy="expense-recipient-details"]').should(
+        'not.have.attr',
+        'inert',
+      );
+      cy.get('[data-cy="expense-recipient-details"]').should('be.visible');
+    });
+    cy.get('@groupCard').screenshot('ledger-card-expanded-desktop');
+    cy.viewport(390, 844);
+    cy.get('@groupCard').within(() => {
+      cy.get('[data-cy="expense-recipient-preview"]').should(($preview) => {
+        expect($preview[0].scrollWidth).to.be.at.most(
+          $preview[0].clientWidth + 1,
+        );
+      });
+      cy.get('[data-cy="expense-recipient-toggle"]')
+        .click()
+        .should('have.attr', 'aria-expanded', 'false');
+      cy.get('[data-cy="expense-recipient-details"]').should(
+        'have.attr',
+        'inert',
+      );
+    });
+    cy.get('@groupCard').screenshot('ledger-card-collapsed-mobile');
+    cy.document().should((document) => {
+      expect(document.documentElement.scrollWidth).to.be.at.most(
+        document.documentElement.clientWidth,
+      );
+    });
+  });
+
+  it('reveals keyboard actions, opens the existing editor, and confirms deletion before refreshing', () => {
+    let removed = false;
+    visitLedger(false, cardExpenses, cardTravelers);
+    cy.intercept(
+      { method: 'GET', pathname: `/api/ledger/expenses/${ledgerTrip._id}` },
+      (request) =>
+        request.reply({ body: removed ? [cardExpenses[1]] : cardExpenses }),
+    ).as('refreshCardExpenses');
+    cy.intercept(
+      { method: 'DELETE', pathname: `/api/ledger/expenses/${expense._id}` },
+      (request) => {
+        removed = true;
+        request.reply({
+          statusCode: 200,
+          body: { message: 'Expense deleted successfully' },
+        });
+      },
+    ).as('deleteExpense');
+    cy.get(
+      `[data-cy="expense-card-${expense._id}"] [data-cy="expense-card-actions"]`,
+    ).should('have.css', 'opacity', '0');
+    cy.get(`[data-cy="edit-expense-${expense._id}"]`).focus();
+    cy.get(
+      `[data-cy="expense-card-${expense._id}"] [data-cy="expense-card-actions"]`,
+    ).should('have.css', 'opacity', '1');
+    cy.get(`[data-cy="edit-expense-${expense._id}"]`).click();
+    cy.get('[role="dialog"]')
+      .should('contain.text', 'Edit Expense')
+      .and('contain.text', 'Save Changes');
+    cy.get('[role="dialog"]').contains('button', 'Cancel').click();
+    cy.get(`[data-cy="delete-expense-${expense._id}"]`).focus().click();
+    cy.get('[data-cy="delete-expense-dialog"]')
+      .should('be.visible')
+      .contains('button', 'Delete expense')
+      .click();
+    cy.wait(['@deleteExpense', '@refreshCardExpenses']);
+    cy.get(`[data-cy="expense-card-${expense._id}"]`).should('not.exist');
+    cy.get(`[data-cy="expense-card-${cardExpenses[1]._id}"]`).should(
+      'be.visible',
+    );
+    visitLedger(true, cardExpenses, cardTravelers);
+    cy.get('[data-cy="expense-card-actions"]').should('not.exist');
+    cy.get('[data-cy="expense-recipient-toggle"]').should('exist');
   });
 });

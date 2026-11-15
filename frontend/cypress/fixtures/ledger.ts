@@ -29,3 +29,26 @@ export const balances = [
 export const saveFailure = {
   message: 'Could not add the expense. Please try again.',
 };
+
+export const cardTravelers = [
+  ...travelers,
+  {
+    id: '64b000000000000000000021',
+    username: 'avery_with_a_very_long_username',
+  },
+  { id: '64b000000000000000000022', username: 'Riley' },
+  { id: '64b000000000000000000023', username: 'Casey' },
+  { id: '64b000000000000000000024', username: 'Robin' },
+];
+
+export const cardExpenses = [
+  { ...expense, splitAmong: [travelers[1].id] },
+  {
+    ...expense,
+    _id: '64b000000000000000000025',
+    description: 'Groceries for the house',
+    amount: 246.8,
+    paidBy: cardTravelers[6].id,
+    splitAmong: cardTravelers.map((traveler) => traveler.id),
+  },
+];
