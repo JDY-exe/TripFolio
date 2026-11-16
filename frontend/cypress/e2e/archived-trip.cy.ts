@@ -435,7 +435,6 @@ describe('archived trips reuse shared views', () => {
 
     visitAsUser(`/trip/archived/${fixture.trip._id}`, 'owner');
     cy.wait('@loadPrivateNote');
-    cy.get('[data-cy="personal-notes-toggle"]').click();
     cy.get('[data-cy="archived-note-input"]').type('Owner private note');
     cy.get('[data-cy="archived-note-save"]').click();
     cy.wait('@createPrivateNote')
@@ -483,7 +482,6 @@ describe('archived trips reuse shared views', () => {
 
     visitAsUser(`/trip/archived/${fixture.trip._id}`, 'viewer');
     cy.wait('@loadPrivateNote');
-    cy.get('[data-cy="personal-notes-toggle"]').click();
     cy.get('[data-cy="archived-note-input"]').should('have.value', '');
     cy.get('[data-cy="archived-note-input"]').type('Viewer private note');
     cy.get('[data-cy="archived-note-save"]').click();

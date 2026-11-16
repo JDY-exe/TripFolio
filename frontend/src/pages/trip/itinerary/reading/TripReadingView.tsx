@@ -177,17 +177,7 @@ const TripReadingView = ({
               ))}
             </div>
           )}
-          {personalNotes && (
-            <details className="mt-10">
-              <summary
-                data-cy="personal-notes-toggle"
-                className="cursor-pointer rounded-sm text-label text-on-surface-variant focus-visible:outline-2 focus-visible:outline-primary"
-              >
-                Personal notes
-              </summary>
-              <div className="mt-4">{personalNotes}</div>
-            </details>
-          )}
+          {personalNotes && <div className="mt-10">{personalNotes}</div>}
         </section>
         <DesktopItineraryMap
           events={eventsByTime}

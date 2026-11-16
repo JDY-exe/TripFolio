@@ -74,9 +74,7 @@ describe('trip reading layout', () => {
       fixture.itinerary.description,
     );
     cy.get('[data-cy="trip-overview"]').should('not.exist');
-    cy.get('[data-cy="personal-notes-toggle"]')
-      .parent()
-      .should('not.have.attr', 'open');
+    cy.get('[data-cy="archived-itinerary-notes"]').should('be.visible');
     cy.get('[data-cy="day-toggle-2030-04-02"]').should('not.exist');
     cy.get('[data-cy="itinerary-map-preview"]').should(
       'have.css',
@@ -164,7 +162,7 @@ describe('trip reading layout', () => {
     );
     cy.get('[data-cy="description-edit"]').should('not.exist');
     cy.get('[data-cy^="add-event-"]').should('not.exist');
-    cy.get('[data-cy="personal-notes-toggle"]').should('not.exist');
+    cy.get('[data-cy="archived-itinerary-notes"]').should('not.exist');
   });
 
   it('shows an error toast when copying fails', () => {
