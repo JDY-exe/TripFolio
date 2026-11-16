@@ -5,7 +5,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import type { EventData } from './events';
-import { getFromApi, postToApi } from '../utils/api';
+import { getFromApi, isNotFoundApiError, postToApi } from '../utils/api';
 import { createCheckedPatch, saveChecked } from '../utils/checkedSave';
 
 export interface Itinerary {
@@ -186,6 +186,8 @@ export const usePublicItinerary = (tripId?: string) =>
     queryKey: publicItineraryQueryKey(tripId),
     queryFn: () =>
       getFromApi<PublicItineraryDetails>(`/api/itineraries/${tripId}`),
+    retry: (failureCount, error) =>
+      !isNotFoundApiError(error) && failureCount < 3,
     enabled: Boolean(tripId),
   });
 

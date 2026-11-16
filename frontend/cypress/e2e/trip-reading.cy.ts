@@ -6,7 +6,11 @@ import { visitAsUser } from '../support/auth';
  */
 const mockReading = () => {
   cy.intercept(
-    { method: 'GET', pathname: `/trip/${fixture.trip._id}` },
+    {
+      method: 'GET',
+      hostname: 'localhost',
+      pathname: `/trip/${fixture.trip._id}`,
+    },
     { body: fixture.trip },
   );
   cy.intercept(
@@ -134,7 +138,11 @@ describe('trip reading layout', () => {
     it(`lets a public archived trip ${role} share its public link without granting access`, () => {
       mockClipboard();
       cy.intercept(
-        { method: 'GET', pathname: `/trip/${fixture.trip._id}` },
+        {
+          method: 'GET',
+          hostname: 'localhost',
+          pathname: `/trip/${fixture.trip._id}`,
+        },
         { body: { ...fixture.trip, isPublic: true, currentUserRole: role } },
       );
       cy.intercept('POST', '**/trip/*/share-archive', { statusCode: 403 }).as(
@@ -150,6 +158,132 @@ describe('trip reading layout', () => {
       cy.get('[data-cy="share-archived-trip-open"]').should('not.exist');
     });
   }
+
+  for (const archived of [false, true]) {
+    it(`opens a copied ${archived ? 'archived' : 'active'} public trip URL as a non-member`, () => {
+      let copiedUrl = '';
+      cy.on('window:before:load', (win) => {
+        Object.defineProperty(win.navigator, 'clipboard', {
+          configurable: true,
+          value: {
+            writeText: (url: string) => {
+              copiedUrl = url;
+              return Promise.resolve();
+            },
+          },
+        });
+      });
+      const tripPath = archived
+        ? `/trip/archived/${fixture.trip._id}`
+        : `/trip/${fixture.trip._id}`;
+      cy.intercept(
+        {
+          method: 'GET',
+          hostname: 'localhost',
+          pathname: `/trip/${fixture.trip._id}`,
+        },
+        { body: { ...fixture.trip, archived, isPublic: true } },
+      );
+      visitAsUser(tripPath);
+      cy.get('[data-cy="share-public-trip"]').click();
+      cy.get('[data-cy="toast"]').should('contain.text', 'Trip link copied.');
+      cy.intercept(
+        {
+          method: 'GET',
+          hostname: 'localhost',
+          pathname: `/trip/${fixture.trip._id}`,
+        },
+        { statusCode: 404, body: { message: 'Trip not found' } },
+      ).as('memberTrip');
+      cy.intercept(
+        { method: 'GET', pathname: `/api/itineraries/${fixture.trip._id}` },
+        {
+          body: {
+            ...fixture.publicDetails,
+            trip: { ...fixture.publicDetails.trip, archived },
+          },
+        },
+      ).as('publicTrip');
+      cy.then(() => {
+        expect(copiedUrl).to.equal(`${Cypress.config('baseUrl')}${tripPath}`);
+        visitAsUser(copiedUrl, 'viewer');
+      });
+      cy.wait('@publicTrip');
+      cy.location('pathname').should(
+        'eq',
+        `/public-itinerary/${fixture.trip._id}`,
+      );
+      cy.get('[data-cy="trip-section-itinerary"]').should(
+        'have.text',
+        fixture.trip.name,
+      );
+      cy.get('[data-cy="trip-reading-description"]').should(
+        'have.text',
+        fixture.itinerary.description,
+      );
+      cy.get(`[data-cy="event-card-${fixture.event._id}"]`).should('exist');
+      cy.get('@memberTrip.all').should('have.length', 1);
+      cy.get('[data-cy="description-edit"]').should('not.exist');
+      cy.get('[data-cy^="add-event-"]').should('not.exist');
+      cy.get('[data-cy="nav-ledger"]').should('not.exist');
+      cy.get('[data-cy="nav-logistics"]').should('not.exist');
+      cy.get('[data-cy="archived-itinerary-notes"]').should('not.exist');
+    });
+  }
+
+  it('keeps private or missing trips unavailable through the public fallback', () => {
+    cy.intercept(
+      {
+        method: 'GET',
+        hostname: 'localhost',
+        pathname: `/trip/${fixture.trip._id}`,
+      },
+      { statusCode: 404 },
+    );
+    cy.intercept(
+      { method: 'GET', pathname: `/api/itineraries/${fixture.trip._id}` },
+      { statusCode: 404, body: { message: 'Public itinerary not found' } },
+    ).as('publicTrip');
+    visitAsUser(`/trip/archived/${fixture.trip._id}`, 'viewer');
+    cy.wait('@publicTrip');
+    cy.contains('This public itinerary could not be loaded.').should(
+      'be.visible',
+    );
+    cy.get('@publicTrip.all').should('have.length', 1);
+    cy.get('[data-cy="trip-reading-view"]').should('not.exist');
+    cy.get('[data-cy="nav-settings"]').should('not.exist');
+  });
+
+  it('preserves the member-view retry path for server failures', () => {
+    cy.intercept(
+      {
+        method: 'GET',
+        hostname: 'localhost',
+        pathname: `/trip/${fixture.trip._id}`,
+      },
+      { statusCode: 500 },
+    );
+    cy.intercept(
+      { method: 'GET', pathname: `/api/itineraries/${fixture.trip._id}` },
+      { body: fixture.publicDetails },
+    ).as('publicTrip');
+    visitAsUser(`/trip/${fixture.trip._id}`);
+    cy.contains('Trip could not be loaded.', { timeout: 15000 }).should(
+      'be.visible',
+    );
+    cy.location('pathname').should('eq', `/trip/${fixture.trip._id}`);
+    cy.get('@publicTrip.all').should('have.length', 0);
+    cy.intercept(
+      {
+        method: 'GET',
+        hostname: 'localhost',
+        pathname: `/trip/${fixture.trip._id}`,
+      },
+      { body: fixture.trip },
+    );
+    cy.contains('button', 'Retry').click();
+    cy.get('[data-cy="trip-reading-view"]').should('be.visible');
+  });
 
   it('lets a non-member share a public itinerary and keeps it read-only', () => {
     mockClipboard();

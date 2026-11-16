@@ -1,6 +1,12 @@
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import {
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router';
 import { useTripDetails } from '../../queries/trips';
+import { isNotFoundApiError } from '../../utils/api';
 import { Button, Text } from '../../components/common';
 import BottomNav from '../../components/navigation/BottomNav';
 import {
@@ -24,7 +30,7 @@ import TripSettings from './TripSettings';
 const Trip = ({ archived = false }: { archived?: boolean }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { data: trip, isPending, isError, refetch } = useTripDetails(id);
+  const { data: trip, isPending, isError, error, refetch } = useTripDetails(id);
   const readOnly =
     archived || trip?.archived === true || trip?.currentUserRole === 'viewer';
   const [searchParams, setSearchParams] = useSearchParams();
@@ -36,6 +42,12 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
     : 'itinerary';
 
   if (id && isPending) return <Text color="muted">Loading trip...</Text>;
+  // Membership endpoints hide inaccessible trips with 404; the public endpoint independently checks visibility.
+  if (id && isError && isNotFoundApiError(error)) {
+    return (
+      <Navigate to={`/public-itinerary/${encodeURIComponent(id)}`} replace />
+    );
+  }
   if (isError)
     return (
       <section role="alert" className="space-y-4">

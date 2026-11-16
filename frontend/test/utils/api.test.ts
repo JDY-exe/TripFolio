@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getApiErrorMessage,
+  isNotFoundApiError,
   isUnauthorizedApiError,
 } from '../../src/utils/api';
 
@@ -29,6 +30,22 @@ describe('isUnauthorizedApiError', () => {
     ['non-Axios rejection', new Error('Request failed')],
   ])('does not invalidate the session for a %s', (_label, error) => {
     expect(isUnauthorizedApiError(error)).toBe(false);
+  });
+});
+
+describe('isNotFoundApiError', () => {
+  it('recognizes an Axios 404 response', () => {
+    expect(isNotFoundApiError(createAxiosError(404))).toBe(true);
+  });
+
+  it.each([
+    createAxiosError(401),
+    createAxiosError(403),
+    createAxiosError(500),
+    createAxiosError(),
+    new Error('Request failed'),
+  ])('does not treat other failures as a missing trip', (error) => {
+    expect(isNotFoundApiError(error)).toBe(false);
   });
 });
 

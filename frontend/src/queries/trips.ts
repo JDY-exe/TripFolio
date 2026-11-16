@@ -1,5 +1,10 @@
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { getFromApi, patchToApi, postToApi } from '../utils/api';
+import {
+  getFromApi,
+  isNotFoundApiError,
+  patchToApi,
+  postToApi,
+} from '../utils/api';
 import { createCheckedPatch, saveChecked } from '../utils/checkedSave';
 
 export interface TripTraveler {
@@ -132,6 +137,8 @@ export const useTripDetails = (tripId?: string) =>
   useQuery({
     queryKey: ['trip-settings', tripId],
     queryFn: () => getFromApi<TripDetails>(`/trip/${tripId}`),
+    retry: (failureCount, error) =>
+      !isNotFoundApiError(error) && failureCount < 3,
     enabled: Boolean(tripId),
   });
 
