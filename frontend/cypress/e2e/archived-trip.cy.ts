@@ -1,4 +1,5 @@
 import fixture from '../fixtures/archived-trip';
+import shareFixture from '../fixtures/trip-share.json';
 import sharedRecipientFixture from '../fixtures/archived-shared-recipient';
 import noteFixture from '../fixtures/archived-notes.json';
 import { visitAsUser } from '../support/auth';
@@ -79,6 +80,96 @@ describe('archived trips reuse shared views', () => {
     );
   });
 
+  it('uses the expense-style friend grid and explains private sharing without dismissing the dialog', () => {
+    cy.viewport(1280, 900);
+    cy.intercept('GET', '**/users/friends', { body: shareFixture });
+    cy.intercept(
+      { method: 'GET', pathname: `/trip/${fixture.trip._id}` },
+      {
+        body: {
+          ...fixture.trip,
+          ownerId: fixture.user.id,
+          users: [fixture.user.id],
+        },
+      },
+    );
+    visitAsUser(`/trip/archived/${fixture.trip._id}`);
+    cy.get('[data-cy="share-archived-trip-open"]').click();
+    cy.get('[data-cy="share-trip-avatar-picker"]').should('be.visible');
+    cy.get('[data-cy="share-archived-trip-submit"]').should('be.disabled');
+    cy.get(`[data-cy="share-trip-friend-${fixture.user.id}"]`).should(
+      'be.disabled',
+    );
+    cy.contains('button', 'About sharing a private trip').click();
+    cy.contains('Sharing invites a friend with read-only access').should(
+      'be.visible',
+    );
+    cy.contains('To make it public, the owner can unarchive it').should(
+      'be.visible',
+    );
+    cy.contains('button', 'About sharing a private trip').type('{esc}');
+    cy.get('[data-cy="share-archived-trip-dialog"]').should('be.visible');
+    cy.get(`[data-cy="share-trip-friend-${shareFixture.friends[0].id}"]`)
+      .focus()
+      .should('be.focused')
+      .click()
+      .should('have.attr', 'aria-pressed', 'true');
+    cy.get('[data-cy="share-trip-friend-search"]').type(
+      shareFixture.friends[1].username,
+    );
+    cy.get(`[data-cy="share-trip-friend-${shareFixture.friends[1].id}"]`)
+      .click()
+      .should('have.attr', 'aria-pressed', 'true');
+    cy.get('[data-cy="share-trip-friend-search"]').focus().type('{esc}');
+    cy.get(
+      `[data-cy="share-trip-friend-${shareFixture.friends[0].id}"]`,
+    ).should('have.attr', 'aria-pressed', 'true');
+    cy.get('[data-cy="share-archived-trip-submit"]').should(
+      'have.text',
+      'Share with 2 friends',
+    );
+    cy.get('[data-cy="share-trip-friend-search"]').type('no match');
+    cy.contains('No friends match your search.').should('be.visible');
+    cy.get('[data-cy="share-trip-friend-search"]').clear();
+    cy.get(
+      `[data-cy="share-trip-friend-${shareFixture.friends[1].id}"]`,
+    ).should('have.attr', 'aria-pressed', 'true');
+    cy.screenshot('private-share-desktop', { capture: 'viewport' });
+    cy.viewport(390, 844);
+    cy.contains('button', 'About sharing a private trip').click();
+    cy.contains<HTMLElement>('Sharing invites a friend with read-only access')
+      .should('be.visible')
+      .then(($tip) => {
+        const rect = $tip[0].getBoundingClientRect();
+        expect(rect.left).to.be.at.least(0);
+        expect(rect.right).to.be.at.most(390);
+      });
+    cy.screenshot('private-share-mobile', { capture: 'viewport' });
+    cy.contains('button', 'About sharing a private trip').type('{esc}');
+    cy.get('[data-cy="share-archived-trip-cancel"]').click();
+    cy.get('[data-cy="share-archived-trip-open"]').click();
+    cy.get('[data-cy="share-archived-trip-submit"]').should('be.disabled');
+  });
+
+  it('retries a failed friend list and shows the empty state', () => {
+    cy.intercept('GET', '**/users/friends', { statusCode: 500 });
+    visitAsUser(`/trip/archived/${fixture.trip._id}`);
+    cy.get('[data-cy="share-archived-trip-open"]').click();
+    cy.contains('Could not load your friends.', { timeout: 15000 }).should(
+      'be.visible',
+    );
+    cy.intercept('GET', '**/users/friends', {
+      body: { ...shareFixture, friends: [] },
+    });
+    cy.get('[data-cy="share-trip-avatar-picker"]')
+      .contains('button', 'Try again')
+      .click();
+    cy.contains('You do not have any friends to invite yet.').should(
+      'be.visible',
+    );
+    cy.get('[data-cy="share-archived-trip-submit"]').should('be.disabled');
+  });
+
   it('lets an owner share an archived trip with a friend', () => {
     cy.intercept('GET', '**/users/friends', {
       body: {
@@ -107,13 +198,57 @@ describe('archived trips reuse shared views', () => {
 
     cy.wait('@shareArchivedTrip')
       .its('request.body')
-      .should('deep.equal', { recipientId: fixture.friend.id });
+      .should('deep.equal', { recipientIds: [fixture.friend.id] });
     cy.get('[data-cy="share-archived-trip-dialog"]').should('not.exist');
     cy.get('[data-cy="toast"]').should(
       'contain.text',
       'Archived trip shared successfully',
     );
   });
+
+  for (const rejectBatch of [false, true]) {
+    it(`sends one archived invitation batch and ${rejectBatch ? 'preserves selections for retry on failure' : 'closes on success'}`, () => {
+      cy.intercept('GET', '**/users/friends', { body: shareFixture });
+      cy.intercept('POST', `**/trip/${fixture.trip._id}/share-archive`, {
+        statusCode: rejectBatch ? 409 : 201,
+        body: {
+          message: rejectBatch
+            ? 'A pending invitation already exists for one or more recipients'
+            : 'Archived trip invitations sent',
+        },
+      }).as('batchInvite');
+      visitAsUser(`/trip/archived/${fixture.trip._id}`);
+      cy.get('[data-cy="share-archived-trip-open"]').click();
+      for (const friend of shareFixture.friends.slice(0, 2))
+        cy.get(`[data-cy="share-trip-friend-${friend.id}"]`).click();
+      cy.get('[data-cy="share-archived-trip-submit"]')
+        .should('have.text', 'Share with 2 friends')
+        .click();
+      cy.wait('@batchInvite')
+        .its('request.body')
+        .should('deep.equal', {
+          recipientIds: shareFixture.friends
+            .slice(0, 2)
+            .map((friend) => friend.id),
+        });
+      cy.get('@batchInvite.all').should('have.length', 1);
+      if (rejectBatch) {
+        cy.get('[data-cy="share-archived-trip-dialog"]').should('be.visible');
+        for (const friend of shareFixture.friends.slice(0, 2))
+          cy.get(`[data-cy="share-trip-friend-${friend.id}"]`).should(
+            'have.attr',
+            'aria-pressed',
+            'true',
+          );
+        cy.intercept('POST', `**/trip/${fixture.trip._id}/share-archive`, {
+          statusCode: 201,
+          body: { message: 'Archived trip invitations sent' },
+        });
+        cy.get('[data-cy="share-archived-trip-submit"]').click();
+      }
+      cy.get('[data-cy="share-archived-trip-dialog"]').should('not.exist');
+    });
+  }
 
   it('keeps the share dialog open and reports a failed grant', () => {
     cy.intercept('GET', '**/users/friends', {

@@ -1,0 +1,12 @@
+{
+  "friends": [
+    { "id": "64b000000000000000000009", "username": "traveler" },
+    { "id": "64b000000000000000000012", "username": "Maya" },
+    { "id": "64b000000000000000000013", "username": "Alex" },
+    { "id": "64b000000000000000000014", "username": "Sam" },
+    { "id": "64b000000000000000000015", "username": "Jo" },
+    { "id": "64b000000000000000000002", "username": "owner" }
+  ],
+  "incomingRequests": [],
+  "outgoingRequests": []
+}

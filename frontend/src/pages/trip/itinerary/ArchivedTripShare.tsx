@@ -2,6 +2,7 @@ import { Share2 } from 'lucide-react';
 import { useState } from 'react';
 import {
   Button,
+  InfoPopover,
   Modal,
   ShareWithFriends,
   Text,
@@ -17,30 +18,30 @@ interface ArchivedTripShareProps {
 }
 
 /**
- * Lets an authorized participant grant one friend read-only access to an archived trip.
+ * Lets an authorized participant invite friends with read-only access to an archived trip.
  * @param props - Archived trip and current participant identifiers.
- * @returns A share action that opens a friend selector and submits the access grant.
+ * @returns A share action that opens a friend selector and submits one invitation batch.
  */
 const ArchivedTripShare = ({ tripId, memberIds }: ArchivedTripShareProps) => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedFriendId, setSelectedFriendId] = useState<string>();
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const shareMutation = useShareArchivedTrip(user?.id);
 
   /**
-   * Sends the selected friend the archived-trip access grant.
+   * Sends all selected friends archived-trip invitations in one atomic request.
    * @returns A promise that settles after the result is reported.
    */
   const shareTrip = async () => {
-    if (!selectedFriendId || shareMutation.isPending) return;
+    if (selectedFriendIds.length === 0 || shareMutation.isPending) return;
 
     try {
       const response = await shareMutation.mutateAsync({
         tripId,
-        recipientId: selectedFriendId,
+        recipientIds: selectedFriendIds,
       });
       setIsOpen(false);
-      setSelectedFriendId(undefined);
+      setSelectedFriendIds([]);
       displayAlert({ message: response.message, tone: 'success' });
     } catch (error) {
       displayAlert({
@@ -59,7 +60,7 @@ const ArchivedTripShare = ({ tripId, memberIds }: ArchivedTripShareProps) => {
    */
   const closeDialog = () => {
     setIsOpen(false);
-    setSelectedFriendId(undefined);
+    setSelectedFriendIds([]);
   };
 
   return (
@@ -74,8 +75,8 @@ const ArchivedTripShare = ({ tripId, memberIds }: ArchivedTripShareProps) => {
       <Modal
         data-cy="share-archived-trip-dialog"
         open={isOpen}
-        title="Share archived trip"
-        description="Choose a friend to give read-only access to this archived trip."
+        title="Share trip"
+        showCloseButton
         onClose={closeDialog}
         dismissDisabled={shareMutation.isPending}
         footer={(requestClose) => (
@@ -90,28 +91,44 @@ const ArchivedTripShare = ({ tripId, memberIds }: ArchivedTripShareProps) => {
             </Button>
             <Button
               data-cy="share-archived-trip-submit"
-              disabled={!selectedFriendId || shareMutation.isPending}
+              disabled={
+                selectedFriendIds.length === 0 || shareMutation.isPending
+              }
               onClick={() => void shareTrip()}
             >
-              {shareMutation.isPending ? 'Sharing...' : 'Share trip'}
+              {shareMutation.isPending
+                ? 'Sending...'
+                : selectedFriendIds.length > 0
+                  ? `Share with ${selectedFriendIds.length} ${selectedFriendIds.length === 1 ? 'friend' : 'friends'}`
+                  : 'Share trip'}
             </Button>
           </>
         )}
         panelClassName="max-w-xl"
       >
+        <div className="mb-5 flex items-center gap-1">
+          <InfoPopover
+            label="About sharing a private trip"
+            className="[&>div]:left-0 [&>div]:right-auto"
+          >
+            Sharing invites a friend with read-only access to this private trip.
+            To make it public, the owner can unarchive it and change visibility
+            in Trip settings.
+          </InfoPopover>
+          <Text as="span" color="muted">
+            This trip is private
+          </Text>
+        </div>
         <ShareWithFriends
           key={String(isOpen)}
-          selectedFriendIds={selectedFriendId ? [selectedFriendId] : []}
-          onSelectionChange={(friendIds) => setSelectedFriendId(friendIds[0])}
+          presentation="grid"
+          multiple
+          selectedFriendIds={selectedFriendIds}
+          onSelectionChange={setSelectedFriendIds}
           memberIds={memberIds}
           disabled={shareMutation.isPending}
-          label="Choose a friend"
+          label="Choose friends"
         />
-        {!selectedFriendId && (
-          <Text className="mt-3" color="muted" role="status">
-            Select one friend to share this trip.
-          </Text>
-        )}
       </Modal>
     </>
   );

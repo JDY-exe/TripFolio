@@ -434,102 +434,67 @@ const shareTrip = async (req, res) => {
   }
 };
 
-/** Sends a pending invitation for read-only access to an archived trip. */
+/** Sends all archived read-only invitations in one transaction, or saves none.
+ * Accepts recipientIds and retains recipientId compatibility for older clients.
+ */
 const shareArchivedTrip = async (req, res) => {
   try {
     const { id: tripId } = req.params;
-    const { recipientId } = req.body || {};
+    const { recipientId, recipientIds } = req.body || {};
+    const requestedIds = recipientIds === undefined ? [recipientId] : recipientIds;
 
     if (!mongoose.isValidObjectId(tripId)) {
       return res.status(400).json({ message: "Invalid trip ID" });
     }
     if (
-      typeof recipientId !== "string" ||
-      !mongoose.isValidObjectId(recipientId)
+      !Array.isArray(requestedIds) || requestedIds.length === 0 ||
+      requestedIds.some((id) => typeof id !== "string" || !mongoose.isValidObjectId(id))
     ) {
-      return res
-        .status(400)
-        .json({ message: "A valid recipientId is required" });
+      return res.status(400).json({ message: "A non-empty array of valid recipientIds is required" });
+    }
+    const normalizedIds = requestedIds.map((id) => new mongoose.Types.ObjectId(id).toString());
+    if (new Set(normalizedIds).size !== normalizedIds.length) {
+      return res.status(400).json({ message: "recipientIds must not contain duplicates" });
     }
 
-    const normalizedRecipientId = new mongoose.Types.ObjectId(
-      recipientId
-    ).toString();
-    await mongoose.connection.transaction(
-      async (session) => {
-        const trip = await Trip.findById(tripId).session(session);
-        if (!trip) {
-          throw Object.assign(new Error("Trip not found"), { status: 404 });
-        }
-        const role = getTripRole(trip, req.user.id);
-        if (role !== "owner" && role !== "editor") {
-          throw Object.assign(
-            new Error("Only trip owners and editors can share this trip"),
-            { status: 403 }
-          );
-        }
-        if (!trip.archived) {
-          throw Object.assign(
-            new Error("Trip must be archived before it can be shared"),
-            { status: 409 }
-          );
-        }
-
-        const recipient = await User.findById(normalizedRecipientId).session(
-          session
-        );
-        if (!recipient) {
-          throw Object.assign(new Error("Recipient not found"), {
-            status: 404
-          });
-        }
-        if (getTripRole(trip, normalizedRecipientId)) {
-          throw Object.assign(
-            new Error("Recipient already has access to this trip"),
-            { status: 409 }
-          );
-        }
-        if (trip.archivedSharedWith?.some(
-          (sharedUserId) => String(sharedUserId) === normalizedRecipientId
-        )) {
-          throw Object.assign(
-            new Error("Recipient already has access to this trip"),
-            { status: 409 }
-          );
-        }
-
-        const existingInvitation = await TripInvitation.findOne({
-          trip: tripId,
-          recipient: normalizedRecipientId,
-          status: "pending"
-        }).session(session);
-        if (existingInvitation) {
-          throw Object.assign(
-            new Error("A pending invitation already exists for this trip"),
-            { status: 409 }
-          );
-        }
-
-        return TripInvitation.create([{
-          trip: tripId,
-          recipient: normalizedRecipientId,
-          inviter: req.user.id,
-          role: "viewer",
-          archivedReadOnly: true
-        }], { session });
+    const invitations = await mongoose.connection.transaction(async (session) => {
+      const trip = await Trip.findById(tripId).session(session);
+      if (!trip) throw Object.assign(new Error("Trip not found"), { status: 404 });
+      const role = getTripRole(trip, req.user.id);
+      if (role !== "owner" && role !== "editor") {
+        throw Object.assign(new Error("Only trip owners and editors can share this trip"), { status: 403 });
       }
-    );
+      if (!trip.archived) {
+        throw Object.assign(new Error("Trip must be archived before it can be shared"), { status: 409 });
+      }
+      const recipients = await User.find({ _id: { $in: normalizedIds } }).session(session);
+      if (recipients.length !== normalizedIds.length) {
+        throw Object.assign(new Error("One or more recipient profiles were not found"), { status: 404 });
+      }
+      if (normalizedIds.some((id) => getTripRole(trip, id) || trip.archivedSharedWith?.some((sharedId) => String(sharedId) === id))) {
+        throw Object.assign(new Error("One or more recipients already have access to this trip"), { status: 409 });
+      }
+      const existingInvitation = await TripInvitation.findOne({
+        trip: tripId, recipient: { $in: normalizedIds }, status: "pending"
+      }).session(session);
+      if (existingInvitation) {
+        throw Object.assign(new Error("A pending invitation already exists for one or more recipients"), { status: 409 });
+      }
+      return TripInvitation.insertMany(normalizedIds.map((recipient) => ({
+        trip: tripId, recipient, inviter: req.user.id, role: "viewer", archivedReadOnly: true
+      })), { session, ordered: true });
+    });
 
     return res.status(201).json({
-      message: "Archived trip invitation sent",
+      message: normalizedIds.length === 1 ? "Archived trip invitation sent" : "Archived trip invitations sent",
       tripId,
-      recipientId: normalizedRecipientId
+      recipientIds: normalizedIds,
+      ...(recipientIds === undefined ? { recipientId: normalizedIds[0] } : {}),
+      invitations
     });
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(409).json({
-        message: "A pending invitation already exists for this trip"
-      });
+      return res.status(409).json({ message: "A pending invitation already exists for one or more recipients" });
     }
     return res.status(error.status || 500).json({
       message: error.status ? error.message : "Unable to share archived trip"
