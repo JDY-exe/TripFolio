@@ -24,6 +24,7 @@ interface ItineraryMapProps {
   startDate: string;
   loading: boolean;
   readOnly?: boolean;
+  prominent?: boolean;
   onEdit: (event: EventData) => void;
   onDelete: (event: EventData) => void;
 }
@@ -38,6 +39,7 @@ const ItineraryMap = ({
   startDate,
   loading,
   readOnly = false,
+  prominent = false,
   onEdit,
   onDelete,
 }: ItineraryMapProps) => {
@@ -57,6 +59,7 @@ const ItineraryMap = ({
     events: locatedEvents,
     activeDate,
     readOnly,
+    prominent,
     onEdit: (event: EventData) => {
       pendingAction.current = () => onEdit(event);
       setExpanded(false);
@@ -66,6 +69,8 @@ const ItineraryMap = ({
       setExpanded(false);
     },
   };
+  const previewHeight = prominent ? 'h-[28rem]' : 'h-56';
+
   return (
     <>
       <section
@@ -87,21 +92,28 @@ const ItineraryMap = ({
         </header>
         {locatedEvents.length > 0 && (
           <Suspense
-            fallback={<Skeleton className="h-56 w-full rounded-panel" />}
+            fallback={
+              <Skeleton className={`${previewHeight} w-full rounded-panel`} />
+            }
           >
             <ItineraryMapCanvas {...mapProps} />
           </Suspense>
         )}
         {!locatedEvents.length && (loading || isLoading) && (
           <div role="status" aria-label="Locating itinerary events">
-            <Skeleton className="h-56 w-full rounded-panel" />
+            <Skeleton className={`${previewHeight} w-full rounded-panel`} />
           </div>
         )}
         {!locatedEvents.length && !(loading || isLoading) && (
-          <Text color="muted" className="py-8 text-center">
+          <Text
+            color="muted"
+            className={`${prominent ? 'flex min-h-[28rem] items-center justify-center' : 'py-8'} text-center`}
+          >
             {events.some((event) => event.address)
               ? 'No event locations could be mapped.'
-              : 'Add locations to your events to see them here.'}
+              : readOnly
+                ? 'No mapped locations for this trip.'
+                : 'Add locations to your events to see them here.'}
           </Text>
         )}
       </section>

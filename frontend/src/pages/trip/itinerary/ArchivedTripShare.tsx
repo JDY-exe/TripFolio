@@ -69,7 +69,7 @@ const ArchivedTripShare = ({ tripId, memberIds }: ArchivedTripShareProps) => {
         leadingIcon={<Share2 aria-hidden size={18} />}
         onClick={() => setIsOpen(true)}
       >
-        Share archived trip
+        Share trip
       </Button>
       <Modal
         data-cy="share-archived-trip-dialog"

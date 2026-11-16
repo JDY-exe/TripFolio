@@ -5,11 +5,10 @@ import { Button, Modal, Text, displayAlert } from '../../../components/common';
 import { useAuth } from '../../../contexts/AuthContext';
 import { deleteFromApi, getApiErrorMessage } from '../../../utils/api';
 import { eventsQueryKey, useEvents } from '../../../queries/events';
-import { useTrips } from '../../../queries/trips';
+import { useTrips, useTripDetails } from '../../../queries/trips';
 import { useItinerary } from '../../../queries/itineraries';
 import ItineraryDaySection from './ItineraryDaySection';
 import ItineraryDescription from './ItineraryDescription';
-import ArchivedItineraryNotes from './ArchivedItineraryNotes';
 import TripOverview from './TripOverview';
 import ItineraryMap from './map/ItineraryMap';
 import { useActiveItineraryDay } from './map/useActiveItineraryDay';
@@ -17,31 +16,24 @@ import AddNewEventCard from './AddNewEventCard';
 import type { EventData } from '../../../queries/events';
 import ErrorDisplay from '../../../components/common/ErrorDisplay/ErrorDisplay';
 import { getItineraryDays } from './itineraryDays';
-import ArchivedTripShare from './ArchivedTripShare';
+import PublicTripShare from './reading/PublicTripShare';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { TripEssentialsBoard } from './essentialsBoard/TripEssentialsBoard';
 
 /** Loads and displays the trip itinerary and event cards.
- * @param props - Read-only permissions and whether to load archived trip metadata.
+ * @param props - Whether editing controls should be hidden.
  * @returns The itinerary date, chronological event list, and sidebar details.
  */
-const ItineraryView = ({
-  readOnly = false,
-  archived = false,
-  canShareArchived = false,
-}: {
-  readOnly?: boolean;
-  archived?: boolean;
-  canShareArchived?: boolean;
-}) => {
+const ItineraryView = ({ readOnly = false }: { readOnly?: boolean }) => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { data: tripDetails } = useTripDetails(id);
   const {
     trips,
     isPending: tripsLoading,
     isError: tripsError,
-  } = useTrips(user?.id, archived);
+  } = useTrips(user?.id);
   const { itinerary, isError, refetch } = useItinerary(id);
   const {
     events = [],
@@ -61,15 +53,17 @@ const ItineraryView = ({
     itinerary?.startDate.slice(0, 10),
   );
   const days = useMemo(() => {
-    return itinerary ? getItineraryDays(itinerary.startDate, itinerary.endDate) : [];
-  }, [itinerary?.startDate, itinerary?.endDate]);
+    return itinerary
+      ? getItineraryDays(itinerary.startDate, itinerary.endDate)
+      : [];
+  }, [itinerary]);
   // Dynamic Jump Pill Logic
   const [pillState, setPillState] = useState({
     show: false,
     position: 'bottom', // 'top' | 'bottom'
     label: 'Today',
     icon: 'down', // 'up' | 'down'
-    targetDayNumber: 1
+    targetDayNumber: 1,
   });
   // Track the exact screen coordinates of the column
   const [columnRect, setColumnRect] = useState({ left: 0, width: 0 });
@@ -80,12 +74,12 @@ const ItineraryView = ({
     const updateColumnPosition = () => {
       if (isMounted && itineraryColumn.current) {
         const rect = itineraryColumn.current.getBoundingClientRect();
-        
+
         // Update state if the values actually changed to prevent infinite loops
-        setColumnRect((prev) => 
-          prev.left === rect.left && prev.width === rect.width 
-            ? prev 
-            : { left: rect.left, width: rect.width }
+        setColumnRect((prev) =>
+          prev.left === rect.left && prev.width === rect.width
+            ? prev
+            : { left: rect.left, width: rect.width },
         );
       }
     };
@@ -97,7 +91,7 @@ const ItineraryView = ({
     if (itineraryColumn.current) {
       resizeObserver.observe(itineraryColumn.current);
     }
-    
+
     updateColumnPosition();
 
     return () => {
@@ -109,21 +103,29 @@ const ItineraryView = ({
   useEffect(() => {
     const handleScroll = () => {
       if (!days || days.length === 0) return;
-      
+
       const today = new Date();
       const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       const todayIndex = days.indexOf(todayStr);
 
-      let newState = { show: true, position: 'bottom', label: 'Today', icon: 'down', targetDayNumber: 1 };
+      const newState = {
+        show: true,
+        position: 'bottom',
+        label: 'Today',
+        icon: 'down',
+        targetDayNumber: 1,
+      };
 
       if (todayIndex !== -1) {
         // Active Trip: Target is today's index
         newState.targetDayNumber = todayIndex + 1;
-        const todayElement = document.getElementById(`day-${newState.targetDayNumber}`);
-        
+        const todayElement = document.getElementById(
+          `day-${newState.targetDayNumber}`,
+        );
+
         if (todayElement) {
           const rect = todayElement.getBoundingClientRect();
-          
+
           if (rect.top > window.innerHeight - 100) {
             // Today is below the current viewport
             newState.position = 'bottom';
@@ -140,8 +142,9 @@ const ItineraryView = ({
       } else {
         // Past/Future Trip: Target is Top or Bottom
         const scrollY = window.scrollY;
-        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-        const isScrolledPastHalf = maxScroll > 0 && (scrollY / maxScroll) > 0.5;
+        const maxScroll =
+          document.documentElement.scrollHeight - window.innerHeight;
+        const isScrolledPastHalf = maxScroll > 0 && scrollY / maxScroll > 0.5;
 
         if (isScrolledPastHalf) {
           // Scrolled past halfway, point back to the top
@@ -149,7 +152,7 @@ const ItineraryView = ({
           newState.icon = 'up';
           newState.label = 'Top';
           newState.targetDayNumber = 1;
-          
+
           // Phase out if we are already at the absolute top
           if (scrollY < 100) newState.show = false;
         } else {
@@ -158,20 +161,21 @@ const ItineraryView = ({
           newState.icon = 'down';
           newState.label = 'Bottom';
           newState.targetDayNumber = days.length;
-          
+
           // Phase out if we are already at the absolute bottom
           if (maxScroll > 0 && scrollY > maxScroll - 100) newState.show = false;
         }
       }
 
       // Update state only if values changed to prevent unnecessary re-renders
-      setPillState(prev => 
-        prev.show !== newState.show || 
-        prev.position !== newState.position || 
-        prev.label !== newState.label || 
+      setPillState((prev) =>
+        prev.show !== newState.show ||
+        prev.position !== newState.position ||
+        prev.label !== newState.label ||
         prev.icon !== newState.icon ||
-        prev.targetDayNumber !== newState.targetDayNumber 
-          ? newState : prev
+        prev.targetDayNumber !== newState.targetDayNumber
+          ? newState
+          : prev,
       );
     };
 
@@ -181,12 +185,13 @@ const ItineraryView = ({
   }, [days]);
 
   const handleJumpClick = () => {
-    const targetElement = document.getElementById(`day-${pillState.targetDayNumber}`);
+    const targetElement = document.getElementById(
+      `day-${pillState.targetDayNumber}`,
+    );
     if (targetElement) {
       targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
-  
 
   /** Removes the confirmed event and refreshes the itinerary list.
    * @returns A promise that settles when deletion completes.
@@ -258,20 +263,22 @@ const ItineraryView = ({
       >
         {/* Column-Constrained Dynamic Contextual Pill */}
         {!readOnly && pillState.show && columnRect.width > 0 && (
-          <div 
+          <div
             className="fixed z-50 flex justify-center pointer-events-none transition-all duration-300"
-            style={{ 
-              left: `${columnRect.left}px`, 
+            style={{
+              left: `${columnRect.left}px`,
               width: `${columnRect.width}px`,
               // Adjust '3rem' (top) or '9rem' (bottom) here if you want to tweak the fixed height
-              top: pillState.position === 'top' ? '2rem' : 'calc(100dvh - 8rem)' 
+              top:
+                pillState.position === 'top' ? '2rem' : 'calc(100dvh - 8rem)',
             }}
           >
             <button
               onClick={handleJumpClick}
               className="pointer-events-auto flex items-center gap-2 rounded-full bg-primary/90 px-4 py-2 text-sm font-medium text-on-primary shadow-lg ring-1 ring-white/20 backdrop-blur-sm transition-transform hover:scale-105 hover:bg-primary"
             >
-              {pillState.icon === 'up' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+              {pillState.icon === 'up' && <ArrowUp size={16} />}
+              {pillState.icon !== 'up' && <ArrowDown size={16} />}
               <span>{pillState.label}</span>
             </button>
           </div>
@@ -283,22 +290,16 @@ const ItineraryView = ({
             id="itinerary-heading"
             variant="display"
           >
-            {archived ? 'Archived Itinerary' : 'Itinerary'}
+            Itinerary
           </Text>
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="flex min-w-0 flex-col items-start gap-3 sm:items-end">
             {tripName && (
               <Text as="span" variant="display" className="min-w-0 break-words">
                 {tripName}
               </Text>
             )}
-            {canShareArchived && (
-              <ArchivedTripShare
-                tripId={id}
-                memberIds={[
-                  ...(trip?.users ?? []),
-                  ...(trip?.ownerId ? [trip.ownerId] : []),
-                ]}
-              />
+            {tripDetails?.isPublic && (
+              <PublicTripShare tripId={id} title={tripDetails.name} />
             )}
           </div>
         </header>
@@ -311,10 +312,10 @@ const ItineraryView = ({
           </div>
         )}
         {/* Essentials board */}
-        <TripEssentialsBoard 
-          tripId={id} 
-          essentials={trip?.essentials} 
-          canEdit={!readOnly} 
+        <TripEssentialsBoard
+          tripId={id}
+          essentials={trip?.essentials}
+          canEdit={!readOnly}
         />
         {!(eventsError && events.length === 0) &&
           days.map((date, index) => (
@@ -352,13 +353,7 @@ const ItineraryView = ({
           tripId={id}
           readOnly={readOnly}
         />
-        {archived && user?.id && (
-          <ArchivedItineraryNotes
-            key={`${user.id}-${id}`}
-            tripId={id}
-            userId={user.id}
-          />
-        )}
+
         <TripOverview
           startDate={trip?.startDate ?? itinerary.startDate}
           endDate={trip?.endDate ?? itinerary.endDate}

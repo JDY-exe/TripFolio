@@ -140,6 +140,7 @@ export interface PublicItineraryDetails {
     name: string;
     startDate: string;
     endDate: string;
+    archived?: boolean;
   };
   owner: PublicItineraryOwner | null;
   travelers: PublicItineraryTraveler[];

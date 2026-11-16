@@ -9,6 +9,7 @@ import {
 } from '../../components/navigation/navigationConfig';
 import AlbumView from './album/AlbumView';
 import ItineraryView from './itinerary/ItineraryView';
+import SharedTripItinerary from './itinerary/reading/SharedTripItinerary';
 import LedgerView from './ledger/LedgerView';
 import LogisticsView from './logistics/LogisticsView';
 import TripSettings from './TripSettings';
@@ -48,19 +49,15 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
   return (
     <section>
       <div
-        className={`mt-10 grid gap-5 ${section === 'settings' ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
+        className={`mt-10 grid gap-5 ${section === 'settings' || (section === 'itinerary' && readOnly) ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
       >
-        {section === 'itinerary' && (
-          <ItineraryView
-            readOnly={readOnly}
-            archived={archived || trip?.archived === true}
-            canShareArchived={
-              (archived || trip?.archived === true) &&
-              (trip?.currentUserRole === 'owner' ||
-                trip?.currentUserRole === 'editor')
-            }
+        {section === 'itinerary' && readOnly && trip && (
+          <SharedTripItinerary
+            trip={trip}
+            archived={archived || trip.archived}
           />
         )}
+        {section === 'itinerary' && !readOnly && <ItineraryView />}
         {section === 'ledger' && (
           <LedgerView
             readOnly={readOnly}

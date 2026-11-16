@@ -170,7 +170,7 @@ describe('archived trips reuse shared views', () => {
 
     cy.get('[data-cy="trip-section-itinerary"]').should(
       'contain.text',
-      'Archived Itinerary',
+      fixture.trip.name,
     );
     cy.contains(fixture.event.title).should('be.visible');
     cy.get('[data-cy="share-archived-trip-open"]').should('not.exist');
@@ -214,7 +214,7 @@ describe('archived trips reuse shared views', () => {
       .click();
     cy.get('[data-cy="trip-section-itinerary"]').should(
       'contain.text',
-      'Archived Itinerary',
+      fixture.trip.name,
     );
     cy.contains(fixture.event.title).should('be.visible');
     cy.get('[data-cy^="add-event-"]').should('not.exist');
@@ -245,6 +245,7 @@ describe('archived trips reuse shared views', () => {
   });
 
   it('keeps map popup event cards read-only', () => {
+    cy.viewport(1280, 900);
     cy.intercept('GET', 'https://tiles.openfreemap.org/styles/*', {
       body: fixture.mapStyle,
     });
@@ -299,6 +300,7 @@ describe('archived trips reuse shared views', () => {
 
     visitAsUser(`/trip/archived/${fixture.trip._id}`, 'owner');
     cy.wait('@loadPrivateNote');
+    cy.get('[data-cy="personal-notes-toggle"]').click();
     cy.get('[data-cy="archived-note-input"]').type('Owner private note');
     cy.get('[data-cy="archived-note-save"]').click();
     cy.wait('@createPrivateNote')
@@ -346,6 +348,7 @@ describe('archived trips reuse shared views', () => {
 
     visitAsUser(`/trip/archived/${fixture.trip._id}`, 'viewer');
     cy.wait('@loadPrivateNote');
+    cy.get('[data-cy="personal-notes-toggle"]').click();
     cy.get('[data-cy="archived-note-input"]').should('have.value', '');
     cy.get('[data-cy="archived-note-input"]').type('Viewer private note');
     cy.get('[data-cy="archived-note-save"]').click();
@@ -362,7 +365,7 @@ describe('archived trips reuse shared views', () => {
     visitAsUser(`/trip/${fixture.trip._id}`);
     cy.get('[data-cy="trip-section-itinerary"]').should(
       'contain.text',
-      'Archived Itinerary',
+      fixture.trip.name,
     );
     cy.get('[data-cy^="add-event-"]').should('not.exist');
     cy.get('[data-cy="description-edit"]').should('not.exist');
