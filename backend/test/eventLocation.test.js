@@ -8,7 +8,7 @@ const MapLocation = require('../models/MapLocation');
 const { getEventLocation } = require('../controllers/eventLocationController');
 const { createEvent, updateEvent } = require('../controllers/eventController');
 
-test('event coordinates stay scoped to trip members and follow the saved address', async (t) => {
+test('event coordinates allow public viewers, keep private trips scoped, and follow the saved address', async (t) => {
   const original = [Event.findById, Itinerary.findById, Trip.findById, MapLocation.findOne, Event.updateOne];
   t.after(() => { [Event.findById, Itinerary.findById, Trip.findById, MapLocation.findOne, Event.updateOne] = original; });
   Event.findById = async () => ({ _id: 'event', itineraryID: 'itinerary', address: 'Location test address' });
@@ -27,6 +27,17 @@ test('event coordinates stay scoped to trip members and follow the saved address
   await getEventLocation({ params: { id: 'event' }, user: { id: 'member' } }, allowed);
   assert.deepEqual(allowed.body, { location: { lat: 0, lng: 0 } });
   assert.deepEqual(saved.filter, { _id: 'event', address: 'Location test address', placeId: undefined });
+  Trip.findById = async () => ({ ownerId: 'owner', users: ['owner'], isPublic: true });
+  const publicViewer = response();
+  await getEventLocation({ params: { id: 'event' }, user: { id: 'stranger' } }, publicViewer);
+  assert.equal(publicViewer.statusCode, 200);
+  assert.deepEqual(publicViewer.body, { location: { lat: 0, lng: 0 } });
+  const previousLookups = lookups;
+  Trip.findById = async () => ({ ownerId: 'owner', users: ['owner'], isPublic: false });
+  const madePrivate = response();
+  await getEventLocation({ params: { id: 'event' }, user: { id: 'stranger' } }, madePrivate);
+  assert.equal(madePrivate.statusCode, 404);
+  assert.equal(lookups, previousLookups);
 });
 
 test('saved coordinates skip lookups and older Google places resolve by ID', async (t) => {

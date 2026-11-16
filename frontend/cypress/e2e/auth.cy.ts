@@ -21,10 +21,7 @@ describe('account access', () => {
       .its('request.body.email')
       .should('eq', featureFixture.user.email);
     cy.location('pathname').should('eq', '/my-trips');
-    cy.get('[data-cy="my-trips-title"]').should(
-      'contain.text',
-      'My Upcoming Trips',
-    );
+    cy.get('[data-cy="my-trips-title"]').should('contain.text', 'My Trips');
   });
 
   it('keeps the login form available after rejected credentials', () => {

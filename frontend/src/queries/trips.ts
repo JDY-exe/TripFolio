@@ -1,5 +1,10 @@
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { getFromApi, patchToApi, postToApi } from '../utils/api';
+import {
+  getFromApi,
+  isNotFoundApiError,
+  patchToApi,
+  postToApi,
+} from '../utils/api';
 import { createCheckedPatch, saveChecked } from '../utils/checkedSave';
 
 export interface TripTraveler {
@@ -132,6 +137,8 @@ export const useTripDetails = (tripId?: string) =>
   useQuery({
     queryKey: ['trip-settings', tripId],
     queryFn: () => getFromApi<TripDetails>(`/trip/${tripId}`),
+    retry: (failureCount, error) =>
+      !isNotFoundApiError(error) && failureCount < 3,
     enabled: Boolean(tripId),
   });
 
@@ -265,27 +272,27 @@ export const useSendTripInvitations = () =>
 
 export interface ShareArchivedTripInput {
   tripId: string;
-  recipientId: string;
+  recipientIds: string[];
 }
 
 export interface ShareArchivedTripResponse {
   message: string;
   tripId: string;
-  recipientId: string;
+  recipientIds: string[];
 }
 
 /**
- * Grants an existing user access to an archived trip and refreshes the archive list.
+ * Sends an atomic batch of read-only archived-trip invitations and refreshes the archive list.
  * @param userId - Authenticated sharer's ID for the archived-list cache.
  * @returns A mutation accepting the trip and recipient IDs.
  */
 export const useShareArchivedTrip = (userId?: string) => {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ tripId, recipientId }: ShareArchivedTripInput) =>
-      postToApi<ShareArchivedTripResponse, { recipientId: string }>(
+    mutationFn: ({ tripId, recipientIds }: ShareArchivedTripInput) =>
+      postToApi<ShareArchivedTripResponse, { recipientIds: string[] }>(
         `/trip/${tripId}/share-archive`,
-        { recipientId },
+        { recipientIds },
       ),
     onSuccess: async () => {
       await client.invalidateQueries({

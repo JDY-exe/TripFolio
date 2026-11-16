@@ -15,7 +15,7 @@ const getEventLocation = async (req, res) => {
     const event = await Event.findById(req.params.id);
     const itinerary = event && await Itinerary.findById(event.itineraryID);
     const trip = itinerary && await Trip.findById(itinerary.tripId);
-    if (!trip || !canReadTrip(trip, req.user.id)) {
+    if (!trip || (!trip.isPublic && !canReadTrip(trip, req.user.id))) {
       return res.status(404).json({ message: 'Event not found' });
     }
     const address = event.address || '';

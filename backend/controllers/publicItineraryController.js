@@ -252,6 +252,7 @@ const getPublicItinerary = async (req, res) => {
         name: trip.name,
         startDate: trip.startDate,
         endDate: trip.endDate,
+        archived: Boolean(trip.archived),
       },
       owner: owner && !hiddenUserIds.has(String(owner._id))
         ? {

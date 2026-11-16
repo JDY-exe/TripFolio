@@ -19,6 +19,13 @@ let unauthorizedHandler: (() => void) | null = null;
 export const isUnauthorizedApiError = (error: unknown): boolean =>
   axios.isAxiosError(error) && error.response?.status === 401;
 
+/** Identifies a confirmed not-found response without treating network or server failures as missing data.
+ * @param error - Unknown rejection received from an API request.
+ * @returns Whether the backend returned HTTP 404 through the shared Axios transport.
+ */
+export const isNotFoundApiError = (error: unknown): boolean =>
+  axios.isAxiosError(error) && error.response?.status === 404;
+
 api.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;

@@ -38,6 +38,7 @@ test("public itinerary endpoints expose only public read data", async (t) => {
       _id: publicTripId,
       ownerId,
       isPublic: true,
+      archived: true,
       profilePictureId: publicPictureId,
       name: "Coastal weekend",
       startDate: new Date("2026-08-01"),
@@ -240,6 +241,7 @@ test("public itinerary endpoints expose only public read data", async (t) => {
     JSON.stringify(publicDetails, null, 2)
   );
   assert.equal(publicDetails.trip.name, "Coastal weekend");
+  assert.equal(publicDetails.trip.archived, true);
   assert.equal(publicDetails.owner.username, "coastfriend");
   assert.deepEqual(publicDetails.events, [{ _id: String(events[0]._id), title: "Harbor walk", eventType: 'activity' }]);
 

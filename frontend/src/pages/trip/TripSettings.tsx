@@ -25,7 +25,10 @@ import {
   type TripMemberRole,
 } from '../../queries/trips';
 import { useReactToPrint } from 'react-to-print';
-import { PrintableItinerary, type ExportedTripData } from './itinerary/PrintableItinerary';
+import {
+  PrintableItinerary,
+  type ExportedTripData,
+} from './itinerary/PrintableItinerary';
 import { toPng } from 'html-to-image';
 import { TripStatsCard, type TripStatsData } from './itinerary/TripStatsCard';
 import {
@@ -38,7 +41,6 @@ import {
 import { createCheckedPatch, saveChecked } from '../../utils/checkedSave';
 import TripMembersPanel from './settings/TripMembersPanel';
 import { getTripMembers } from './settings/tripMembers';
-
 
 type TripSettingsData = TripDetails;
 
@@ -60,7 +62,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteVersion, setDeleteVersion] = useState<number>();
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [selectedFriendId, setSelectedFriendId] = useState<string>();
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [inviteRole, setInviteRole] =
     useState<Exclude<TripMemberRole, 'owner'>>('editor');
   const [pictureFile, setPictureFile] = useState<File>();
@@ -88,14 +90,19 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     if (!id) return;
     setIsPrinting(true);
     try {
-      const data = await getFromApi<ExportedTripData>(`/itinerary/${id}/export`);
+      const data = await getFromApi<ExportedTripData>(
+        `/itinerary/${id}/export`,
+      );
       setPrintData(data);
       // Brief timeout allows React to render the hidden component with the new data before capturing
       setTimeout(() => {
         handlePrint();
       }, 100);
     } catch (error) {
-      displayAlert({ message: getApiErrorMessage(error, 'Could not export itinerary.'), tone: 'error' });
+      displayAlert({
+        message: getApiErrorMessage(error, 'Could not export itinerary.'),
+        tone: 'error',
+      });
       setIsPrinting(false);
     }
   };
@@ -132,7 +139,10 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
           link.click();
           link.remove();
 
-          displayAlert({ message: 'Trip stats image downloaded!', tone: 'success' });
+          displayAlert({
+            message: 'Trip stats image downloaded!',
+            tone: 'success',
+          });
         } catch (err) {
           displayAlert({
             message: getApiErrorMessage(err, 'Could not generate stats image.'),
@@ -390,19 +400,20 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
     }
   };
 
-  /** Sends the selected friend's invitation and preserves the selection on failure.
+  /** Sends the selected friends' invitations and preserves the selection on failure.
    * @returns A promise that resolves after feedback and modal state are updated.
    */
   const sendInvitation = async () => {
-    if (!id || !selectedFriendId) return;
+    if (!id || selectedFriendIds.length === 0 || shareMutation.isPending)
+      return;
     try {
       const response = await shareMutation.mutateAsync({
         tripId: id,
-        recipientIds: [selectedFriendId],
+        recipientIds: selectedFriendIds,
         role: inviteRole,
       });
       setShareModalOpen(false);
-      setSelectedFriendId(undefined);
+      setSelectedFriendIds([]);
       setInviteRole('editor');
       displayAlert({ message: response.message, tone: 'success' });
     } catch (error) {
@@ -470,7 +481,6 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
         </header>
         {/* Wrapper to enforce even spacing between all cards */}
         <div className="flex flex-col gap-8">
-          
           {/* 1. Trip picture */}
           {canChangeVisibility && (
             <div className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
@@ -508,7 +518,9 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
                   ? memberRoleMutation.variables?.userId
                   : undefined
               }
-              onRoleChange={(userId, role) => void updateMemberRole(userId, role)}
+              onRoleChange={(userId, role) =>
+                void updateMemberRole(userId, role)
+              }
             />
           )}
 
@@ -538,8 +550,8 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
                   Public trip
                 </Text>
                 <Text color="muted" className="mt-1">
-                  Only trip owners and members can access confidential information
-                  such as flights and hotels.
+                  Only trip owners and members can access confidential
+                  information such as flights and hotels.
                 </Text>
               </span>
               <input
@@ -602,7 +614,10 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
 
             {/* Hidden container holding the printable layout */}
             <div className="hidden">
-              <PrintableItinerary ref={printComponentRef} tripData={printData} />
+              <PrintableItinerary
+                ref={printComponentRef}
+                tripData={printData}
+              />
             </div>
           </div>
 
@@ -680,17 +695,16 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
               </Button>
             </div>
           )}
-          
         </div>
       </section>
       <Modal
         data-cy="share-trip-dialog"
         open={shareModalOpen}
         title="Share trip"
-        description="Choose a friend with an existing TripFolio profile."
+        description="Choose friends with existing TripFolio profiles."
         onClose={() => {
           setShareModalOpen(false);
-          setSelectedFriendId(undefined);
+          setSelectedFriendIds([]);
           setInviteRole('editor');
         }}
         dismissDisabled={shareMutation.isPending}
@@ -706,10 +720,16 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
             </Button>
             <Button
               data-cy="share-trip-submit"
-              disabled={!selectedFriendId || shareMutation.isPending}
+              disabled={
+                selectedFriendIds.length === 0 || shareMutation.isPending
+              }
               onClick={() => void sendInvitation()}
             >
-              {shareMutation.isPending ? 'Sending...' : 'Send invite'}
+              {shareMutation.isPending
+                ? 'Sending...'
+                : selectedFriendIds.length > 1
+                  ? `Send ${selectedFriendIds.length} invites`
+                  : 'Send invite'}
             </Button>
           </>
         )}
@@ -738,8 +758,10 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
         </label>
         <ShareWithFriends
           key={String(shareModalOpen)}
-          selectedFriendIds={selectedFriendId ? [selectedFriendId] : []}
-          onSelectionChange={(ids) => setSelectedFriendId(ids[0])}
+          presentation="grid"
+          multiple
+          selectedFriendIds={selectedFriendIds}
+          onSelectionChange={setSelectedFriendIds}
           memberIds={trip.users}
           disabled={shareMutation.isPending}
         />

@@ -2,6 +2,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useFriends } from '../../../queries/friends';
 import { getApiErrorMessage } from '../../../utils/api';
 import { Combobox } from '../Combobox/Combobox';
+import FriendAvatarGrid from './FriendAvatarGrid';
 
 export interface ShareWithFriendsProps {
   selectedFriendIds: readonly string[];
@@ -12,9 +13,10 @@ export interface ShareWithFriendsProps {
   className?: string;
   label?: string;
   description?: string;
+  presentation?: 'combobox' | 'grid';
 }
 
-/** Searches the authenticated user's friends with the shared combobox.
+/** Searches the authenticated user's friends with a combobox or an expense-style avatar grid.
  * @param props - Controlled selection, current members, and display options.
  * @returns A friend picker preserving chip selection, disabled members, and query retry behavior.
  */
@@ -27,10 +29,31 @@ export const ShareWithFriends = ({
   className,
   label = 'Search friends',
   description,
+  presentation = 'combobox',
 }: ShareWithFriendsProps) => {
   const { user } = useAuth();
   const query = useFriends(user?.id);
   const members = new Set(memberIds.map(String));
+  if (presentation === 'grid')
+    return (
+      <FriendAvatarGrid
+        friends={query.friends?.friends ?? []}
+        selectedIds={selectedFriendIds}
+        onSelectionChange={onSelectionChange}
+        memberIds={memberIds}
+        multiple={multiple}
+        disabled={disabled}
+        loading={query.isPending}
+        loadError={
+          query.isError
+            ? getApiErrorMessage(query.error, 'Could not load your friends.')
+            : undefined
+        }
+        onRetry={() => void query.refetch()}
+        label={label}
+        className={className}
+      />
+    );
   return (
     <Combobox
       label={label}

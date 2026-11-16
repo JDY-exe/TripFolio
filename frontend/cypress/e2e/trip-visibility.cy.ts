@@ -37,10 +37,7 @@ const openTripSettings = (role: TripRole) => {
   cy.intercept('GET', '**/trip', { body: [trip] }).as('tripList');
   cy.intercept('GET', `**/trip/${tripFixture.tripId}`, { body: trip });
   visitAsUser('/my-trips', role);
-  cy.get('[data-cy="my-trips-title"]').should(
-    'contain.text',
-    'My Upcoming Trips',
-  );
+  cy.get('[data-cy="my-trips-title"]').should('contain.text', 'My Trips');
   cy.wait('@tripList')
     .its('response.body.0._id')
     .should('eq', tripFixture.tripId);

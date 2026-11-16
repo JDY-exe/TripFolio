@@ -1,6 +1,12 @@
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import {
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router';
 import { useTripDetails } from '../../queries/trips';
+import { isNotFoundApiError } from '../../utils/api';
 import { Button, Text } from '../../components/common';
 import BottomNav from '../../components/navigation/BottomNav';
 import {
@@ -9,6 +15,7 @@ import {
 } from '../../components/navigation/navigationConfig';
 import AlbumView from './album/AlbumView';
 import ItineraryView from './itinerary/ItineraryView';
+import SharedTripItinerary from './itinerary/reading/SharedTripItinerary';
 import LedgerView from './ledger/LedgerView';
 import LogisticsView from './logistics/LogisticsView';
 import TripSettings from './TripSettings';
@@ -23,7 +30,7 @@ import TripSettings from './TripSettings';
 const Trip = ({ archived = false }: { archived?: boolean }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { data: trip, isPending, isError, refetch } = useTripDetails(id);
+  const { data: trip, isPending, isError, error, refetch } = useTripDetails(id);
   const readOnly =
     archived || trip?.archived === true || trip?.currentUserRole === 'viewer';
   const [searchParams, setSearchParams] = useSearchParams();
@@ -35,6 +42,12 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
     : 'itinerary';
 
   if (id && isPending) return <Text color="muted">Loading trip...</Text>;
+  // Membership endpoints hide inaccessible trips with 404; the public endpoint independently checks visibility.
+  if (id && isError && isNotFoundApiError(error)) {
+    return (
+      <Navigate to={`/public-itinerary/${encodeURIComponent(id)}`} replace />
+    );
+  }
   if (isError)
     return (
       <section role="alert" className="space-y-4">
@@ -48,19 +61,15 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
   return (
     <section>
       <div
-        className={`mt-10 grid gap-5 ${section === 'settings' ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
+        className={`mt-10 grid gap-5 ${section === 'settings' || (section === 'itinerary' && readOnly) ? '' : 'lg:grid-cols-[2fr_1fr]'}`}
       >
-        {section === 'itinerary' && (
-          <ItineraryView
-            readOnly={readOnly}
-            archived={archived || trip?.archived === true}
-            canShareArchived={
-              (archived || trip?.archived === true) &&
-              (trip?.currentUserRole === 'owner' ||
-                trip?.currentUserRole === 'editor')
-            }
+        {section === 'itinerary' && readOnly && trip && (
+          <SharedTripItinerary
+            trip={trip}
+            archived={archived || trip.archived}
           />
         )}
+        {section === 'itinerary' && !readOnly && <ItineraryView />}
         {section === 'ledger' && (
           <LedgerView
             readOnly={readOnly}
@@ -79,8 +88,8 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
         onChange={(value) => setSearchParams({ section: value })}
         leadingAction={{
           icon: ArrowLeft,
-          label: archived ? 'Archived Trips' : 'My Trips',
-          onClick: () => navigate(archived ? '/archived-trips' : '/my-trips'),
+          label: 'My Trips',
+          onClick: () => navigate('/my-trips'),
         }}
       />
     </section>

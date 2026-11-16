@@ -3,6 +3,7 @@ import { Check, Pencil, X } from 'lucide-react';
 import {
   Button,
   IconButton,
+  InfoPopover,
   LoadingIndicator,
   Text,
   TextArea,
@@ -94,9 +95,14 @@ const ArchivedItineraryNotes = ({
       data-cy="archived-itinerary-notes"
     >
       <div className="flex items-center justify-between gap-2">
-        <Text as="h3" id="archived-itinerary-notes-heading" variant="title">
-          Personal notes
-        </Text>
+        <div className="flex min-w-0 items-center gap-1">
+          <Text as="h3" id="archived-itinerary-notes-heading" variant="title">
+            Personal notes
+          </Text>
+          <InfoPopover label="About personal notes" className="[&>div]:w-52">
+            Only you can see these notes.
+          </InfoPopover>
+        </div>
         {!isEditing && (
           <IconButton
             data-cy="archived-note-edit"
@@ -107,9 +113,6 @@ const ArchivedItineraryNotes = ({
           />
         )}
       </div>
-      <Text color="muted" className="mt-2">
-        Only you can see these notes.
-      </Text>
       {isPending && (
         <div className="mt-4 flex items-center gap-3" role="status">
           <LoadingIndicator size={28} label="Loading personal notes" />

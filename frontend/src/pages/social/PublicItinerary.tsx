@@ -1,19 +1,10 @@
-import { ArrowLeft, CalendarDays } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
-import { Button, LoadingIndicator, Text } from '../../components/common';
+import { Button, LoadingIndicator } from '../../components/common';
 import ErrorDisplay from '../../components/common/ErrorDisplay/ErrorDisplay';
 import { usePublicItinerary } from '../../queries/itineraries';
-import ItineraryDaySection from '../trip/itinerary/ItineraryDaySection';
-import ItineraryDescription from '../trip/itinerary/ItineraryDescription';
-import { getItineraryDays } from '../trip/itinerary/itineraryDays';
-
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
+import TripReadingView from '../trip/itinerary/reading/TripReadingView';
+import PublicTripShare from '../trip/itinerary/reading/PublicTripShare';
 
 /** Presents a public trip timeline without any itinerary editing controls.
  * @returns The read-only itinerary detail page and its navigation back to Social.
@@ -21,7 +12,6 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 const PublicItinerary = () => {
   const { tripId } = useParams<{ tripId: string }>();
   const navigate = useNavigate();
-  const [showDayNumbers, setShowDayNumbers] = useState(false);
   const { data, isPending, isError, refetch } = usePublicItinerary(tripId);
 
   if (isPending) {
@@ -55,24 +45,6 @@ const PublicItinerary = () => {
     );
   }
 
-  const days = getItineraryDays(
-    data.itinerary.startDate,
-    data.itinerary.endDate,
-  );
-  const eventsByDay = new Map<string, typeof data.events>();
-  for (const event of data.events) {
-    const date = new Date(event.startTime).toISOString().slice(0, 10);
-    const dayEvents = eventsByDay.get(date) ?? [];
-    dayEvents.push(event);
-    eventsByDay.set(date, dayEvents);
-  }
-  const itineraryHasContent =
-    data.events.length > 0 || Boolean(data.itinerary.description.trim());
-  const itineraryTitle =
-    data.itinerary.title === 'Blank Itinerary' && itineraryHasContent
-      ? 'Itinerary'
-      : data.itinerary.title || 'Itinerary';
-
   return (
     <section className="mx-auto max-w-6xl">
       <Button
@@ -84,129 +56,18 @@ const PublicItinerary = () => {
         Back to Social
       </Button>
 
-      <header className="mb-8 mt-5 border-b border-outline-variant/60 pb-6">
-        <div className="flex items-center gap-3">
-          {data.owner?.profile_picture && (
-            <img
-              src={data.owner.profile_picture}
-              alt=""
-              className="size-11 shrink-0 rounded-full object-cover"
-            />
-          )}
-          <Text variant="label" color="muted">
-            {data.owner?.username ?? 'Traveler'}
-          </Text>
-        </div>
-        <Text as="h1" variant="display" className="mt-4 break-words">
-          {data.trip.name}
-        </Text>
-        <Text
-          variant="label"
-          color="primary"
-          className="mt-3 flex flex-wrap items-center gap-2"
-        >
-          <CalendarDays aria-hidden size={17} />
-          {dateFormatter.format(new Date(data.trip.startDate))}
-          <span aria-hidden="true">to</span>
-          {dateFormatter.format(new Date(data.trip.endDate))}
-        </Text>
-      </header>
-
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
-        <section aria-labelledby="public-itinerary-heading" className="min-w-0">
-          <Text
-            as="h2"
-            id="public-itinerary-heading"
-            variant="headline"
-            className="mb-6"
-          >
-            {itineraryTitle}
-          </Text>
-          {days.length > 0 &&
-            days.map((date, index) => (
-              <ItineraryDaySection
-                key={date}
-                date={date}
-                dayNumber={index + 1}
-                showDayNumber={showDayNumbers}
-                onToggleDayDisplay={() =>
-                  setShowDayNumbers((current) => !current)
-                }
-                events={eventsByDay.get(date) ?? []}
-                eventsLoading={false}
-                itineraryId={data.itinerary._id}
-                startDate={data.itinerary.startDate}
-                endDate={data.itinerary.endDate}
-                readOnly
-              />
-            ))}
-          {!(days.length > 0) && (
-            <Text color="muted">No itinerary days are available.</Text>
-          )}
-        </section>
-
-        <aside className="flex min-w-0 flex-col gap-5">
-          <ItineraryDescription
-            itinerary={data.itinerary}
-            tripId={data.trip._id}
-            readOnly
-          />
-
-          <section
-            aria-labelledby="travelers-heading"
-            className="rounded-panel border border-outline-variant/60 p-5"
-          >
-            <Text
-              as="h2"
-              id="travelers-heading"
-              variant="title"
-              className="mb-4"
-            >
-              Travelers ({data.travelers.length})
-            </Text>
-
-            <div className="flex flex-col gap-4">
-              {data.travelers.map((traveler) => (
-                <div key={traveler.id} className="flex items-center gap-3">
-                  {!!traveler.profile_picture && (
-                    <img
-                      src={traveler.profile_picture}
-                      alt=""
-                      className="size-10 shrink-0 rounded-full object-cover"
-                    />
-                  )}
-                  {!traveler.profile_picture && (
-                    <div
-                      aria-hidden="true"
-                      className="flex size-10 shrink-0 items-center justify-center
-              rounded-full bg-surface-container text-on-surface font-semibold"
-                    >
-                      {(traveler.username || '?').charAt(0).toUpperCase()}
-                    </div>
-                  )}
-
-                  <div className="min-w-0">
-                    <Text className="truncate" variant="label">
-                      {traveler.username || 'Traveler'}
-                    </Text>
-
-                    {traveler.id === data.owner?.id && (
-                      <Text color="muted" variant="caption">
-                        Trip owner
-                      </Text>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {data.travelers.length === 0 && (
-                <Text color="muted" variant="caption">
-                  No travelers found.
-                </Text>
-              )}
-            </div>
-          </section>
-        </aside>
+      <div className="mt-5">
+        <TripReadingView
+          title={data.trip.name}
+          startDate={data.trip.startDate}
+          endDate={data.trip.endDate}
+          archived={data.trip.archived}
+          ownerName={data.owner?.username}
+          travelers={data.travelers}
+          itinerary={data.itinerary}
+          events={data.events}
+          shareAction={<PublicTripShare />}
+        />
       </div>
     </section>
   );

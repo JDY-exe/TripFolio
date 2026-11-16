@@ -10,20 +10,20 @@ const TripInvitation = require("../models/TripInvitation");
 const User = require("../models/User");
 const tripRoutes = require("../routes/tripRoutes");
 
-test("POST /trip/:id/share-archive grants archived access without membership", async (t) => {
+test("POST /trip/:id/share-archive sends atomic archived read-only invitation batches without membership", async (t) => {
   const previousSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = "archived-trip-sharing-test-secret";
 
   const original = {
     tripFindById: Trip.findById,
-    userFindById: User.findById,
+    userFind: User.find,
     invitationFind: TripInvitation.find,
     invitationFindOne: TripInvitation.findOne,
-    invitationCreate: TripInvitation.create,
+    invitationInsertMany: TripInvitation.insertMany,
     transaction: mongoose.connection.transaction
   };
   const ids = Object.fromEntries(
-    ["trip", "owner", "editor", "viewer", "stranger", "recipient", "member", "unknown"]
+    ["trip", "owner", "editor", "viewer", "stranger", "recipient", "member", "unknown", "batchA", "batchB", "batchC", "batchD"]
       .map((key) => [key, new mongoose.Types.ObjectId().toString()])
   );
   const trip = {
@@ -43,10 +43,13 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
   const session = {};
   const invitations = [];
   let transactions = 0;
+  let failInsert = false;
 
   mongoose.connection.transaction = async (callback) => {
     transactions += 1;
-    return callback(session);
+    const originalCount = invitations.length;
+    try { return await callback(session); }
+    catch (error) { invitations.splice(originalCount); throw error; }
   };
   Trip.findById = (tripId) => ({
     session: async (currentSession) => {
@@ -54,10 +57,10 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
       return String(tripId) === ids.trip ? trip : null;
     }
   });
-  User.findById = (userId) => ({
+  User.find = (filter) => ({
     session: async (currentSession) => {
       assert.equal(currentSession, session);
-      return profiles.has(String(userId)) ? { _id: userId } : null;
+      return filter._id.$in.filter((id) => profiles.has(String(id))).map((id) => ({ _id: id }));
     }
   });
   TripInvitation.findOne = (filter) => ({
@@ -65,7 +68,7 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
       assert.equal(currentSession, session);
       return invitations.find((invitation) =>
         invitation.trip === String(filter.trip) &&
-        invitation.recipient === String(filter.recipient) &&
+        (filter.recipient.$in ?? [filter.recipient]).includes(invitation.recipient) &&
         invitation.status === filter.status
       ) ?? null;
     }
@@ -92,15 +95,18 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
       }));
     }
   });
-  TripInvitation.create = async (documents, options) => {
+  TripInvitation.insertMany = async (documents, options) => {
     assert.equal(options.session, session);
-    const [invitation] = documents.map((document) => ({
-      _id: new mongoose.Types.ObjectId().toString(),
-      ...document,
-      status: "pending"
+    assert.equal(options.ordered, true);
+    const created = documents.map((document) => ({
+      _id: new mongoose.Types.ObjectId().toString(), ...document, status: "pending"
     }));
-    invitations.push(invitation);
-    return [invitation];
+    if (failInsert) {
+      invitations.push(created[0]);
+      throw Object.assign(new Error("Duplicate pending invitation"), { code: 11000 });
+    }
+    invitations.push(...created);
+    return created;
   };
 
   const app = express();
@@ -129,10 +135,10 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
     Trip.findById = original.tripFindById;
-    User.findById = original.userFindById;
+    User.find = original.userFind;
     TripInvitation.find = original.invitationFind;
     TripInvitation.findOne = original.invitationFindOne;
-    TripInvitation.create = original.invitationCreate;
+    TripInvitation.insertMany = original.invitationInsertMany;
     mongoose.connection.transaction = original.transaction;
     if (previousSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = previousSecret;
@@ -222,4 +228,58 @@ test("POST /trip/:id/share-archive grants archived access without membership", a
     );
     assert.deepEqual(trip.archivedSharedWith, []);
   });
+  await t.test("creates every selected recipient's viewer invitation in one transaction", async () => {
+    const before = transactions;
+    const originalMembers = [...trip.users];
+    const { response, data } = await send({ recipientIds: [ids.batchA, ids.batchB], role: "editor" }, ids.editor);
+    assert.equal(response.status, 201);
+    assert.equal(data.message, "Archived trip invitations sent");
+    assert.deepEqual(data.recipientIds, [ids.batchA, ids.batchB]);
+    assert.equal(data.invitations.length, 2);
+    assert.equal(transactions, before + 1);
+    for (const invitation of data.invitations) {
+      assert.equal(invitation.role, "viewer");
+      assert.equal(invitation.archivedReadOnly, true);
+      assert.equal(invitation.status, "pending");
+      assert.equal(invitation.inviter, ids.editor);
+    }
+    assert.deepEqual(trip.users, originalMembers);
+    assert.deepEqual(trip.archivedSharedWith, []);
+  });
+
+  await t.test("rejects empty, invalid, and normalized duplicate batches before writing", async () => {
+    const before = transactions;
+    for (const recipientIds of [[], "bad", null, [ids.batchC, "bad"], [ids.batchC, ids.batchC.toUpperCase()]]) {
+      assert.equal((await send({ recipientIds })).response.status, 400);
+    }
+    assert.equal(transactions, before);
+  });
+
+  await t.test("a missing profile, member, shared recipient, or pending invite rejects the whole batch", async () => {
+    const before = invitations.length;
+    for (const [recipientIds, status] of [
+      [[ids.batchC, ids.unknown], 404],
+      [[ids.batchC, ids.member], 409],
+      [[ids.batchC, ids.batchA], 409]
+    ]) {
+      assert.equal((await send({ recipientIds })).response.status, status);
+      assert.equal(invitations.length, before);
+    }
+    trip.archivedSharedWith = [ids.batchD];
+    assert.equal((await send({ recipientIds: [ids.batchC, ids.batchD] })).response.status, 409);
+    assert.equal(invitations.length, before);
+    trip.archivedSharedWith = [];
+  });
+
+  await t.test("rolls back insertion conflicts and permits a complete retry", async () => {
+    const before = invitations.length;
+    failInsert = true;
+    const failed = await send({ recipientIds: [ids.batchC, ids.batchD] });
+    assert.equal(failed.response.status, 409);
+    assert.equal(invitations.length, before);
+    failInsert = false;
+    assert.equal((await send({ recipientIds: [ids.batchC, ids.batchD] })).response.status, 201);
+    assert.equal(invitations.length, before + 2);
+  });
+
 });

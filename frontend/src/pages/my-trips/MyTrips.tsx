@@ -6,19 +6,27 @@ import { useAuth } from '../../contexts/AuthContext';
 import {
   tripsQueryKey,
   useTrips,
+  useArchivedTrips,
   useTripInvitations,
 } from '../../queries/trips';
 import CreateTrip from './CreateTrip';
-import TripCard from './TripCard';
+import TripList from './TripList';
 import TripInvitations from './TripInvitations';
 import EmptyTrips from './EmptyTrips';
-import { getTripTravelerCount } from './tripTravelerCount';
 
 /** Fetches and displays trips, with creation available from an in-page modal. @returns The My Trips page. */
 const MyTrips = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { trips, isPending, isError } = useTrips(user?.id);
+  const currentTrips = useTrips(user?.id);
+  const archivedTrips = useArchivedTrips(user?.id);
+  const isEmpty =
+    !currentTrips.isPending &&
+    !currentTrips.isError &&
+    !archivedTrips.isPending &&
+    !archivedTrips.isError &&
+    currentTrips.trips.length === 0 &&
+    archivedTrips.trips.length === 0;
   const invitations = useTripInvitations(user?.id);
   const [isInvitationsOpen, setIsInvitationsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -34,7 +42,7 @@ const MyTrips = () => {
       <section className="text-on-surface">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <Text as="h1" data-cy="my-trips-title" variant="display">
-            My Upcoming Trips
+            My Trips
           </Text>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -57,35 +65,11 @@ const MyTrips = () => {
           </div>
         </header>
 
-        {isPending && <p className="mt-8">Loading trips...</p>}
-        {!isPending && isError && (
-          <p className="mt-8">Unable to load trips. Please try again.</p>
-        )}
-        {!isPending && !isError && (
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
-            {trips.length === 0 && <EmptyTrips />}
-            {trips.length > 0 &&
-              trips.map((trip) => {
-                const travelerCount = getTripTravelerCount(trip);
-
-                return (
-                  <TripCard
-                    key={trip._id}
-                    id={trip._id}
-                    title={trip.name}
-                    dates={`${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`}
-                    travelers={`${travelerCount} ${travelerCount === 1 ? 'Traveler' : 'Travelers'}`}
-                    status="Upcoming"
-                    imagePath={
-                      trip.profilePictureId
-                        ? `/trip/${trip._id}/profile_picture?v=${trip.profilePictureId}`
-                        : undefined
-                    }
-                  />
-                );
-              })}
-          </div>
-        )}
+        <div className="mt-8 grid gap-6 md:grid-cols-2">
+          {isEmpty && <EmptyTrips />}
+          <TripList {...currentTrips} />
+          <TripList {...archivedTrips} archived />
+        </div>
       </section>
       <TripInvitations
         userId={user?.id}

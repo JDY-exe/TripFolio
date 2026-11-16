@@ -442,6 +442,12 @@ user's friends through the shared friends query; consumers send invitations.
 | `disabled` | `boolean` | `false` | Blocks interaction while saving. |
 | `className` | `string` | — | Adds wrapper layout classes. |
 
+Use `presentation="grid"` in trip-sharing dialogs for the searchable
+`AvatarToggle` layout used by expense participant selection. It shows three
+columns on mobile and four on desktop, keeps selections while searching, and
+marks existing participants as unavailable. The default `presentation="combobox"`
+retains the compact dropdown and chip layout for trip creation.
+
 ## 17. Switch
 
 An MD3-style switch with a 52×32px track, a growing thumb, a 48px touch

@@ -1,4 +1,5 @@
 import sharingFixture from '../fixtures/trip-sharing.json';
+import shareFixture from '../fixtures/trip-share.json';
 import { visitAsUser } from '../support/auth';
 
 type TripRole = 'owner' | 'editor' | 'viewer';
@@ -179,8 +180,10 @@ describe('trip sharing', () => {
       .should('be.enabled')
       .click();
     cy.get('[data-cy="share-trip-dropdown"]').should('not.exist');
-    cy.get(`[data-cy="share-trip-selected-${sharingFixture.friendId}"]`).should(
-      'be.visible',
+    cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`).should(
+      'have.attr',
+      'aria-pressed',
+      'true',
     );
     cy.get('[data-cy="share-trip-submit"]').click();
 
@@ -195,6 +198,46 @@ describe('trip sharing', () => {
       .should('exist');
     cy.get('[data-cy="share-trip-dialog"]').should('not.exist');
   });
+
+  for (const rejectBatch of [false, true]) {
+    it(`sends multiple active-trip invitations in one request and ${rejectBatch ? 'retains selections on failure' : 'closes on success'}`, () => {
+      openTripSettings();
+      cy.intercept('GET', '**/users/friends', { body: shareFixture });
+      cy.intercept('POST', `**/trip/${sharingFixture.tripId}/share`, {
+        statusCode: rejectBatch ? 409 : 201,
+        body: {
+          message: rejectBatch
+            ? 'A pending invitation already exists for one or more recipients'
+            : 'Trip invitations created',
+        },
+      }).as('batchInvite');
+      cy.get('[data-cy="share-trip-open"]').click();
+      cy.get('[data-cy="share-trip-role"]').select('viewer');
+      for (const friend of shareFixture.friends.slice(1, 3))
+        cy.get(`[data-cy="share-trip-friend-${friend.id}"]`).click();
+      cy.get('[data-cy="share-trip-submit"]')
+        .should('have.text', 'Send 2 invites')
+        .click();
+      cy.wait('@batchInvite')
+        .its('request.body')
+        .should('deep.equal', {
+          recipientIds: shareFixture.friends
+            .slice(1, 3)
+            .map((friend) => friend.id),
+          role: 'viewer',
+        });
+      cy.get('@batchInvite.all').should('have.length', 1);
+      if (rejectBatch) {
+        cy.get('[data-cy="share-trip-dialog"]').should('be.visible');
+        for (const friend of shareFixture.friends.slice(1, 3))
+          cy.get(`[data-cy="share-trip-friend-${friend.id}"]`).should(
+            'have.attr',
+            'aria-pressed',
+            'true',
+          );
+      } else cy.get('[data-cy="share-trip-dialog"]').should('not.exist');
+    });
+  }
 
   it('sends viewer-only access when selected in trip settings', () => {
     openTripSettings();
@@ -226,7 +269,7 @@ describe('trip sharing', () => {
     );
     cy.get(`[data-cy="share-trip-member-badge-${sharingFixture.memberId}"]`)
       .should('be.visible')
-      .and('contain.text', 'Already a participant');
+      .and('contain.text', 'Already on trip');
 
     cy.get('[data-cy="share-trip-friend-search"]').type('trav');
     cy.get('[data-cy="share-trip-friends"]').should(

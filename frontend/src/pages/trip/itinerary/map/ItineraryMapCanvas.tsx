@@ -15,6 +15,7 @@ interface ItineraryMapCanvasProps {
   activeDate?: string;
   interactive?: boolean;
   readOnly?: boolean;
+  prominent?: boolean;
   onEdit: (event: EventData) => void;
   onDelete: (event: EventData) => void;
 }
@@ -28,6 +29,7 @@ const ItineraryMapCanvas = ({
   activeDate,
   interactive = false,
   readOnly = false,
+  prominent = false,
   onEdit,
   onDelete,
 }: ItineraryMapCanvasProps) => {
@@ -85,7 +87,7 @@ const ItineraryMapCanvas = ({
   return (
     <>
       <div
-        className={`relative overflow-hidden rounded-panel bg-surface-container-low ${interactive ? 'h-[65dvh] min-h-80' : 'h-56'}`}
+        className={`relative overflow-hidden rounded-panel bg-surface-container-low ${interactive ? 'h-[65dvh] min-h-80' : prominent ? 'h-[28rem]' : 'h-56'}`}
         data-cy={
           interactive ? 'expanded-itinerary-map' : 'itinerary-map-preview'
         }
