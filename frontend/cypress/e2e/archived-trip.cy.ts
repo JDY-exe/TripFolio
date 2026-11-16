@@ -7,7 +7,9 @@ import { visitAsUser } from '../support/auth';
  * @returns Nothing; Cypress queues the API intercepts.
  */
 const mockArchivedTrip = () => {
-  cy.intercept('GET', '**/trip', { body: [fixture.activeTrip] });
+  cy.intercept('GET', '**/trip', {
+    body: [{ ...fixture.activeTrip, _id: 'active-trip' }],
+  });
   cy.intercept('GET', '**/trip/archived', { body: [fixture.trip] });
   cy.intercept(
     {
@@ -58,12 +60,19 @@ const mockArchivedTrip = () => {
 describe('archived trips reuse shared views', () => {
   beforeEach(mockArchivedTrip);
 
+  it('returns from an archived trip to the combined list', () => {
+    visitAsUser(`/trip/archived/${fixture.trip._id}`);
+    cy.get('[data-cy="nav-back"]').should('contain.text', 'My Trips').click();
+    cy.location('pathname').should('eq', '/my-trips');
+    cy.get(`[data-cy="trip-card-${fixture.trip._id}"]`).should('exist');
+  });
+
   it('labels trips shared with the current user', () => {
     cy.intercept('GET', '**/trip/archived', {
       body: [{ ...fixture.trip, sharedWithYou: true }],
     });
 
-    visitAsUser('/archived-trips');
+    visitAsUser('/my-trips');
     cy.get('[data-cy="shared-with-you-badge"]').should(
       'contain.text',
       'Shared with you',
@@ -152,7 +161,7 @@ describe('archived trips reuse shared views', () => {
       { body: sharedRecipientFixture.trip },
     );
 
-    visitAsUser('/archived-trips', 'viewer');
+    visitAsUser('/my-trips', 'viewer');
     cy.get('[data-cy="shared-with-you-badge"]').should(
       'contain.text',
       'Shared with you',
@@ -191,7 +200,7 @@ describe('archived trips reuse shared views', () => {
       ],
     });
 
-    visitAsUser('/archived-trips');
+    visitAsUser('/my-trips');
     cy.get(`[data-cy="trip-card-container-${fixture.trip._id}"]`).should(
       'contain.text',
       '3 Travelers',
@@ -199,7 +208,7 @@ describe('archived trips reuse shared views', () => {
   });
 
   it('browses itinerary, reservations, and photos without editing controls', () => {
-    visitAsUser('/archived-trips');
+    visitAsUser('/my-trips');
     cy.get(`[data-cy="trip-card-${fixture.trip._id}"]`)
       .should('have.attr', 'href', `/trip/archived/${fixture.trip._id}`)
       .click();

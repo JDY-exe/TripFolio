@@ -1,8 +1,130 @@
+import archiveFixture from '../fixtures/archived-trip';
+import tripsFixture from '../fixtures/my-trips';
 import invitations from '../fixtures/trip-invitations.json';
 import featureFixture from '../fixtures/owned-features.json';
 import { visitAsUser } from '../support/auth';
 
 describe('My Trips', () => {
+  beforeEach(() => {
+    cy.intercept({ method: 'GET', pathname: '/trip/archived' }, { body: [] });
+    cy.intercept('GET', '**/trip/invitations', { body: { invites: [] } });
+  });
+
+  it('appends archived trips with grayscale artwork and removes their navigation tab', () => {
+    cy.intercept(
+      { method: 'GET', pathname: '/trip' },
+      { body: [featureFixture.trip] },
+    );
+    cy.intercept(
+      { method: 'GET', pathname: '/trip/archived' },
+      {
+        body: [tripsFixture.archivedTrip, tripsFixture.photographedArchive],
+      },
+    );
+    cy.intercept('GET', '**/trip/archived-photo/profile_picture*', {
+      headers: { 'content-type': 'image/png' },
+      fixture: 'avatar.png',
+    });
+    cy.viewport(1280, 1000);
+    visitAsUser('/my-trips');
+    cy.get('[data-cy="my-trips-title"]').should('have.text', 'My Trips');
+    cy.get('[data-cy^="trip-card-container-"]')
+      .should('have.length', 3)
+      .first()
+      .should(
+        'have.attr',
+        'data-cy',
+        `trip-card-container-${featureFixture.trip._id}`,
+      );
+    cy.get('[data-cy="trip-card-container-archived-trip"]').within(() => {
+      cy.get('[data-cy="trip-status"]').should('have.text', 'archived');
+      cy.get('[data-cy="trip-card-artwork"]').should(
+        'have.css',
+        'filter',
+        'grayscale(1)',
+      );
+      cy.get('[data-cy="shared-with-you-badge"]').should('be.visible');
+      cy.get('[data-cy="trip-card-archived-trip"]').should(
+        'have.attr',
+        'href',
+        '/trip/archived/archived-trip',
+      );
+    });
+    cy.get(
+      `[data-cy="trip-card-container-${featureFixture.trip._id}"] [data-cy="trip-card-artwork"]`,
+    ).should('have.css', 'filter', 'none');
+    cy.get('[data-cy="nav-archived-trips"]').should('not.exist');
+    cy.get(
+      '[data-cy="trip-card-container-archived-photo"] [data-cy="trip-card-artwork"]',
+    )
+      .should('have.css', 'filter', 'grayscale(1)')
+      .find('img')
+      .should('be.visible');
+    cy.screenshot('combined-trips-desktop', { capture: 'fullPage' });
+    cy.viewport(390, 844);
+    cy.get('[data-cy="trip-card-container-archived-photo"]').scrollIntoView();
+    cy.screenshot('combined-trips-mobile', { capture: 'fullPage' });
+  });
+
+  it('shows archived trips when there are no current trips and redirects old bookmarks', () => {
+    cy.intercept({ method: 'GET', pathname: '/trip' }, { body: [] });
+    cy.intercept(
+      { method: 'GET', pathname: '/trip/archived' },
+      { body: [archiveFixture.trip] },
+    );
+    visitAsUser('/archived-trips');
+    cy.location('pathname').should('eq', '/my-trips');
+    cy.get(`[data-cy="trip-card-${archiveFixture.trip._id}"]`).should('exist');
+    cy.get('[data-cy="empty-trips"]').should('not.exist');
+  });
+
+  it('does not show the empty state while archives are loading', () => {
+    cy.intercept({ method: 'GET', pathname: '/trip' }, { body: [] });
+    cy.intercept(
+      { method: 'GET', pathname: '/trip/archived' },
+      { body: [tripsFixture.archivedTrip], delay: 1200 },
+    ).as('archives');
+    visitAsUser('/my-trips');
+    cy.contains('Loading archived trips...').should('be.visible');
+    cy.get('[data-cy="empty-trips"]').should('not.exist');
+    cy.wait('@archives');
+    cy.get('[data-cy="trip-card-archived-trip"]').should('exist');
+    cy.get('[data-cy="empty-trips"]').should('not.exist');
+  });
+
+  it('keeps archived trips visible when current trips fail', () => {
+    cy.intercept({ method: 'GET', pathname: '/trip' }, { statusCode: 500 });
+    cy.intercept(
+      { method: 'GET', pathname: '/trip/archived' },
+      { body: [tripsFixture.archivedTrip] },
+    );
+    visitAsUser('/my-trips');
+    cy.get('[data-cy="trip-card-archived-trip"]').should('exist');
+    cy.get('[data-cy="retry-current-trips"]', { timeout: 15000 }).should(
+      'be.visible',
+    );
+    cy.get('[data-cy="empty-trips"]').should('not.exist');
+  });
+
+  it('keeps current trips visible when archives fail and retries the archive query', () => {
+    cy.intercept(
+      { method: 'GET', pathname: '/trip' },
+      { body: [featureFixture.trip] },
+    );
+    cy.intercept(
+      { method: 'GET', pathname: '/trip/archived' },
+      { statusCode: 500 },
+    );
+    visitAsUser('/my-trips');
+    cy.get(`[data-cy="trip-card-${featureFixture.trip._id}"]`).should('exist');
+    cy.get('[data-cy="retry-archived-trips"]', { timeout: 15000 }).should(
+      'be.visible',
+    );
+    cy.intercept({ method: 'GET', pathname: '/trip/archived' }, { body: [] });
+    cy.get('[data-cy="retry-archived-trips"]').click().should('not.exist');
+    cy.get('[data-cy="empty-trips"]').should('not.exist');
+  });
+
   for (const status of ['accepted', 'declined']) {
     it(`responds to invitations with ${status}`, () => {
       cy.intercept({ method: 'GET', pathname: '/trip' }, { body: [] });

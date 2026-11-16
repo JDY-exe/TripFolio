@@ -47,19 +47,27 @@ const TripCard = ({
         className="absolute inset-0 z-10 cursor-pointer rounded-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
       />
       <div className="relative">
-        {image && (
-          <img
-            src={image}
-            alt=""
-            width={1000}
-            height={563}
-            loading="lazy"
-            className="aspect-video w-full bg-surface-container object-cover"
-          />
-        )}
-        {!image && <TripPlaceholderArt />}
+        <div
+          data-cy="trip-card-artwork"
+          className={archived ? 'grayscale' : undefined}
+        >
+          {image && (
+            <img
+              src={image}
+              alt=""
+              width={1000}
+              height={563}
+              loading="lazy"
+              className="aspect-video w-full bg-surface-container object-cover"
+            />
+          )}
+          {!image && <TripPlaceholderArt />}
+        </div>
         <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-          <span className="rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-on-surface">
+          <span
+            data-cy="trip-status"
+            className="rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-on-surface"
+          >
             {status}
           </span>
           {sharedWithYou && (

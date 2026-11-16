@@ -79,8 +79,8 @@ const Trip = ({ archived = false }: { archived?: boolean }) => {
         onChange={(value) => setSearchParams({ section: value })}
         leadingAction={{
           icon: ArrowLeft,
-          label: archived ? 'Archived Trips' : 'My Trips',
-          onClick: () => navigate(archived ? '/archived-trips' : '/my-trips'),
+          label: 'My Trips',
+          onClick: () => navigate('/my-trips'),
         }}
       />
     </section>
