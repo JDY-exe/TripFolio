@@ -1,4 +1,10 @@
+export { Avatar } from './Avatar/Avatar';
+export type { AvatarProps } from './Avatar/Avatar';
+export { AvatarToggle } from './AvatarToggle/AvatarToggle';
+export type { AvatarToggleProps } from './AvatarToggle/AvatarToggle';
 export { Chip } from './Chip/Chip';
+export { Combobox } from './Combobox/Combobox';
+export type { ComboboxProps, ComboboxOption } from './Combobox/Combobox';
 export type { ChipProps } from './Chip/Chip';
 export { Switch } from './Switch/Switch';
 export type { SwitchProps } from './Switch/Switch';
