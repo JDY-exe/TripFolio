@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getFromApi, patchToApi, postToApi } from '../utils/api';
 import type { QueryClient } from '@tanstack/react-query';
+import type { Trip } from './trips';
 
 export interface Expense {
   _id: string;
@@ -84,6 +85,27 @@ export const useBalances = (tripId?: string) =>
       getFromApi<LedgerBalance[]>(`/api/ledger/${tripId}/balances`),
     enabled: Boolean(tripId),
   });
+
+/** Persists a trip budget and refreshes active, archived, and detail consumers.
+ * @returns A mutation accepting the trip identifier and a validated budget in USD.
+ */
+export const useUpdateBudget = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, budget }: { tripId: string; budget: number }) =>
+      patchToApi<Trip, { budget: number }>(`/api/ledger/${tripId}/budget`, {
+        budget,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['trips'] }),
+        client.invalidateQueries({ queryKey: ['archived-trips'] }),
+        client.invalidateQueries({ queryKey: ['trip-settings'] }),
+      ]);
+    },
+    retry: 0,
+  });
+};
 
 /** Creates an expense and refreshes expenses, settlements, and linked event costs.
  * @returns A mutation accepting a complete expense draft; errors retain the draft in its form.

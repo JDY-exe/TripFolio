@@ -68,3 +68,28 @@ export const editedExpense = {
   amount: 128,
   splitAmong: [travelers[1].id, cardTravelers[9].id],
 };
+
+export const balanceTravelers = [
+  ...cardTravelers,
+  ...Array.from({ length: 24 }, (_, index) => ({
+    id: `balance-traveler-${index}`,
+    username: `Traveler ${index + 1}`,
+  })),
+];
+
+export const groupBalances = [
+  { owerId: travelers[0].id, oweeId: travelers[1].id, amount: 12 },
+  { owerId: travelers[0].id, oweeId: travelers[2].id, amount: 23 },
+  ...balanceTravelers.slice(3).map((traveler, index) => ({
+    owerId: traveler.id,
+    oweeId: travelers[1].id,
+    amount: 18 + index,
+  })),
+];
+
+export const incomingBalances = [
+  ...balances,
+  { owerId: travelers[2].id, oweeId: travelers[0].id, amount: 32 },
+];
+
+export const budgetFailure = { message: 'Could not save your budget.' };

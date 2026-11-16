@@ -88,7 +88,7 @@ const ExpenseCard = ({
       {!readOnly && (
         <div
           data-cy="expense-card-actions"
-          className="pointer-events-none absolute bottom-4 right-3 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 motion-reduce:transition-none [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 sm:bottom-5 sm:right-5"
+          className="pointer-events-none absolute bottom-4 right-3 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-has-[:focus-visible]:pointer-events-auto group-has-[:focus-visible]:opacity-100 motion-reduce:transition-none [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 sm:bottom-5 sm:right-5"
         >
           <IconButton
             label={`Edit ${expense.description}`}

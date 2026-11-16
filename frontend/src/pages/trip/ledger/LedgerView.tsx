@@ -17,6 +17,7 @@ import ErrorDisplay from '../../../components/common/ErrorDisplay/ErrorDisplay';
 
 import BudgetOverview from './BudgetOverview';
 import SummaryTable from './SummaryTable';
+import BalancesModal from './BalancesModal';
 import ExpenseList from './ExpenseList';
 import AddExpenseModal from './AddExpenseModal';
 import EditExpenseModal from './EditExpenseModal';
@@ -36,7 +37,12 @@ const LedgerView = ({
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { trips } = useTrips(user?.id, archived);
+  const {
+    trips,
+    isPending: tripsLoading,
+    isError: tripsError,
+    refetch: refetchTrips,
+  } = useTrips(user?.id, archived);
   const trip = trips.find((item) => item._id === id);
   const {
     data: expenses = [],
@@ -44,13 +50,19 @@ const LedgerView = ({
     isError: expensesError,
     refetch: refetchExpenses,
   } = useExpenses(id);
-  const { data: balances = [], isPending: balancesLoading } = useBalances(id);
+  const {
+    data: balances = [],
+    isPending: balancesLoading,
+    isError: balancesError,
+    refetch: refetchBalances,
+  } = useBalances(id);
 
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeletingExpense, setIsDeletingExpense] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [balancesExpanded, setBalancesExpanded] = useState(false);
 
   /** Removes a confirmed expense and refreshes the ledger and linked itinerary costs.
    * @returns A promise that settles when deletion and cache refreshes finish.
@@ -147,6 +159,12 @@ const LedgerView = ({
           initialBudget={trip?.budget ?? 0}
           expenses={expenses}
           readOnly={readOnly}
+          loading={tripsLoading || expensesLoading}
+          error={tripsError || expensesError}
+          onRetry={() => {
+            void refetchTrips();
+            void refetchExpenses();
+          }}
         />
 
         <SummaryTable
@@ -154,8 +172,19 @@ const LedgerView = ({
           travelers={travelers}
           currentUserId={user?.id}
           loading={balancesLoading}
+          error={balancesError}
+          onRetry={() => void refetchBalances()}
+          onExpand={() => setBalancesExpanded(true)}
         />
       </aside>
+
+      <BalancesModal
+        open={balancesExpanded}
+        onClose={() => setBalancesExpanded(false)}
+        balances={balances}
+        travelers={travelers}
+        currentUserId={user?.id}
+      />
 
       {!readOnly && isAddingExpense && (
         <AddExpenseModal

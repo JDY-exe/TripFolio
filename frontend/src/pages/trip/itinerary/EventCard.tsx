@@ -87,7 +87,7 @@ const EventCard = ({
       className={`group relative grid ${size === 'lg' ? 'min-h-56' : 'min-h-42'} grid-cols-[minmax(7rem,34%)_minmax(0,1fr)] overflow-hidden rounded-[2rem_0.75rem_2rem_0.75rem] bg-surface-container-low`}
     >
       {!readOnly && onEdit && onDelete && (
-        <div className="absolute right-4 top-4 z-10 flex gap-1 rounded-full bg-surface-container-low/90 p-1 opacity-0 pointer-events-none shadow-sm transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 motion-reduce:transition-none sm:right-5 sm:top-5">
+        <div className="absolute right-4 top-4 z-10 flex gap-1 rounded-full bg-surface-container-low/90 p-1 opacity-0 pointer-events-none shadow-sm transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-has-[:focus-visible]:pointer-events-auto group-has-[:focus-visible]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 motion-reduce:transition-none sm:right-5 sm:top-5">
           <IconButton
             data-cy={`edit-event-${event._id}`}
             label={`Edit ${event.title}`}
@@ -147,15 +147,15 @@ const EventCard = ({
                 {eventTime.format(new Date(event.endTime))}
               </time>
             </Text>
-            
+
             {/* Conditional Cost Display */}
             {(event.cost ?? 0) > 0 && (
-              <Text 
-                variant="label" 
+              <Text
+                variant="label"
                 className="mt-1 flex items-center gap-1.5 tabular-nums text-on-surface-variant"
               >
-                <span className="font-semibold text-primary">Cost:</span>
-                ${event.cost?.toFixed(2)}
+                <span className="font-semibold text-primary">Cost:</span>$
+                {event.cost?.toFixed(2)}
               </Text>
             )}
 
