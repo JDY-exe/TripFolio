@@ -146,7 +146,7 @@ describe('trip reading layout', () => {
       cy.get('[data-cy="share-public-trip"]').click();
       cy.get('@copyLink').should(
         'have.been.calledOnceWith',
-        `${window.location.origin}/public-itinerary/${fixture.trip._id}`,
+        `${window.location.origin}/trip/archived/${fixture.trip._id}`,
       );
       cy.get('@grantAccess.all').should('have.length', 0);
       cy.get('[data-cy="share-archived-trip-open"]').should('not.exist');
@@ -167,7 +167,7 @@ describe('trip reading layout', () => {
     cy.get('[data-cy="personal-notes-toggle"]').should('not.exist');
   });
 
-  it('offers a selectable link when copying fails', () => {
+  it('shows an error toast when copying fails', () => {
     cy.on('window:before:load', (win) => {
       Object.defineProperty(win.navigator, 'share', {
         configurable: true,
@@ -182,15 +182,14 @@ describe('trip reading layout', () => {
     });
     visitAsUser(`/public-itinerary/${fixture.trip._id}`, 'viewer');
     cy.get('[data-cy="share-public-trip"]').click();
-    cy.get('[data-cy="public-trip-link"]')
-      .should(
-        'have.value',
-        `${window.location.origin}/public-itinerary/${fixture.trip._id}`,
-      )
-      .and('have.attr', 'readonly');
+    cy.get('[data-cy="toast"]').should(
+      'contain.text',
+      'Could not copy the trip link. Please try again.',
+    );
+    cy.get('[data-cy="public-trip-link"]').should('not.exist');
   });
 
-  it('shows native sharing and treats cancellation as cancellation', () => {
+  it('copies the exact current URL even when native sharing is available', () => {
     cy.on('window:before:load', (win) => {
       Object.defineProperty(win.navigator, 'share', {
         configurable: true,
@@ -204,10 +203,17 @@ describe('trip reading layout', () => {
         value: { writeText: cy.stub().as('copyLink').resolves() },
       });
     });
-    visitAsUser(`/public-itinerary/${fixture.trip._id}`, 'viewer');
+    visitAsUser(
+      `/public-itinerary/${fixture.trip._id}?view=story#day-1`,
+      'viewer',
+    );
     cy.get('[data-cy="share-public-trip"]').click();
-    cy.get('@nativeShare').should('have.been.calledOnce');
-    cy.get('@copyLink').should('not.have.been.called');
+    cy.get('@nativeShare').should('not.have.been.called');
+    cy.get('@copyLink').should(
+      'have.been.calledOnceWith',
+      `${window.location.origin}/public-itinerary/${fixture.trip._id}?view=story#day-1`,
+    );
+    cy.get('[data-cy="toast"]').should('contain.text', 'Trip link copied.');
     cy.get('[data-cy="public-trip-link"]').should('not.exist');
   });
 

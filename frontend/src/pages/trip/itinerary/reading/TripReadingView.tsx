@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { Fragment, useRef, useState, type ReactNode } from 'react';
 import { Button, Skeleton, Text } from '../../../../components/common';
 import type { Itinerary } from '../../../../queries/itineraries';
 import type { TripTraveler } from '../../../../queries/trips';
@@ -153,28 +153,30 @@ const TripReadingView = ({
           {!eventsLoading && !eventsError && events.length === 0 && (
             <Text color="muted">No itinerary events.</Text>
           )}
-          {!eventsLoading &&
-            events.length > 0 &&
-            days.map((date, index) => (
-              <div key={date}>
-                {(eventsByDay.get(date)?.length ?? 0) > 0 && (
-                  <ItineraryDaySection
-                    date={date}
-                    dayNumber={index + 1}
-                    showDayNumber={showDayNumbers}
-                    onToggleDayDisplay={() =>
-                      setShowDayNumbers((current) => !current)
-                    }
-                    events={eventsByDay.get(date) ?? []}
-                    eventsLoading={false}
-                    itineraryId={itinerary._id}
-                    startDate={itinerary.startDate}
-                    endDate={itinerary.endDate}
-                    readOnly
-                  />
-                )}
-              </div>
-            ))}
+          {!eventsLoading && events.length > 0 && (
+            <div className="space-y-10">
+              {days.map((date, index) => (
+                <Fragment key={date}>
+                  {(eventsByDay.get(date)?.length ?? 0) > 0 && (
+                    <ItineraryDaySection
+                      date={date}
+                      dayNumber={index + 1}
+                      showDayNumber={showDayNumbers}
+                      onToggleDayDisplay={() =>
+                        setShowDayNumbers((current) => !current)
+                      }
+                      events={eventsByDay.get(date) ?? []}
+                      eventsLoading={false}
+                      itineraryId={itinerary._id}
+                      startDate={itinerary.startDate}
+                      endDate={itinerary.endDate}
+                      readOnly
+                    />
+                  )}
+                </Fragment>
+              ))}
+            </div>
+          )}
           {personalNotes && (
             <details className="mt-10">
               <summary

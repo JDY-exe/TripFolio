@@ -298,9 +298,7 @@ const ItineraryView = ({ readOnly = false }: { readOnly?: boolean }) => {
                 {tripName}
               </Text>
             )}
-            {tripDetails?.isPublic && (
-              <PublicTripShare tripId={id} title={tripDetails.name} />
-            )}
+            {tripDetails?.isPublic && <PublicTripShare />}
           </div>
         </header>
         {eventsError && events.length === 0 && (

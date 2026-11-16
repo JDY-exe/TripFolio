@@ -1,88 +1,42 @@
 import { Share2 } from 'lucide-react';
 import { useState } from 'react';
-import {
-  Button,
-  Modal,
-  TextField,
-  displayAlert,
-} from '../../../../components/common';
+import { Button, displayAlert } from '../../../../components/common';
 
-interface PublicTripShareProps {
-  tripId: string;
-  title: string;
-}
-
-/** Shares a public itinerary without changing membership or visibility.
- * @param props - Public trip identifier and the title shown in native sharing.
- * @returns A share button with native sharing, clipboard, and manual-copy fallbacks.
+/** Copies the current public trip URL and reports the clipboard result.
+ * @returns A share button with pending state and success or error toast feedback.
  */
-const PublicTripShare = ({ tripId, title }: PublicTripShareProps) => {
-  const [showLink, setShowLink] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
-  const url = new URL(
-    `/public-itinerary/${encodeURIComponent(tripId)}`,
-    window.location.origin,
-  ).href;
+const PublicTripShare = () => {
+  const [isCopying, setIsCopying] = useState(false);
 
-  /** Opens native sharing or copies the public URL, retaining a selectable link on failure.
-   * @returns A promise that settles after handoff, cancellation, or fallback display.
+  /** Copies the exact current URL, including its query and fragment.
+   * @returns A promise that settles after clipboard access and toast feedback.
    */
-  const share = async () => {
-    if (isSharing) return;
-    setIsSharing(true);
+  const copyLink = async () => {
+    if (isCopying) return;
+    setIsCopying(true);
     try {
-      if (typeof navigator.share === 'function') {
-        try {
-          await navigator.share({ title, url });
-          return;
-        } catch (error) {
-          if (
-            typeof error === 'object' &&
-            error !== null &&
-            'name' in error &&
-            error.name === 'AbortError'
-          )
-            return;
-        }
-      }
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(window.location.href);
       displayAlert({ message: 'Trip link copied.', tone: 'success' });
     } catch {
-      setShowLink(true);
+      displayAlert({
+        message: 'Could not copy the trip link. Please try again.',
+        tone: 'error',
+      });
     } finally {
-      setIsSharing(false);
+      setIsCopying(false);
     }
   };
 
   return (
-    <>
-      <Button
-        data-cy="share-public-trip"
-        leadingIcon={<Share2 aria-hidden size={18} />}
-        disabled={isSharing}
-        onClick={() => void share()}
-        className="shrink-0"
-      >
-        Share trip
-      </Button>
-      <Modal
-        open={showLink}
-        onClose={() => setShowLink(false)}
-        title="Share trip"
-        description="Copy this link to share the public itinerary."
-        footer={<Button onClick={() => setShowLink(false)}>Done</Button>}
-      >
-        <TextField
-          id="public-trip-link"
-          data-cy="public-trip-link"
-          label="Trip link"
-          value={url}
-          readOnly
-          autoFocus
-          onFocus={(event) => event.currentTarget.select()}
-        />
-      </Modal>
-    </>
+    <Button
+      data-cy="share-public-trip"
+      leadingIcon={<Share2 aria-hidden size={18} />}
+      disabled={isCopying}
+      onClick={() => void copyLink()}
+      className="shrink-0"
+    >
+      Share trip
+    </Button>
   );
 };
 

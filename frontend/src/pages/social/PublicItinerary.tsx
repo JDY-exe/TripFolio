@@ -66,9 +66,7 @@ const PublicItinerary = () => {
           travelers={data.travelers}
           itinerary={data.itinerary}
           events={data.events}
-          shareAction={
-            <PublicTripShare tripId={data.trip._id} title={data.trip.name} />
-          }
+          shareAction={<PublicTripShare />}
         />
       </div>
     </section>

@@ -72,9 +72,7 @@ const SharedTripItinerary = ({ trip, archived }: SharedTripItineraryProps) => {
       onRetry={() => void refetchEvents()}
       shareAction={
         <>
-          {trip.isPublic && (
-            <PublicTripShare tripId={trip._id} title={trip.name} />
-          )}
+          {trip.isPublic && <PublicTripShare />}
           {!trip.isPublic && canShareArchived && (
             <ArchivedTripShare
               tripId={trip._id}

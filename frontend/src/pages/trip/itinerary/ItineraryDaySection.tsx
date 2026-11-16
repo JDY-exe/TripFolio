@@ -55,7 +55,11 @@ const ItineraryDaySection = ({
     <section
       data-itinerary-date={date}
       aria-label={`${weekday}, ${month} ${day.getUTCDate()}`}
-      className="mb-8 border-b border-outline-variant/40 pb-8 last:mb-0 last:border-b-0 last:pb-0"
+      className={
+        readOnly
+          ? undefined
+          : 'mb-8 border-b border-outline-variant/40 pb-8 last:mb-0 last:border-b-0 last:pb-0'
+      }
     >
       <div className="flex items-start gap-4">
         <button
