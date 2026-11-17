@@ -10,6 +10,9 @@ import {
   Modal,
   ShareWithFriends,
   Text,
+  TextField,
+  Switch,
+  Skeleton,
   displayAlert,
   tripCoverImagePreset,
 } from '../../components/common';
@@ -41,6 +44,11 @@ import {
 import { createCheckedPatch, saveChecked } from '../../utils/checkedSave';
 import TripMembersPanel from './settings/TripMembersPanel';
 import { getTripMembers } from './settings/tripMembers';
+import { useItinerary } from '../../queries/itineraries';
+import ItineraryDescription from './itinerary/ItineraryDescription';
+import SettingsSection from './settings/SettingsSection';
+import SettingsRow from './settings/SettingsRow';
+import { Download, UserPlus } from 'lucide-react';
 
 type TripSettingsData = TripDetails;
 
@@ -49,8 +57,8 @@ interface TripPictureResponse {
 }
 
 /**
- * Loads trip settings and the current user's role, then lets the owner change
- * the picture or visibility and confirm deletion through the API.
+ * Groups trip details, membership, privacy, exports, and lifecycle actions
+ * while retaining role-based permissions and synchronized server state.
  *
  * @param props - Whether to hide trip editing while retaining personal and archive actions.
  * @returns The trip settings and their loading or failure state.
@@ -73,6 +81,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
   const queryClient = useQueryClient();
   const queryKey = ['trip-settings', id] as const;
   const tripQuery = useTripDetails(id);
+  const itineraryQuery = useItinerary(id);
   const tripsQuery = useTrips(user?.id);
   const profilePictureId = tripQuery.data?.profilePictureId;
   // --- PDF Export Logic ---
@@ -193,6 +202,11 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
             }
           : current,
       );
+
+      void queryClient.invalidateQueries({ queryKey: tripsQueryKey(user?.id) });
+      void queryClient.invalidateQueries({
+        queryKey: ['public-itinerary', id],
+      });
 
       displayAlert({
         message: response.hidden
@@ -338,6 +352,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
       ),
     onSuccess: (trip) => {
       queryClient.setQueryData(queryKey, trip);
+      void queryClient.invalidateQueries({ queryKey: tripsQueryKey(user?.id) });
       displayAlert({
         message: `Trip is now ${trip.isPublic ? 'public' : 'private'}.`,
         tone: 'success',
@@ -468,27 +483,37 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
 
   return (
     <>
-      <section aria-labelledby="trip-settings-heading" className="min-w-0">
-        <header className="mb-6">
+      <section
+        aria-labelledby="trip-settings-heading"
+        className="min-w-0 max-w-5xl pb-8"
+      >
+        <header className="mb-8">
           <Text
             as="h2"
             data-cy="trip-settings-title"
             id="trip-settings-heading"
-            variant="title"
+            variant="headline"
           >
             Trip settings
           </Text>
+          <Text color="muted" className="mt-2">
+            Manage the details, people, and privacy of {trip.name}.
+          </Text>
         </header>
-        {/* Wrapper to enforce even spacing between all cards */}
-        <div className="flex flex-col gap-8">
-          {/* 1. Trip picture */}
+        <SettingsSection
+          id="trip-details-heading"
+          title="Trip details"
+          description="Give your trip a picture and a little context."
+        >
           {canChangeVisibility && (
-            <div className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
-              <Text as="h3" variant="title">
+            <div className="border-b border-outline-variant py-6">
+              <Text as="h4" variant="label">
                 Trip picture
               </Text>
+              <Text color="muted" className="mt-1 mb-4">
+                The cover shown on your trip card.
+              </Text>
               <ImageUploadField
-                className="mt-4"
                 disabled={pictureMutation.isPending}
                 existingImageUrl={existingImageUrl}
                 label="Add a trip picture"
@@ -499,7 +524,7 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
                   await pictureMutation.mutateAsync(image);
                   setPictureFile(file);
                 }}
-                pickerHeight={240}
+                pickerButtonOnly
                 preset={tripCoverImagePreset}
                 previewAlt="Current trip picture"
                 replaceLabel="Change trip picture"
@@ -507,185 +532,202 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
               />
             </div>
           )}
-
-          {/* 2. Trip participants */}
-          {tripMembers.length > 0 && (
-            <TripMembersPanel
-              members={tripMembers}
-              canManageMembers={canManageMembers}
-              updatingMemberId={
-                memberRoleMutation.isPending
-                  ? memberRoleMutation.variables?.userId
-                  : undefined
-              }
-              onRoleChange={(userId, role) =>
-                void updateMemberRole(userId, role)
-              }
-            />
-          )}
-
-          {/* 3. Share trip */}
-          {canShareTrip && (
-            <div className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
-              <Text as="h3" variant="title">
-                Share trip
+          <div className="py-6">
+            {itineraryQuery.isPending && (
+              <div role="status" aria-label="Loading description">
+                <Skeleton className="h-24 w-full" />
+              </div>
+            )}
+            {itineraryQuery.isError && (
+              <div role="alert">
+                <Text color="error">Could not load the description.</Text>
+                <Button
+                  variant="ghost"
+                  onClick={() => void itineraryQuery.refetch()}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
+            {!itineraryQuery.isPending &&
+              !itineraryQuery.isError &&
+              itineraryQuery.itinerary && (
+                <ItineraryDescription
+                  itinerary={itineraryQuery.itinerary}
+                  tripId={id}
+                  readOnly={readOnly || trip.archived}
+                  embedded
+                />
+              )}
+          </div>
+        </SettingsSection>
+        <SettingsSection
+          id="trip-people-heading"
+          title="People & privacy"
+          description="Choose who can take part and what others can see."
+        >
+          <div className="border-b border-outline-variant py-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Text as="h4" variant="label">
+                Trip members
+                {tripMembers.length > 0 ? ` · ${tripMembers.length}` : ''}
               </Text>
-              <Text color="muted" className="mt-1 mb-4">
-                Invite a friend who already has a TripFolio profile.
-              </Text>
-              <Button
-                data-cy="share-trip-open"
-                onClick={() => setShareModalOpen(true)}
-              >
-                Share trip
-              </Button>
+              {canShareTrip && (
+                <Button
+                  data-cy="share-trip-open"
+                  size="sm"
+                  leadingIcon={<UserPlus size={16} />}
+                  onClick={() => setShareModalOpen(true)}
+                >
+                  Invite friends
+                </Button>
+              )}
             </div>
-          )}
-
-          {/* 4. Public trip */}
-          <div className="max-w-2xl">
-            <label className="flex items-center justify-between gap-5 rounded-panel border border-outline-variant bg-surface-container-low p-5">
-              <span>
-                <Text as="span" variant="label">
+            {tripMembers.length > 0 && (
+              <TripMembersPanel
+                embedded
+                members={tripMembers}
+                canManageMembers={canManageMembers}
+                updatingMemberId={
+                  memberRoleMutation.isPending
+                    ? memberRoleMutation.variables?.userId
+                    : undefined
+                }
+                onRoleChange={(userId, role) =>
+                  void updateMemberRole(userId, role)
+                }
+              />
+            )}
+            {tripMembers.length === 0 && (
+              <Text color="muted" className="mt-3">
+                Members will appear here when their profiles are available.
+              </Text>
+            )}
+          </div>
+          <div className="border-b border-outline-variant py-5">
+            <div className="flex items-center justify-between gap-6">
+              <div>
+                <Text as="label" htmlFor="trip-public-access" variant="label">
                   Public trip
                 </Text>
                 <Text color="muted" className="mt-1">
-                  Only trip owners and members can access confidential
-                  information such as flights and hotels.
+                  {trip.isPublic
+                    ? 'Any signed-in user can discover and view your itinerary.'
+                    : 'Only invited members can view this trip.'}
                 </Text>
-              </span>
-              <input
+              </div>
+              <Switch
+                id="trip-public-access"
+                label="Public trip"
                 data-cy="trip-visibility"
-                type="checkbox"
-                role="switch"
-                aria-label="Public trip"
                 checked={trip.isPublic}
                 disabled={!canChangeVisibility || visibilityMutation.isPending}
                 onChange={(event) =>
                   visibilityMutation.mutate(event.target.checked)
                 }
-                className="size-5 shrink-0 accent-primary"
               />
-            </label>
+            </div>
+            <Text color="muted" variant="caption" className="mt-3">
+              Only trip owners and members can access confidential information
+              such as flights and hotels.
+            </Text>
             {!canChangeVisibility && (
-              <Text color="muted" className="mt-3">
-                Only the trip owner can change visibility.
+              <Text color="muted" variant="caption" className="mt-2">
+                {trip.archived
+                  ? 'Unarchive this trip to change visibility.'
+                  : 'Only the trip owner can change visibility.'}
               </Text>
             )}
           </div>
-
-          {/* 5. Hide myself */}
-          <label className="flex max-w-2xl items-center justify-between gap-5 rounded-panel border border-outline-variant bg-surface-container-low p-5">
-            <span>
-              <Text as="span" variant="label">
-                Hide myself
+          <div className="flex items-center justify-between gap-6 py-5">
+            <div>
+              <Text
+                as="label"
+                htmlFor="trip-profile-visibility"
+                variant="label"
+              >
+                Show me on the public traveler list
               </Text>
               <Text color="muted" className="mt-1">
-                Hide your profile from the public traveler list for this trip.
+                Your profile can appear with this trip when it is public.
+                Members can still see you if you turn this off.
               </Text>
-            </span>
-
-            <input
-              type="checkbox"
-              role="switch"
-              aria-label="Hide myself"
-              checked={Boolean(trip.hiddenUsers?.includes(user?.id ?? ''))}
+            </div>
+            <Switch
+              id="trip-profile-visibility"
+              label="Show me on the public traveler list"
+              data-cy="trip-profile-visibility"
+              checked={!trip.hiddenUsers?.includes(user?.id ?? '')}
               disabled={hideUserMutation.isPending}
               onChange={() => hideUserMutation.mutate()}
-              className="size-5 shrink-0 accent-primary"
             />
-          </label>
-
-          {/* 6. Export itinerary */}
-          <div className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
-            <Text as="h3" variant="title">
-              Export itinerary
-            </Text>
-            <Text color="muted" className="mt-1 mb-4">
-              Download a printer-friendly PDF of your complete trip itinerary.
-            </Text>
+          </div>
+        </SettingsSection>
+        <SettingsSection
+          id="trip-exports-heading"
+          title="Export & trip management"
+          description="Take your plans with you or manage the trip when you’re done."
+        >
+          <SettingsRow
+            title="Itinerary PDF"
+            description="A printer-friendly copy of your complete itinerary for offline access."
+          >
             <Button
+              variant="outline"
               data-cy="download-pdf-btn"
+              leadingIcon={<Download size={16} />}
               onClick={() => void handleDownloadPdf()}
               disabled={isPrinting}
             >
-              {isPrinting ? 'Generating...' : 'Download Offline PDF'}
+              {isPrinting ? 'Preparing…' : 'Download PDF'}
             </Button>
-
-            {/* Hidden container holding the printable layout */}
-            <div className="hidden">
-              <PrintableItinerary
-                ref={printComponentRef}
-                tripData={printData}
-              />
-            </div>
-          </div>
-
-          {/* 7. Export Trip Stats */}
-          <div className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
-            <Text as="h3" variant="title">
-              Export trip statistics
-            </Text>
-            <Text color="muted" className="mt-1 mb-4">
-              Download a shareable summary graphic of your trip&apos;s duration,
-              expenses, events, culinary stops, distance, and photos.
-            </Text>
+          </SettingsRow>
+          <SettingsRow
+            title="Trip statistics"
+            description="A shareable image of your trip’s highlights, expenses, and distance."
+          >
             <Button
+              variant="outline"
               data-cy="export-trip-stats-btn"
+              leadingIcon={<Download size={16} />}
               onClick={() => void handleExportStats()}
               disabled={isExportingStats}
             >
-              {isExportingStats ? 'Generating Image...' : 'Export Trip Stats'}
+              {isExportingStats ? 'Preparing…' : 'Download image'}
             </Button>
-
-            {/* Off-screen container so html-to-image can measure and capture the card */}
-            <div
-              className="pointer-events-none fixed -left-[10000px] top-0 overflow-hidden"
-              aria-hidden="true"
-            >
-              <TripStatsCard ref={statsCardRef} stats={statsData} />
-            </div>
-          </div>
-
-          {/* 8. Archive trip */}
+          </SettingsRow>
           {canChangeArchive && (
-            <div className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5">
-              <Text as="h3" variant="title">
-                {trip.archived ? 'Unarchive trip' : 'Archive trip'}
-              </Text>
-
-              <Text color="muted" className="mt-1 mb-4">
-                {trip.archived
-                  ? 'Restore this trip from your archived trips.'
-                  : 'Move this trip to your archived trips. You can unarchive it later.'}
-              </Text>
-
+            <SettingsRow
+              title={trip.archived ? 'Unarchive trip' : 'Archive trip'}
+              description={
+                trip.archived
+                  ? 'Return this trip to your active trips and resume editing.'
+                  : 'Move this trip to your archive. You can restore it any time.'
+              }
+            >
               <Button
+                variant="outline"
                 data-cy="toggle-trip-archive"
                 disabled={archiveMutation.isPending}
                 onClick={() => archiveMutation.mutate()}
               >
                 {archiveMutation.isPending
-                  ? 'Updating...'
+                  ? 'Updating…'
                   : trip.archived
                     ? 'Unarchive trip'
                     : 'Archive trip'}
               </Button>
-            </div>
+            </SettingsRow>
           )}
-
-          {/* 9. Delete trip */}
           {canChangeVisibility && (
-            <div className="max-w-2xl rounded-panel border border-error/30 bg-surface-container-low p-5">
-              <Text as="h3" variant="title">
-                Delete trip
-              </Text>
-              <Text color="muted" className="mt-1 mb-4">
-                Permanently remove this trip and its itinerary.
-              </Text>
+            <SettingsRow
+              title="Delete trip"
+              description="Permanently remove this trip and its itinerary. This cannot be undone."
+              danger
+            >
               <Button
                 data-cy="delete-trip-open"
-                variant="danger"
+                variant="dangerGhost"
                 onClick={() => {
                   setDeleteVersion(trip.version);
                   setDeleteModalOpen(true);
@@ -693,14 +735,23 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
               >
                 Delete trip
               </Button>
-            </div>
+            </SettingsRow>
           )}
+        </SettingsSection>
+        <div className="hidden">
+          <PrintableItinerary ref={printComponentRef} tripData={printData} />
+        </div>
+        <div
+          className="pointer-events-none fixed -left-[10000px] top-0 overflow-hidden"
+          aria-hidden="true"
+        >
+          <TripStatsCard ref={statsCardRef} stats={statsData} />
         </div>
       </section>
       <Modal
         data-cy="share-trip-dialog"
         open={shareModalOpen}
-        title="Share trip"
+        title="Invite friends"
         description="Choose friends with existing TripFolio profiles."
         onClose={() => {
           setShareModalOpen(false);
@@ -727,38 +778,38 @@ const TripSettings = ({ readOnly = false }: { readOnly?: boolean }) => {
             >
               {shareMutation.isPending
                 ? 'Sending...'
-                : selectedFriendIds.length > 1
-                  ? `Send ${selectedFriendIds.length} invites`
+                : selectedFriendIds.length > 0
+                  ? `Invite ${selectedFriendIds.length} as ${inviteRole === 'editor' ? (selectedFriendIds.length === 1 ? 'an editor' : 'editors') : selectedFriendIds.length === 1 ? 'a viewer' : 'viewers'}`
                   : 'Send invite'}
             </Button>
           </>
         )}
         panelClassName="max-w-xl"
       >
-        <label className="mb-4 grid gap-2" htmlFor="share-trip-role">
-          <Text as="span" variant="label">
-            Invite as
-          </Text>
-          <select
-            id="share-trip-role"
-            data-cy="share-trip-role"
-            aria-label="Invite as"
-            className="min-h-12 w-full rounded-xl border border-outline bg-surface-container-low px-4 py-3 text-body text-on-surface outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition-colors motion-safe:duration-200"
-            disabled={shareMutation.isPending}
-            value={inviteRole}
-            onChange={(event) =>
-              setInviteRole(
-                event.target.value === 'viewer' ? 'viewer' : 'editor',
-              )
-            }
-          >
-            <option value="editor">Editor</option>
-            <option value="viewer">View only</option>
-          </select>
-        </label>
         <ShareWithFriends
           key={String(shareModalOpen)}
           presentation="grid"
+          searchAction={
+            <div className="w-32">
+              <TextField
+                as="select"
+                id="share-trip-role"
+                label="Access for selected friends"
+                hideLabel
+                data-cy="share-trip-role"
+                disabled={shareMutation.isPending}
+                value={inviteRole}
+                onChange={(event) =>
+                  setInviteRole(
+                    event.target.value === 'viewer' ? 'viewer' : 'editor',
+                  )
+                }
+              >
+                <option value="editor">Can edit</option>
+                <option value="viewer">Can view</option>
+              </TextField>
+            </div>
+          }
           multiple
           selectedFriendIds={selectedFriendIds}
           onSelectionChange={setSelectedFriendIds}

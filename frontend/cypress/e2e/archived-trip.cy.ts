@@ -96,6 +96,8 @@ describe('archived trips reuse shared views', () => {
     visitAsUser(`/trip/archived/${fixture.trip._id}`);
     cy.get('[data-cy="share-archived-trip-open"]').click();
     cy.get('[data-cy="share-trip-avatar-picker"]').should('be.visible');
+    cy.get('[data-cy="share-trip-role"]').should('not.exist');
+    cy.get('[data-cy="share-trip-access-hint"]').should('not.exist');
     cy.get('[data-cy="share-archived-trip-submit"]').should('be.disabled');
     cy.get(`[data-cy="share-trip-friend-${fixture.user.id}"]`).should(
       'be.disabled',
@@ -528,7 +530,7 @@ describe('archived trips reuse shared views', () => {
       .should('eq', fixture.trip._id);
     cy.location('pathname').should('eq', `/trip/${fixture.trip._id}`);
     cy.get('[data-cy="nav-itinerary"]').click();
-    cy.get('[data-cy="description-edit"]').should('be.visible');
+    cy.get('[data-cy="description-edit"]').should('not.exist');
     cy.get('[data-cy="add-event-2030-04-01"]').should('be.visible');
   });
 });

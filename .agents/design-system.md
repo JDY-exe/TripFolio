@@ -265,6 +265,7 @@ preset to keep output shape and size consistent.
 | `replaceLabel` | `string` | Labels the picker after a preview exists. |
 | `name` | `string` | Sets the hidden input's native form name. |
 | `pickerHeight` | `number` | Sets the non-editing picker height. |
+| `pickerButtonOnly` | `boolean` | Uses a compact picker button for the initial selection; cropping and previews are retained. |
 | `disabled` | `boolean` | Prevents selection and crop confirmation. |
 | `onAccept` | `(file: File) => void \| Promise<void>` | Receives the cropped JPEG for draft state or immediate persistence. |
 | `onCancelEdit` | `() => void` | Optionally runs after canceling the crop, such as closing an image-only modal. |
@@ -447,6 +448,10 @@ Use `presentation="grid"` in trip-sharing dialogs for the searchable
 columns on mobile and four on desktop, keeps selections while searching, and
 marks existing participants as unavailable. The default `presentation="combobox"`
 retains the compact dropdown and chip layout for trip creation.
+
+The optional `searchAction` slot places a control to the right of the grid search.
+Active-trip invitations use it for shared access selection. Omit it for archived
+trip sharing, which always grants read-only access.
 
 ## 17. Switch
 

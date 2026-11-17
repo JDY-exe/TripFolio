@@ -28,6 +28,8 @@ interface ImageUploadFieldProps {
   name: string;
   /** Height of the non-editing picker surface. */
   pickerHeight?: number;
+  /** Shows a compact picker button instead of the initial drop surface. */
+  pickerButtonOnly?: boolean;
   /** Prevents selection and crop confirmation. */
   disabled?: boolean;
   /** Receives the accepted crop for draft state or immediate persistence. */
@@ -71,6 +73,7 @@ const ImageUploadField = ({
   replaceLabel = 'Replace image',
   name,
   pickerHeight = 384,
+  pickerButtonOnly = false,
   disabled = false,
   onAccept,
   onCancelEdit,
@@ -292,7 +295,7 @@ const ImageUploadField = ({
           )}
           <div className={previewUrl ? 'flex justify-center' : undefined}>
             <MediaUpload
-              buttonOnly={Boolean(previewUrl)}
+              buttonOnly={pickerButtonOnly || Boolean(previewUrl)}
               disabled={disabled}
               height={pickerHeight}
               label={previewUrl ? replaceLabel : label}

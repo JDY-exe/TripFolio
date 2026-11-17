@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useFriends } from '../../../queries/friends';
 import { getApiErrorMessage } from '../../../utils/api';
@@ -14,6 +15,8 @@ export interface ShareWithFriendsProps {
   label?: string;
   description?: string;
   presentation?: 'combobox' | 'grid';
+  /** Optional control beside the grid search; omitted by read-only sharing. */
+  searchAction?: ReactNode;
 }
 
 /** Searches the authenticated user's friends with a combobox or an expense-style avatar grid.
@@ -30,6 +33,7 @@ export const ShareWithFriends = ({
   label = 'Search friends',
   description,
   presentation = 'combobox',
+  searchAction,
 }: ShareWithFriendsProps) => {
   const { user } = useAuth();
   const query = useFriends(user?.id);
@@ -52,6 +56,7 @@ export const ShareWithFriends = ({
         onRetry={() => void query.refetch()}
         label={label}
         className={className}
+        searchAction={searchAction}
       />
     );
   return (
