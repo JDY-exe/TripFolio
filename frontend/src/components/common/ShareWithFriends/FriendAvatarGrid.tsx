@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Search } from 'lucide-react';
 import { AvatarToggle } from '../AvatarToggle/AvatarToggle';
 import Button from '../Button';
@@ -19,6 +19,7 @@ interface FriendAvatarGridProps {
   onRetry: () => void;
   label: string;
   className?: string;
+  searchAction?: ReactNode;
 }
 
 /** Presents friends in the same searchable avatar grid used for expense participants.
@@ -37,6 +38,7 @@ const FriendAvatarGrid = ({
   onRetry,
   label,
   className,
+  searchAction,
 }: FriendAvatarGridProps) => {
   const id = useId();
   const [search, setSearch] = useState('');
@@ -66,26 +68,35 @@ const FriendAvatarGrid = ({
       aria-label={label}
       data-cy="share-trip-avatar-picker"
     >
-      <TextField
-        id={`${id}-search`}
-        label={label}
-        hideLabel
-        type="search"
-        leadingIcon={<Search aria-hidden size={18} />}
-        placeholder="Search by username"
-        autoComplete="off"
-        value={search}
-        disabled={disabled || loading || Boolean(loadError)}
-        data-cy="share-trip-friend-search"
-        onChange={(event) => setSearch(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') event.preventDefault();
-          if (event.key === 'Escape' && search) {
-            event.stopPropagation();
-            setSearch('');
-          }
-        }}
-      />
+      <div
+        className={
+          searchAction
+            ? 'grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3'
+            : undefined
+        }
+      >
+        <TextField
+          id={`${id}-search`}
+          label={label}
+          hideLabel
+          type="search"
+          leadingIcon={<Search aria-hidden size={18} />}
+          placeholder="Search by username"
+          autoComplete="off"
+          value={search}
+          disabled={disabled || loading || Boolean(loadError)}
+          data-cy="share-trip-friend-search"
+          onChange={(event) => setSearch(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.preventDefault();
+            if (event.key === 'Escape' && search) {
+              event.stopPropagation();
+              setSearch('');
+            }
+          }}
+        />
+        {searchAction && <div>{searchAction}</div>}
+      </div>
       {loading && (
         <div
           role="status"

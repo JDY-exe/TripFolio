@@ -346,11 +346,7 @@ const ItineraryView = ({ readOnly = false }: { readOnly?: boolean }) => {
           ))}
       </section>
       <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-8 lg:self-start">
-        <ItineraryDescription
-          itinerary={itinerary}
-          tripId={id}
-          readOnly={readOnly}
-        />
+        <ItineraryDescription itinerary={itinerary} tripId={id} readOnly />
 
         <TripOverview
           startDate={trip?.startDate ?? itinerary.startDate}

@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, X } from 'lucide-react';
-import { Button, IconButton, Text, TextArea } from '../../../components/common';
+import {
+  Button,
+  Text,
+  TextArea,
+  displayAlert,
+} from '../../../components/common';
 import {
   itineraryQueryKey,
   type Itinerary,
 } from '../../../queries/itineraries';
-import { getFromApi } from '../../../utils/api';
+import { getFromApi, getApiErrorMessage } from '../../../utils/api';
 import { createCheckedPatch, saveChecked } from '../../../utils/checkedSave';
 import { useEditorSnapshot } from '../../../queries/useEditorSnapshot';
 
@@ -14,9 +19,10 @@ interface ItineraryDescriptionProps {
   itinerary: Itinerary;
   tripId: string;
   readOnly?: boolean;
+  embedded?: boolean;
 }
 
-/** Displays and edits an itinerary's description in the trip sidebar.
+/** Displays the itinerary description and provides editing from trip settings.
  * @param props - The itinerary to display and its trip identifier.
  * @returns The description card and its editing controls.
  */
@@ -24,6 +30,7 @@ const ItineraryDescription = ({
   itinerary,
   tripId,
   readOnly = false,
+  embedded = false,
 }: ItineraryDescriptionProps) => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -63,26 +70,43 @@ const ItineraryDescription = ({
       queryClient.setQueryData(itineraryQueryKey(tripId), updated);
       setIsEditing(false);
     } catch (error) {
-      console.error('Failed to update itinerary description:', error);
+      displayAlert({
+        message: getApiErrorMessage(
+          error,
+          'Could not save the description. Please try again.',
+        ),
+        tone: 'error',
+      });
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <section className="rounded-panel bg-surface-container-low p-8 text-on-surface">
+    <section
+      className={
+        embedded
+          ? 'text-on-surface'
+          : 'rounded-panel bg-surface-container-low p-8 text-on-surface'
+      }
+    >
       <div className="flex items-center justify-between gap-2">
-        <Text as="h3" variant="title">
+        <Text
+          as={embedded ? 'h4' : 'h3'}
+          variant={embedded ? 'label' : 'title'}
+        >
           Description
         </Text>
         {!readOnly && !isEditing && (
-          <IconButton
+          <Button
             data-cy="description-edit"
-            label="Edit description"
-            icon={<Pencil size={16} />}
+            leadingIcon={<Pencil size={16} />}
+            variant="ghost"
             size="sm"
             onClick={handleEdit}
-          />
+          >
+            Edit description
+          </Button>
         )}
       </div>
       {isEditing && (
@@ -90,6 +114,7 @@ const ItineraryDescription = ({
           <TextArea
             data-cy="description-input"
             aria-label="Description"
+            disabled={isSaving}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Add a description"
@@ -103,7 +128,7 @@ const ItineraryDescription = ({
               size="sm"
               leadingIcon={<Check size={16} />}
             >
-              Save
+              {isSaving ? 'Saving…' : 'Save description'}
             </Button>
             <Button
               data-cy="description-cancel"
@@ -123,7 +148,10 @@ const ItineraryDescription = ({
           color="muted"
           className={`mt-3 whitespace-pre-wrap ${itinerary.description ? '' : 'italic'}`}
         >
-          {itinerary.description || 'No description provided.'}
+          {itinerary.description ||
+            (readOnly
+              ? 'No description provided.'
+              : 'Add a short introduction, travel goals, or notes for your group.')}
         </Text>
       )}
     </section>

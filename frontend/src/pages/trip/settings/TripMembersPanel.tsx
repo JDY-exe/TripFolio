@@ -9,11 +9,13 @@ import type { TripMember } from './tripMembers';
  * @returns The trip participants section.
  */
 const TripMembersPanel = ({
+  embedded = false,
   members,
   canManageMembers,
   updatingMemberId,
   onRoleChange,
 }: {
+  embedded?: boolean;
   members: TripMember[];
   canManageMembers: boolean;
   updatingMemberId?: string;
@@ -23,20 +25,27 @@ const TripMembersPanel = ({
   ) => void;
 }) => (
   <section
-    aria-labelledby="trip-members-heading"
-    className="max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5"
+    aria-labelledby={embedded ? undefined : 'trip-members-heading'}
+    aria-label={embedded ? 'Trip members' : undefined}
+    className={
+      embedded
+        ? 'mt-2'
+        : 'max-w-2xl rounded-panel border border-outline-variant bg-surface-container-low p-5'
+    }
     data-cy="trip-members"
   >
-    <div className="flex items-center gap-3">
-      <UsersRound aria-hidden className="text-primary" size={20} />
-      <Text as="h3" id="trip-members-heading" variant="title">
-        Trip participants
-      </Text>
-      <Text as="span" color="muted" variant="caption">
-        {members.length}
-      </Text>
-    </div>
-    <ul className="mt-4 divide-y divide-outline-variant">
+    {!embedded && (
+      <div className="flex items-center gap-3">
+        <UsersRound aria-hidden className="text-primary" size={20} />
+        <Text as="h3" id="trip-members-heading" variant="title">
+          Trip participants
+        </Text>
+        <Text as="span" color="muted" variant="caption">
+          {members.length}
+        </Text>
+      </div>
+    )}
+    <ul className="mt-4">
       {members.map((member) => {
         const isUpdating = updatingMemberId === member.id;
 
@@ -67,9 +76,6 @@ const TripMembersPanel = ({
             </span>
             {canManageMembers && member.role !== 'owner' && (
               <label className="grid shrink-0 gap-1">
-                <Text as="span" color="muted" variant="caption">
-                  Role
-                </Text>
                 <select
                   aria-label={`Role for ${member.username}`}
                   data-cy={`trip-member-role-${member.id}`}
@@ -81,7 +87,7 @@ const TripMembersPanel = ({
                       onRoleChange(member.id, role);
                     }
                   }}
-                  className="min-h-11 rounded-xl border border-outline bg-surface-container-low px-3 text-body text-on-surface outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-11 rounded-xl bg-surface-container-low px-3 text-body text-on-surface outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="editor">Editor</option>
                   <option value="viewer">Viewer</option>

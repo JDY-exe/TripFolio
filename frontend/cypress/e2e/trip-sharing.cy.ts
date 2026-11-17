@@ -72,6 +72,44 @@ const openTripSettings = (role: TripRole = 'owner') => {
 };
 
 describe('trip sharing', () => {
+  it('places shared access beside search and preserves it while selecting friends', () => {
+    cy.viewport(1280, 900);
+    openTripSettings();
+    cy.get('[data-cy="share-trip-open"]').click();
+    cy.get('[data-cy="share-trip-role"]').should('have.value', 'editor');
+    cy.get(`[data-cy="share-trip-friend-${sharingFixture.friendId}"]`).click();
+    cy.get('[data-cy="share-trip-submit"]').should(
+      'have.text',
+      'Invite 1 as an editor',
+    );
+    cy.get('[data-cy="share-trip-role"]').select('viewer');
+    cy.get('[data-cy="share-trip-friend-search"]').type(
+      sharingFixture.friend.username,
+    );
+    cy.get('[data-cy="share-trip-role"]').should('have.value', 'viewer');
+    cy.get('[data-cy="share-trip-submit"]').should(
+      'have.text',
+      'Invite 1 as a viewer',
+    );
+    for (const width of [1280, 390]) {
+      cy.viewport(width, 900);
+      cy.get('[data-cy="share-trip-friend-search"]').then(($search) => {
+        const search = $search[0].getBoundingClientRect();
+        cy.get('[data-cy="share-trip-role"]').then(($role) => {
+          const role = $role[0].getBoundingClientRect();
+          expect(role.left).to.be.greaterThan(search.right);
+          expect(Math.abs(role.top - search.top)).to.be.lessThan(2);
+          expect(role.right).to.be.at.most(width);
+        });
+      });
+      cy.screenshot(`active-invite-${width}`, { capture: 'viewport' });
+    }
+    cy.get('[data-cy="share-trip-cancel"]').click();
+    cy.get('[data-cy="share-trip-open"]').click();
+    cy.get('[data-cy="share-trip-role"]').should('have.value', 'editor');
+    cy.get('[data-cy="share-trip-submit"]').should('be.disabled');
+  });
+
   [false, true].forEach((rejectInvitation) => {
     it(`creates a trip and ${rejectInvitation ? 'reports an unsent invitation without losing the trip' : 'invites selected friends'}`, () => {
       cy.intercept('GET', '**/trip', { body: [] });
@@ -216,7 +254,7 @@ describe('trip sharing', () => {
       for (const friend of shareFixture.friends.slice(1, 3))
         cy.get(`[data-cy="share-trip-friend-${friend.id}"]`).click();
       cy.get('[data-cy="share-trip-submit"]')
-        .should('have.text', 'Send 2 invites')
+        .should('have.text', 'Invite 2 as viewers')
         .click();
       cy.wait('@batchInvite')
         .its('request.body')

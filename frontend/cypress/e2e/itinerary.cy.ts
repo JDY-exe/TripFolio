@@ -28,6 +28,8 @@ describe('trip itinerary', () => {
       'aria-pressed',
       'true',
     );
+    cy.get('[data-cy="description-edit"]').should('not.exist');
+    cy.get('[data-cy="nav-settings"]').click();
     cy.get('[data-cy="description-edit"]').click();
     cy.get('[data-cy="description-input"]')
       .clear()
